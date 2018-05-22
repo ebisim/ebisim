@@ -612,14 +612,14 @@ class EnergyScan:
         self._fwhm = fwhm
         self._energies = np.array(energies)
         self._eval_times = np.array(eval_times)
-        self._results = None
+        self._solution = None
 
     @property
-    def results(self):
+    def solution(self):
         """
         Returns the results of the energy scan as a single pandas frame
         """
-        return self._results
+        return self._solution
 
     def solve(self):
         """
@@ -637,7 +637,8 @@ class EnergyScan:
             sol_df["t"] = solution.t
             sol_df["e_kin"] = e_kin
             scan_solutions = scan_solutions.append(sol_df, ignore_index=True)
-        self._results = scan_solutions
+        self._solution = scan_solutions
+        return scan_solutions
 
     ###### The parallel solving is not working yet
     # def solve_parallel(self, processes=2):
@@ -667,7 +668,7 @@ class EnergyScan:
     #     scan_solutions = pd.DataFrame()
     #     for sol_df in sol_dfs:
     #         scan_solutions = scan_solutions.append(sol_df, ignore_index=True)
-    #     self._results = scan_solutions
+    #     self._solution = scan_solutions
 
     def plot_abundance_at_time(self, t, cs, normalise=False, invert_hor=False,
                                x2fun=None, x2label=""):
@@ -684,7 +685,7 @@ class EnergyScan:
         x2label - (optional) label for second x axis
         """
         t = self._eval_times[np.argmin(np.abs(self._eval_times - t))] # find closest t
-        data = self._results.loc[self._results["t"] == t]
+        data = self._solution.loc[self._solution["t"] == t]
 
         fig = plt.figure(figsize=(6, 3), dpi=150)
         ax1 = fig.add_subplot(111)
