@@ -1,6 +1,6 @@
 # Credit for the resource Data
 
-The EBIS simulations partially rely on physical simulations performed by others.
+The EBIS simulations partially rely on physics simulations performed by others.
 
 ## Binding Energies
 
