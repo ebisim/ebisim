@@ -14,6 +14,16 @@ import scipy.constants
 import scipy.stats
 import scipy.interpolate
 
+##### Physical constants
+Q_E = scipy.constants.elementary_charge
+M_E = scipy.constants.electron_mass
+PI = scipy.constants.pi
+EPS_0 = scipy.constants.epsilon_0
+K_B = scipy.constants.Boltzmann
+C_L = scipy.constants.speed_of_light
+
+M_E_EV = M_E * C_L**2 / Q_E
+
 ##### Logic for robust file imports
 _MODULEDIR = os.path.dirname(os.path.abspath(__file__))
 _RESOURCEDIR = os.path.join(_MODULEDIR, "resources/")
@@ -67,7 +77,7 @@ def element_name(element):
         idx = _ELEM_ES.index(element)
     return _ELEM_NAME[idx]
 
-### Plotting functions
+##### Plotting functions
 def plot_charge_state_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
                                 title="Charge State Evolution"):
     """
@@ -85,7 +95,63 @@ def plot_charge_state_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
     plt.ylabel("Relative Abundance")
     return fig
 
-### Class Definitions
+# ##### Electron Beam Physics
+# def electron_velocity(e_kin):
+#     """
+#     Returns the electron velocity corresponding to a kin. energy in eV
+#     """
+#     return C_L * np.sqrt(1 - (M_E_EV / (M_E_EV + e_kin))**2)
+
+# def herrmann_radius(cur, e_kin, b, r_c, t_c, b_c):
+#     v = electron_velocity(e_kin)
+#     s1 = M_E * cur / (PI * EPS_0 * Q_E * v * b**2)
+#     s2 = 8 * K_B * t_c * M_E * r_c**2 / (Q_E**2 * b**2)
+#     s3 = b_c**2 * r_c**4 / (b**2)
+#     return np.sqrt(s1 + np.sqrt(s1**2 + s2 + s3))
+
+# def rex_herrmann_radius(cur, e_kin):
+#     b = 2
+#     r_c = .8/1000
+#     t_c = 1600
+#     b_c = .2
+#     return herrmann_radius(cur, e_kin, b, r_c, t_c, b_c)
+
+
+# ##### Class Definitions
+# class ElectronBeam:
+#     """
+#     This class contains logic that allows estimating the space charge corrected energy
+#     of an electron beam and the resulting energy spread
+#     """
+#     def __init__(b_0, r_d, r_c, t_c, b_c):
+#         """
+#         Set the constant machine parameters
+
+#         Input Parameters
+#         b_0 - magnetic flux density in the trap centre in Tesla
+#         r_d - drift tube radius in m
+#         r_c - cathode radius in m
+#         t_c - cathode temperatur in K
+#         b_c - magnetic flux density on the cathode surface
+#         """
+#         self.b_0 = b_0
+#         self.r_d = r_d
+#         self.r_c = r_c
+#         self.t_c = t_c
+#         self.b_c = b_c
+
+# class RexElectronBeam(ElectronBeam):
+#     """
+#     ElectronBeam Class with REXEBIS Parameters set by default
+#     """
+#     def __init__():
+#         b_0 = 2
+#         r_d = 5/1000
+#         r_c = .8/1000
+#         t_c = 1600
+#         b_c = .2
+#         super().__init__(b_0, r_d, r_c, t_c, b_c)
+
 class LotzCrossSections:
     """
     An object that provides convenient handling of the Lotz cross sections
@@ -542,7 +608,7 @@ class SimpleEBISProblem:
         if y0 is None:
             y0 = self._default_initial
         solution = scipy.integrate.solve_ivp(self._ode_system, [0, max_time], y0, **kwargs)
-        solution.y = solution.y / np.linalg.norm(solution.y, axis=0)
+        solution.y = solution.y / np.sum(solution.y, axis=0)
         self._solution = solution
         return solution
 
@@ -576,7 +642,7 @@ class ContinuousNeutralInjectionEBISProblem(SimpleEBISProblem):
         super().__init__(species, j, e_kin, fwhm)
         #Default initial condition for solving the EBIS ODE System (all atoms in neutral state)
         self._default_initial = np.zeros(self._species.ElementProperties.atomic_number + 1)
-        self._default_initial[0] = 1
+        self._default_initial[0] = 1e-9
 
     def _ode_system(self, _, y): # No time dependence in this problem
         """
