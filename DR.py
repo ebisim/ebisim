@@ -204,13 +204,13 @@ class ElectronBeam:
         sc_on_ax_new = 1
         sc_on_ax_old = 0
         while (sc_on_ax_new - sc_on_ax_old)/sc_on_ax_new > 1e-6: # Check relative difference
-            sc_on_ax_old = sc_on_ax_new
             # Compute kinetic energy correction
-            corr_e_kin = e_kin + Q_E * sc_on_ax_old
+            corr_e_kin = e_kin + sc_on_ax_new
             # Compute Herrmann radius and characteristic potential
             r_e = self.herrmann_radius(corr_e_kin)
             phi_0 = self.characteristic_potential(corr_e_kin)
             # Compute space charge correction
+            sc_on_ax_old = sc_on_ax_new
             sc_on_ax_new = phi_0 * (2 * np.log(r_e / self._r_d) - 1)
 
         # When loop is exited r_e and phi_0 should have the right values
