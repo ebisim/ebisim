@@ -224,13 +224,19 @@ class RexElectronBeam(ElectronBeam):
     """
     ElectronBeam Class with REXEBIS Parameters set by default
     """
-    def __init__(self):
+    def __init__(self, cur):
+        """
+        Set the constant machine parameters
+
+        Input Parameters
+        cur - The electron current in A
+        """
         b_d = 2
         r_d = 5/1000
         r_c = .8/1000
         t_c = 1600
         b_c = .2
-        super().__init__(b_d, r_d, b_c, r_c, t_c)
+        super().__init__(cur, b_d, r_d, b_c, r_c, t_c)
 
 class LotzCrossSections:
     """
