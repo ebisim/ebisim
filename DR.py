@@ -201,6 +201,8 @@ class ElectronBeam:
             raise ValueError("r cannot be bigger than the drift tube radius or smaller than 0")
 
         # Init iterative solution
+        # This is mainly required to adjust phi_0 as a function of e_kin 
+        # the hermann radius is essentially constant over large dynamic ranges
         sc_on_ax_new = 1
         sc_on_ax_old = 0
         while (sc_on_ax_new - sc_on_ax_old)/sc_on_ax_new > 1e-6: # Check relative difference
@@ -855,11 +857,11 @@ class EnergyScan:
         if normalise:
             plt.ylabel("Normalised Abundance")
             title = ("Normalised Abundance of %s at $T=%.3G$ s"
-                    %(self._species.ElementProperties.name, t))
+                     %(self._species.ElementProperties.name, t))
         else:
             plt.ylabel("Relative Abundance")
             title = ("Relative Abundance of %s at $T=%.3G$ s"
-                    %(self._species.ElementProperties.name, t))
+                     %(self._species.ElementProperties.name, t))
             plt.ylim(0.01, 1)
 
         if invert_hor:
