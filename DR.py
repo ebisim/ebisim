@@ -406,7 +406,7 @@ class RRCrossSections(LotzCrossSections):
         """
         if cs == 0:
             return 0 # Atom cannot recombine
-        
+
         if cs < self._z:
             cfg = self._cfg[cs]
             ### Determine number of electrons in ion valence shell (highest occupied)
@@ -416,13 +416,13 @@ class RRCrossSections(LotzCrossSections):
             # 1s 2s 2p- 2p+ 3s 3p- 3p+ 3d- 3d+ 4s 4p- 4p+ 4d- 4d+ ...
             # 5s 5p- 5p+ 4f- 4f+ 5d- 5d+ 6s 6p- 6p+ 5f- 5f+ 6d- 6d+ 7s
             SHELL_KEY = [1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
-                        5, 5, 5, 4, 4, 5, 5, 6, 6, 6, 5, 5, 6, 6, 7]
+                         5, 5, 5, 4, 4, 5, 5, 6, 6, 6, 5, 5, 6, 6, 7]
             n_0 = max(SHELL_KEY[:len(cfg)])
             occup = sum(cfg[k] for k in range(len(cfg)) if SHELL_KEY[k] == n_0)
         elif cs == self._z:
             n_0 = 1
             occup = 0
-        
+
         w_n0 = (2*n_0**2 - occup)/2*n_0**2
         n_0eff = n_0 + (1 - w_n0) - 0.3
 
@@ -491,7 +491,7 @@ class RRCrossSections(LotzCrossSections):
                 res.append(self.cross_section(cs, e))
             plt.loglog(ene, np.array(res), label=str(cs)+"+")
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-        plt.title(self._name + " (Z = " + str(self._z) + 
+        plt.title(self._name + " (Z = " + str(self._z) +
                   ") Radiative Recombination ionisation cross sections")
         plt.xlabel("Electron impact energy (eV)")
         plt.ylabel("Cross section (cm$^2$)")
