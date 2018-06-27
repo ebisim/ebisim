@@ -357,8 +357,8 @@ class LotzCrossSections:
         e_max = 10*self._e_bind[-1][0]
         e_max = 10**np.ceil(np.log10(e_max))
         if xlim:
-            e_min = np.min(e_min, xlim[0])
-            e_max = np.max(e_max, xlim[1])
+            e_min = np.min([e_min, xlim[0]])
+            e_max = np.max([e_max, xlim[1]])
         else:
             xlim = (1, e_max)
         ene = np.logspace(np.log10(e_min), np.log10(e_max), 5000)
@@ -388,6 +388,129 @@ class LotzCrossSections:
         """
         self.create_plot(xlim, ylim)
         plt.show()
+
+class RRCrossSections(LotzCrossSections):
+    """
+    An object that provides convenient handling of the Radiative recombination cross sections
+    UNIT: cm^2
+    """
+    def cross_section(self, cs, e_kin):
+        """
+        Computes the RR cross section of a given charge state at a given electron energy
+        UNIT: cm^2
+        According to Kim and Pratt Phys Rev A (27,6) p.27/2913 (1983)
+
+        Input Parameters
+        cs - Charge State (0 for neutral atom)
+        e_kin - kinetic energy of projectile Electron
+        """
+        if cs == 0:
+            return 0 # Atom cannot recombine
+        
+        if cs < self._z:
+            cfg = self._cfg[cs]
+            ### Determine number of electrons in ion valence shell (highest occupied)
+            # The sorting of orbitals in Roberts files is a bit obscure but seems to be consistent
+            # and correct (checked a few configurations to verify that)
+            # According to the readme files the columns are:
+            # 1s 2s 2p- 2p+ 3s 3p- 3p+ 3d- 3d+ 4s 4p- 4p+ 4d- 4d+ ...
+            # 5s 5p- 5p+ 4f- 4f+ 5d- 5d+ 6s 6p- 6p+ 5f- 5f+ 6d- 6d+ 7s
+            SHELL_KEY = [1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
+                        5, 5, 5, 4, 4, 5, 5, 6, 6, 6, 5, 5, 6, 6, 7]
+            n_0 = max(SHELL_KEY[:len(cfg)])
+            occup = sum(cfg[k] for k in range(len(cfg)) if SHELL_KEY[k] == n_0)
+        elif cs == self._z:
+            n_0 = 1
+            occup = 0
+        
+        w_n0 = (2*n_0**2 - occup)/2*n_0**2
+        n_0eff = n_0 + (1 - w_n0) - 0.3
+
+        ### the rest
+        z_eff = (self._z + cs) / 2
+        chi = 2 * z_eff**2 * RY_EV / e_kin
+
+        cross_sect = 8 * PI * ALPHA / (3 * np.sqrt(3)) * COMPT_E_RED**2 * \
+                     chi * np.log(1 + chi/(2 * n_0eff**2))
+
+        return cross_sect*1e4 #convert to cm^2
+
+    def cross_section_matrix(self, e_kin):
+        """
+        Computes and returns a matrix with the RR cross sections for a given electron energy
+        that can be used to solve the rate equations in a convenient manner.
+
+        Matrices are cached for better performance, be careful as this can occupy memory when a lot
+        of energies are polled over time
+
+        UNIT: cm^2
+
+        Input Parameters
+        e_kin - Electron impact energy
+        """
+        # Check cache
+        if e_kin in self._cache.keys():
+            return self._cache[e_kin]
+
+        # If nonexistent, compute:
+        cross_mat = np.zeros((self._z+1, self._z+1))
+        cross_sec = np.zeros(self._z+1)
+
+        for cs in range(self._z+1):
+            cross_sec[cs] = self.cross_section(cs, e_kin)
+
+        for cs in range(self._z+1):
+            cross_mat[cs, cs] = -cross_sec[cs]
+            if cs < self._z:
+                cross_mat[cs, cs+1] = cross_sec[cs+1]
+
+        self._cache[e_kin] = cross_mat
+        return cross_mat
+
+    def create_plot(self, xlim=None, ylim=None):
+        """
+        Creates a figure showing the RR Cross section and returns the figure handle
+
+        Input Parameters
+        xlim, ylim - plot limits (optional)
+        """
+        e_min = self._e_bind[0][-1]/10
+        e_max = 10*self._e_bind[-1][0]
+        e_max = 10**np.ceil(np.log10(e_max))
+        if xlim:
+            e_min = np.min([e_min, xlim[0]])
+            e_max = np.max([e_max, xlim[1]])
+        else:
+            xlim = (1, e_max)
+        ene = np.logspace(np.log10(e_min), np.log10(e_max), 5000)
+
+        fig = plt.figure(figsize=(8, 6), dpi=150)
+        for cs in range(1, self._z+1):
+            res = []
+            for e in ene:
+                res.append(self.cross_section(cs, e))
+            plt.loglog(ene, np.array(res), label=str(cs)+"+")
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        plt.title(self._name + " (Z = " + str(self._z) + 
+                  ") Radiative Recombination ionisation cross sections")
+        plt.xlabel("Electron impact energy (eV)")
+        plt.ylabel("Cross section (cm$^2$)")
+        plt.grid(which="both")
+        plt.xlim(xlim)
+        if ylim:
+            plt.ylim(ylim)
+        return fig
+
+    def show_plot(self, xlim=None, ylim=None):
+        """
+        Creates a figure showing the Lotz Cross section and calls the show method
+
+        Input Parameters
+        xlim, ylim - plot limits (optional)
+        """
+        self.create_plot(xlim, ylim)
+        plt.show()
+
 
 class KLLCrossSections:
     """
