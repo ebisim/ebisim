@@ -201,7 +201,7 @@ class ElectronBeam:
             raise ValueError("r cannot be bigger than the drift tube radius or smaller than 0")
 
         # Init iterative solution
-        # This is mainly required to adjust phi_0 as a function of e_kin 
+        # This is mainly required to adjust phi_0 as a function of e_kin
         # the hermann radius is essentially constant over large dynamic ranges
         sc_on_ax_new = 1
         sc_on_ax_old = 0
@@ -405,9 +405,9 @@ class KLLCrossSections:
 
         self._cache = {} # Cache for Cross Section Matrices
 
-        self._load_KLL_data()
+        self._load_kll_data()
 
-    def _import_KLL_block(self, fname):
+    def _import_kll_block(self, fname):
         """
         Private Helper Method for importing the prepared DR data (for one charge state)
 
@@ -417,7 +417,7 @@ class KLLCrossSections:
         frame = pd.read_csv(fname, sep=' ', index_col=False)
         return frame
 
-    def _load_KLL_data(self):
+    def _load_kll_data(self):
         """
         Private Helper Method for loading the DR Data
         """
@@ -425,13 +425,13 @@ class KLLCrossSections:
         kll_path_gen = lambda x: _GETRESDIR("./DRDataKLLGroundState/"
                                             + self._es + "." + x + ".dr.txt")
         # Load files
-        he_like = self._import_KLL_block(kll_path_gen("He"))
-        li_like = self._import_KLL_block(kll_path_gen("Li"))
-        be_like = self._import_KLL_block(kll_path_gen("Be"))
-        b_like = self._import_KLL_block(kll_path_gen("B"))
-        c_like = self._import_KLL_block(kll_path_gen("C"))
-        n_like = self._import_KLL_block(kll_path_gen("N"))
-        o_like = self._import_KLL_block(kll_path_gen("O"))
+        he_like = self._import_kll_block(kll_path_gen("He"))
+        li_like = self._import_kll_block(kll_path_gen("Li"))
+        be_like = self._import_kll_block(kll_path_gen("Be"))
+        b_like = self._import_kll_block(kll_path_gen("B"))
+        c_like = self._import_kll_block(kll_path_gen("C"))
+        n_like = self._import_kll_block(kll_path_gen("N"))
+        o_like = self._import_kll_block(kll_path_gen("O"))
 
         self._kll_frames = {2:he_like, 3:li_like, 4:be_like,
                             5:b_like, 6:c_like, 7:n_like, 8:o_like}
@@ -450,6 +450,7 @@ class KLLCrossSections:
         """
         sig = fwhm/(2*np.sqrt(2*np.log(2)))
         def g(x):
+            """a gaussian line function with a given width and strength"""
             return strength * scipy.stats.norm.pdf(x, loc=mean, scale=sig)
         return g
 
@@ -461,9 +462,10 @@ class KLLCrossSections:
         Input parameters
         line_list - list of line profiles to add to a single function
         """
-        def s(x):
+        def spec(x):
+            """function holding the sum of gaussians for each transition"""
             return sum(l(x) for l in line_list)
-        return s
+        return spec
 
     def _cross_section_func(self, rem_el, fwhm):
         """
@@ -870,6 +872,7 @@ class EnergyScan:
         if x2fun:
             ax2 = ax1.twiny()
             def tick_function(x):
+                """tick function for the second axis"""
                 V = x2fun(x)
                 return ["%.0f" % z for z in V]
             new_tick_locations = ax1.get_xticks()
