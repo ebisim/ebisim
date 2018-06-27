@@ -21,8 +21,13 @@ PI = scipy.constants.pi
 EPS_0 = scipy.constants.epsilon_0
 K_B = scipy.constants.Boltzmann
 C_L = scipy.constants.speed_of_light
+ALPHA = scipy.constants.alpha
+HBAR = scipy.constants.hbar
+
 
 M_E_EV = M_E * C_L**2 / Q_E # Electron mass in eV
+RY_EV = scipy.constants.Rydberg * C_L * 2 * PI * HBAR / Q_E # approx. 13.6eV (rydberg energy)
+COMPT_E_RED = HBAR / (M_E * C_L) # reduced electron compton wavelength
 
 ##### Logic for robust file imports
 _MODULEDIR = os.path.dirname(os.path.abspath(__file__))
