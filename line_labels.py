@@ -91,11 +91,15 @@ def labelLines(lines, align=True, xvals=None, **kwargs):
             labLines.append(line)
             labels.append(label)
 
+    if xvals is None:
+        xvals = ax.get_xlim() # set axis limits as annotation limits, xvals now a tuple
     if type(xvals) == tuple:
-        xvals = np.linspace(xvals[0], xvals[1], len(labLines)+2)[1:-1]
-    elif xvals is None:
-        xmin, xmax = ax.get_xlim()
-        xvals = np.linspace(xmin, xmax, len(labLines)+2)[1:-1]
+        xmin, xmax = xvals
+        xscale = ax.get_xscale()
+        if xscale == "log":
+            xvals = np.logspace(np.log10(xmin), np.log10(xmax), len(labLines)+2)[1:-1]
+        else:
+            xvals = np.linspace(xmin, xmax, len(labLines)+2)[1:-1]
 
     for line, x, label in zip(labLines, xvals, labels):
         labelLine(line, x, label, align, **kwargs)
