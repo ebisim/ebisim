@@ -14,6 +14,8 @@ import scipy.constants
 import scipy.stats
 import scipy.interpolate
 
+from line_labels import labelLine, labelLines
+
 ##### Physical constants
 Q_E = scipy.constants.elementary_charge
 M_E = scipy.constants.electron_mass
@@ -324,7 +326,7 @@ class LotzCrossSections:
         UNIT: cm^2
 
         Input Parameters
-        e_kin - Electron impact energy
+        e_kin - Electron kinetic energy
         """
         # Check cache
         if e_kin in self._cache.keys():
@@ -368,15 +370,16 @@ class LotzCrossSections:
             res = []
             for e in ene:
                 res.append(self.cross_section(cs, e))
-            plt.loglog(ene, np.array(res), label=str(cs)+"+")
-        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+            plt.loglog(ene, np.array(res), lw=1, label=str(cs)+"+")
+        # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         plt.title(self._name + " (Z = " + str(self._z) + ") Lotz ionisation cross sections")
-        plt.xlabel("Electron impact energy (eV)")
+        plt.xlabel("Electron kinetic energy (eV)")
         plt.ylabel("Cross section (cm$^2$)")
-        plt.grid(which="both")
+        plt.grid(which="both", alpha=0.5)
         plt.xlim(xlim)
         if ylim:
             plt.ylim(ylim)
+        labelLines(plt.gca().get_lines(), size=7, bbox={"pad":0.1, "fc":"w", "ec":"none"})
         return fig
 
     def show_plot(self, xlim=None, ylim=None):
@@ -446,7 +449,7 @@ class RRCrossSections(LotzCrossSections):
         UNIT: cm^2
 
         Input Parameters
-        e_kin - Electron impact energy
+        e_kin - Electron kinetic energy
         """
         # Check cache
         if e_kin in self._cache.keys():
@@ -489,16 +492,17 @@ class RRCrossSections(LotzCrossSections):
             res = []
             for e in ene:
                 res.append(self.cross_section(cs, e))
-            plt.loglog(ene, np.array(res), label=str(cs)+"+")
-        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+            plt.loglog(ene, np.array(res), lw=1, label=str(cs)+"+")
+        # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         plt.title(self._name + " (Z = " + str(self._z) +
-                  ") Radiative Recombination ionisation cross sections")
-        plt.xlabel("Electron impact energy (eV)")
+                  ") Radiative recombination ionisation cross sections")
+        plt.xlabel("Electron kinetic energy (eV)")
         plt.ylabel("Cross section (cm$^2$)")
-        plt.grid(which="both")
+        plt.grid(which="both", alpha=0.5)
         plt.xlim(xlim)
         if ylim:
             plt.ylim(ylim)
+        labelLines(plt.gca().get_lines(), size=7, bbox={"pad":0.1, "fc":"w", "ec":"none"})
         return fig
 
     def show_plot(self, xlim=None, ylim=None):
@@ -634,7 +638,7 @@ class KLLCrossSections:
         UNIT: cm^2
 
         Input Parameters
-        e_kin - Electron impact energy
+        e_kin - Electron kinetic energy
         fwhm - width of the spectral lines (gaussian electron energy spread)
         """
         # Check cache
