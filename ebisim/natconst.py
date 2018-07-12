@@ -4,11 +4,11 @@ import scipy.constants
 Q_E = scipy.constants.elementary_charge #: Elementary charge
 M_E = scipy.constants.electron_mass #: Electron mass
 PI = scipy.constants.pi #: Pi
-EPS_0 = scipy.constants.epsilon_0 #: Dielectric constant
+EPS_0 = scipy.constants.epsilon_0 #: Vacuum permittivity
 K_B = scipy.constants.Boltzmann #: Boltzmann constant
 C_L = scipy.constants.speed_of_light #: Speed of light in vacuum
 ALPHA = scipy.constants.alpha #: Fine structure constant
-HBAR = scipy.constants.hbar #: Reduced Planck Quantum
+HBAR = scipy.constants.hbar #: Reduced Planck constant
 
 ##### Derived constants
 M_E_EV = M_E * C_L**2 / Q_E #: Electron mass in eV
