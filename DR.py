@@ -419,15 +419,17 @@ class RRCrossSections(LotzCrossSections):
             # 1s 2s 2p- 2p+ 3s 3p- 3p+ 3d- 3d+ 4s 4p- 4p+ 4d- 4d+ ...
             # 5s 5p- 5p+ 4f- 4f+ 5d- 5d+ 6s 6p- 6p+ 5f- 5f+ 6d- 6d+ 7s
             SHELL_KEY = [1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
-                         5, 5, 5, 4, 4, 5, 5, 6, 6, 6, 5, 5, 6, 6, 7]
+                         5, 5, 5, 4, 4, 5, 5, 6, 6, 6, 5, 5, 6, 6, 7] # n of each orbital in order
             n_0 = max(SHELL_KEY[:len(cfg)])
             occup = sum(cfg[k] for k in range(len(cfg)) if SHELL_KEY[k] == n_0)
+            # print("n_0:", n_0, "occup", occup)
         elif cs == self._z:
             n_0 = 1
             occup = 0
 
-        w_n0 = (2*n_0**2 - occup)/2*n_0**2
+        w_n0 = (2*n_0**2 - occup)/(2*n_0**2)
         n_0eff = n_0 + (1 - w_n0) - 0.3
+        # print("cs:", cs, "w_n0:", w_n0, "n_0eff", n_0eff)
 
         ### the rest
         z_eff = (self._z + cs) / 2
@@ -1046,3 +1048,4 @@ class EnergyScan:
 # prb.solve_problem(100)
 # prb.plot_charge_state_evolution()
 # plt.show()
+# RRCrossSections(18).cross_section_matrix(1000)
