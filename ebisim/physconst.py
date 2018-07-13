@@ -1,3 +1,7 @@
+"""
+Central module for holding physical constants used in the simulation code
+"""
+
 import scipy.constants
 
 ##### Physical constants
