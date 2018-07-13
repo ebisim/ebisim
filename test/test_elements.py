@@ -1,5 +1,8 @@
+"""
+Tests for ebisim.elements
+"""
 import ebisim.elements
-import pytest
+# import pytest
 
 def test_element_z():
     assert ebisim.elements.element_z("K") == 19

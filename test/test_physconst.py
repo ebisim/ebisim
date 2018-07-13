@@ -1,3 +1,7 @@
+"""
+Tests for ebisim.physconst
+"""
+
 import ebisim.physconst
 import pytest
 
