@@ -79,7 +79,7 @@ class ChemicalElement:
     def atomic_number(self):
         """Returns the atomic number"""
         return self._z
-    
+
     @property
     def z(self):
         """Returns the atomic number"""

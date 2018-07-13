@@ -11,7 +11,7 @@ _RESOURCEDIR = os.path.join(_MODULEDIR, "resources/")
 def _get_res_path(fn):
     """
     Generates the path to a filename in the resource folder
-    
+
     fn - filename
     """
     return os.path.join(_RESOURCEDIR, fn)
