@@ -1,4 +1,3 @@
-# from context import ebisim.natconst
 import ebisim.natconst
 import pytest
 
