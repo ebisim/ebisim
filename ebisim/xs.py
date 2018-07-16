@@ -4,9 +4,12 @@ recombination
 """
 
 import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
+
 from . import utils
 from . import elements
+from . import plotting
 from .physconst import RY_EV, ALPHA, PI, COMPT_E_RED
 
 class XSBase:
@@ -98,7 +101,57 @@ class XSBase:
             self._xsmat_cache[e_kin] = self._compute_xs_mat(e_kin)
         return self._xsmat_cache[e_kin]
 
+    def _compute_xs_df_for_plot(self, energies):
+        """
+        Private helper function that generates the dataframe for plotting
+        """
+        rows = []
+        for ek in energies:
+            xs = -1 * np.diag(self.xs_matrix(ek))
+            rows.append(np.hstack([ek, xs]))
+        colnames = ["ekin"] + [str(cs) for cs in range(self._z+1)]
+        xs_df = pd.DataFrame(rows, columns=colnames)
+        return xs_df
 
+    def create_plot(self, xscale="log", yscale="log", xlim=None, ylim=None,
+                    legend=False, label_lines=True):
+        """
+        Creates a figure showing the cross sections and returns the figure handle
+        # Needs to be implemented by inheriting class
+
+        Input Parameters
+        xscale, yscale - (optional) Scaling of x and y axis (log or linear)
+        xlim, ylim - (optional) plot limits
+        legend - (optional) show legend?
+        line_labels - annotate lines?
+        """
+        # Generate Data with _compute_xs_df_for_plot
+        # call plotting.plot_xs()
+        # Return figure handle
+        return None
+
+    def show_plot(self, xscale="log", yscale="log", xlim=None, ylim=None,
+                  legend=False, label_lines=True):
+        """
+        Creates a figure showing the Cross section and calls the show method
+
+        Input Parameters
+        xscale, yscale - (optional) Scaling of x and y axis (log or linear)
+        xlim, ylim - (optional) plot limits
+        legend - (optional) show legend?
+        line_labels - annotate lines?
+        """
+        self.create_plot(xscale=xscale, yscale=yscale, xlim=xlim, ylim=ylim,
+                         legend=legend, label_lines=label_lines)
+        plt.show()
+
+
+
+class IIXS(XSBase):
+    """
+    A class derived of XSBase that deals with Impact Ionisation Cross Sections computed from the
+    Lotz formula
+    """
 
 
 class LotzCrossSections:
