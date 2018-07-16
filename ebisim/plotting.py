@@ -52,7 +52,7 @@ def plot_xs(xs_df, fig=None, xscale="log", yscale="log",
     xs_df = xs_df.drop("ekin", axis=1)
     ax.set_prop_cycle(None) # Reset property (color) cycle, needed when plotting on existing fig
     for (cs, xs) in xs_df.iteritems():
-        if xs.unique() == np.array([0]):
+        if np.array_equal(xs.unique(), np.array([0])):
             plt.plot([], []) # If all xs are zero, do a ghost plot to advance color cycle
         else:
             plt.plot(ekin, xs, figure=fig, lw=1, label=str(cs)+"+") # otherwise plot data
@@ -74,7 +74,7 @@ def _decorate_axes(ax, title=None, xlabel=None, ylabel=None, xlim=None, ylim=Non
     if ylabel: ax.set_ylabel(ylabel)
     if xlim: ax.set_xlim(xlim)
     if ylim: ax.set_ylim(ylim)
-    if grid: ax.set_grid(which="both", alpha=0.5)
+    if grid: ax.grid(which="both", alpha=0.5)
     if legend: ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     # Label lines should be called at the end of the plot generation since it relies on axlim
     if label_lines: labelLines(ax.get_lines(), size=7, bbox={"pad":0.1, "fc":"w", "ec":"none"})
