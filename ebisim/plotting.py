@@ -16,19 +16,55 @@ def plot_cs_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
     """
     fig = plt.figure(figsize=(8, 6), dpi=150)
     ax = fig.gca()
+
     for cs in range(ode_solution.y.shape[0]):
         plt.semilogx(ode_solution.t, ode_solution.y[cs, :], figure=fig, label=str(cs) + "+")
-    ax.grid(which="both", alpha=0.5)
-    ax.set_xlim(xlim)
-    ax.set_ylim(ylim)
-    ax.set_title(title)
-    ax.set_xlabel("Time (s)")
-    ax.set_ylabel("Relative Abundance")
-    if legend:
-        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    if label_lines:
-        labelLines(plt.gca().get_lines(), size=7, bbox={"pad":0.1, "fc":"w", "ec":"none"})
+
+    _decorate_axes(ax, title=title, xlabel="Time (s)", ylabel="Relative Abundance",
+                   xlim=xlim, ylim=ylim, grid=True, legend=legend, label_lines=label_lines)
     return fig
+
+def plot_xs(xs_df, fig=None, xscale="log", yscale="log",
+            title=None, xlim=None, ylim=None, legend=False, label_lines=True):
+    """
+    Creates a figure showing the cross sections and returns the figure handle
+
+    Input Parameters
+    xlim, ylim - plot limits (optional)
+    """
+    if not fig: fig = plt.figure(figsize=(8, 6), dpi=150)
+    ax = fig.gca()
+
+    ekin = xs_df.ekin
+    xs_df = xs_df.drop("ekin", axis=1)
+    ax.set_prop_cycle(None) # Reset property (color) cycle, needed when plotting on existing fig
+    for (cs, xs) in xs_df.iteritems():
+        if xs.unique() == np.array([0]):
+            plt.plot([], []) # If all xs are zero, do a ghost plot to advance color cycle
+        else:
+            plt.plot(ekin, xs, figure=fig, lw=1, label=str(cs)+"+") # otherwise plot data
+
+    ax.set_xscale(xscale)
+    ax.set_yscale(yscale)
+    _decorate_axes(ax, title=title,
+                   xlabel="Electron kinetic energy (eV)", ylabel="Cross section (cm$^2$)",
+                   xlim=xlim, ylim=ylim, grid=True, legend=legend, label_lines=label_lines)
+    return fig
+
+def _decorate_axes(ax, title=None, xlabel=None, ylabel=None, xlim=None, ylim=None, grid=True,
+                   legend=False, label_lines=True):
+    """
+    helper functions for common axes decorations
+    """
+    if title: ax.set_title(title)
+    if xlabel: ax.set_xlabel(xlabel)
+    if ylabel: ax.set_ylabel(ylabel)
+    if xlim: ax.set_xlim(xlim)
+    if ylim: ax.set_ylim(ylim)
+    if grid: ax.set_grid(which="both", alpha=0.5)
+    if legend: ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    # Label lines should be called at the end of the plot generation since it relies on axlim
+    if label_lines: labelLines(ax.get_lines(), size=7, bbox={"pad":0.1, "fc":"w", "ec":"none"})
 
 ####
 #### Code for decorating line plots with online labels
