@@ -13,6 +13,12 @@ def plot_cs_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
     """
     Method that plots the solution of an EBIS charge breeding simulation
     returns figure handle
+
+    ode_solution - solution object to plot
+    title - (optional) Plot title
+    xlim, ylim - (optional) plot limits
+    legend - (optional) show legend?
+    line_labels - annotate lines?
     """
     fig = plt.figure(figsize=(8, 6), dpi=150)
     ax = fig.gca()
@@ -30,7 +36,14 @@ def plot_xs(xs_df, fig=None, xscale="log", yscale="log",
     Creates a figure showing the cross sections and returns the figure handle
 
     Input Parameters
-    xlim, ylim - plot limits (optional)
+    xs_df - dataframe holding the required data, one column must be ekin (energy) other columns
+            represent each chargestate (columns should be in ascending order)
+    fig - (optional) Pass hangle to lot on existing figure
+    xscale, yscale - (optional) Scaling of x and y axis (log or linear)
+    title - (optional) Plot title
+    xlim, ylim - (optional) plot limits
+    legend - (optional) show legend?
+    line_labels - annotate lines?
     """
     if not fig: fig = plt.figure(figsize=(8, 6), dpi=150)
     ax = fig.gca()
