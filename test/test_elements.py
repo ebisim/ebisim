@@ -35,7 +35,6 @@ def test_ChemicalElement():
     for elem in [k, cs, u]:
         for idx in elem:
             ce = ebisim.elements.ChemicalElement(idx)
-            assert ce.atomic_number == elem[0]
             assert ce.z == elem[0]
             assert ce.symbol == elem[1]
             assert ce.name == elem[2]
