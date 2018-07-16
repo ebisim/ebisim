@@ -29,3 +29,9 @@ def test_XSBase_xs_mat_RECOMB():
     expected = np.diag([-3000, -3001, -3002, -3003]) + np.diag([3001, 3002, 3003], 1)
     np.testing.assert_array_equal(expected, ebisim.xs.XSBase(3).xs_matrix(3))
     ebisim.xs.XSBase.XSTYPE = None # restore normal configuration
+
+def test_compute_xs_df_for_plot():
+    assert (ebisim.xs.XSBase(2)._compute_xs_df_for_plot([1, 2]).to_dict()
+            == {'ekin': {0: 1.0, 1: 2.0}, '0': {0: 1000.0, 1: 2000.0},
+                '1': {0: 1001.0, 1: 2001.0}, '2': {0: 1002.0, 1: 2002.0}}
+           )
