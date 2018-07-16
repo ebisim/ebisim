@@ -3,6 +3,7 @@ Module holding functions and classes for convenient handling of elements in the 
 May be extended for more functionality (element properties) in the future
 """
 
+import collections
 from . import utils
 
 # Load relevant data from resource folder when module is loaded
@@ -56,41 +57,61 @@ def element_name(element):
         idx = _ELEM_ES.index(element)
     return _ELEM_NAME[idx]
 
-
-class ChemicalElement:
+class ChemicalElement(collections.namedtuple("ChemicalElement", ["z", "symbol", "name"])):
     """
-    Simple class holding some essential information about a chemical element
+    Named tuple holding some essential information about a chemical element
     """
-    def __init__(self, element_id):
+    # https://docs.python.org/3.6/library/collections.html#collections.namedtuple
+    # contains documentation for named tuples
+    __slots__ = () # This is a trick to suppress unnecessary dict() for this kind of class
+    def __new__(cls, element_id):
         """
-        Initiates the object translating the input parameter and finding the other quantities
-
-        Input Parameters
-        element_id - Atomic Number or Element Symbol or name
+        Provides a convenient constructor accepting the atomic number, symbol, or name
         """
+        # Info on __new__ for subclasses of namedtuple
         if isinstance(element_id, int):
-            self._z = element_id
+            z = element_id
         else:
-            self._z = element_z(element_id)
-        self._es = element_symbol(self._z)
-        self._name = element_name(self._z)
+            z = element_z(element_id)
+        symbol = element_symbol(z)
+        name = element_name(z)
+        return super(ChemicalElement, cls).__new__(cls, z, symbol, name)
 
-    @property
-    def atomic_number(self):
-        """Returns the atomic number"""
-        return self._z
+### Old version of Chemical Element, saved as a fail safe or to extend in the future
+# class ChemicalElement:
+#     """
+#     Simple class holding some essential information about a chemical element
+#     """
+#     def __init__(self, element_id):
+#         """
+#         Initiates the object translating the input parameter and finding the other quantities
 
-    @property
-    def z(self):
-        """Returns the atomic number"""
-        return self._z
+#         Input Parameters
+#         element_id - Atomic Number or Element Symbol or name
+#         """
+#         if isinstance(element_id, int):
+#             self._z = element_id
+#         else:
+#             self._z = element_z(element_id)
+#         self._es = element_symbol(self._z)
+#         self._name = element_name(self._z)
 
-    @property
-    def name(self):
-        """Returns the name"""
-        return self._name
+#     @property
+#     def atomic_number(self):
+#         """Returns the atomic number"""
+#         return self._z
 
-    @property
-    def symbol(self):
-        """Returns the chemical symbol"""
-        return(self)._es
+#     @property
+#     def z(self):
+#         """Returns the atomic number"""
+#         return self._z
+
+#     @property
+#     def name(self):
+#         """Returns the name"""
+#         return self._name
+
+#     @property
+#     def symbol(self):
+#         """Returns the chemical symbol"""
+#         return(self)._es
