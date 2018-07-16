@@ -151,6 +151,8 @@ class IIXS(XSBase):
     """
     A class derived of XSBase that deals with Impact Ionisation Cross Sections computed from the
     Lotz formula
+
+    UNIT: cm^2
     """
     XSTYPE = "IONISE"
     def _load_data(self):
@@ -195,13 +197,14 @@ class IIXS(XSBase):
         xs *= 4.5e-14
         return xs
 
-    def create_plot(self, xscale="log", yscale="log", xlim=None, ylim=None,
+    def create_plot(self, xscale="log", yscale="log", title=None, xlim=None, ylim=None,
                     legend=False, label_lines=True):
         """
         Creates a figure showing the cross sections and returns the figure handle
 
         Input Parameters
         xscale, yscale - (optional) Scaling of x and y axis (log or linear)
+        title -(optional) Plot title
         xlim, ylim - (optional) plot limits
         legend - (optional) show legend?
         line_labels - annotate lines?
@@ -218,13 +221,79 @@ class IIXS(XSBase):
         energies = np.logspace(np.log10(e_min), np.log10(e_max), 5000)
         xs_df = self._compute_xs_df_for_plot(energies)
         # call plotting.plot_xs()
-        title = self._name + " (Z = " + str(self._z) + ") Lotz ionisation cross sections"
-        fig = plotting.plot_xs(xs_df, xscale=xscale, yscale=yscale,
-            title=title, xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines)
+        if not title:
+            title = self._name + " (Z = " + str(self._z) + ") Lotz ionisation cross sections"
+        fig = plotting.plot_xs(xs_df, xscale=xscale, yscale=yscale, title=title,
+                               xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines)
         # Return figure handle
         return fig
 
+class RRXS(IIXS):
+    """
+    An object that provides convenient handling of the Radiative recombination cross sections
+    Inhertis from IIXS
+    UNIT: cm^2
+    """
+    XSTYPE = "RECOMB"
+    def xs(self, cs, e_kin):
+        """
+        Computes the RR cross section of a given charge state at a given electron energy
+        UNIT: cm^2
+        According to Kim and Pratt Phys Rev A (27,6) p.27/2913 (1983)
 
+        Input Parameters
+        cs - Charge State (0 for neutral atom)
+        e_kin - kinetic energy of projectile Electron
+        """
+        if cs == 0:
+            return 0 # Atom cannot recombine
+
+        if cs < self._z:
+            cfg = self._cfg[cs]
+            ### Determine number of electrons in ion valence shell (highest occupied)
+            # The sorting of orbitals in Roberts files is a bit obscure but seems to be consistent
+            # and correct (checked a few configurations to verify that)
+            # According to the readme files the columns are:
+            # 1s 2s 2p- 2p+ 3s 3p- 3p+ 3d- 3d+ 4s 4p- 4p+ 4d- 4d+ ...
+            # 5s 5p- 5p+ 4f- 4f+ 5d- 5d+ 6s 6p- 6p+ 5f- 5f+ 6d- 6d+ 7s
+            SHELL_KEY = [1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
+                         5, 5, 5, 4, 4, 5, 5, 6, 6, 6, 5, 5, 6, 6, 7] # n of each orbital in order
+            n_0 = max(SHELL_KEY[:len(cfg)])
+            occup = sum(cfg[k] for k in range(len(cfg)) if SHELL_KEY[k] == n_0)
+            # print("n_0:", n_0, "occup", occup)
+        elif cs == self._z:
+            n_0 = 1
+            occup = 0
+
+        w_n0 = (2*n_0**2 - occup)/(2*n_0**2)
+        n_0eff = n_0 + (1 - w_n0) - 0.3
+        # print("cs:", cs, "w_n0:", w_n0, "n_0eff", n_0eff)
+
+        ### the rest
+        z_eff = (self._z + cs) / 2
+        chi = 2 * z_eff**2 * RY_EV / e_kin
+
+        xs = 8 * PI * ALPHA / (3 * np.sqrt(3)) * COMPT_E_RED**2 * \
+                     chi * np.log(1 + chi/(2 * n_0eff**2))
+
+        return xs*1e4 #convert to cm^2
+
+    def create_plot(self, xscale="log", yscale="log", title=None, xlim=None, ylim=None,
+                    legend=False, label_lines=True):
+        """
+        Creates a figure showing the cross sections and returns the figure handle
+
+        Input Parameters
+        xscale, yscale - (optional) Scaling of x and y axis (log or linear)
+        title -(optional) Plot title
+        xlim, ylim - (optional) plot limits
+        legend - (optional) show legend?
+        line_labels - annotate lines?
+        """
+        if not title:
+            title = self._name + " (Z = "+ str(self._z) +") Radiative recombination cross sections"
+        super().create_plot(xscale=xscale, yscale=yscale, title=title,
+                            xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines)
 
 # class LotzCrossSections:
 #     """
