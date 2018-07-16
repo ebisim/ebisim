@@ -6,7 +6,7 @@ recombination
 import numpy as np
 from matplotlib import pyplot as plt
 from . import utils
-from .elements import ChemicalElement
+from . import elements
 from .physconst import RY_EV, ALPHA, PI, COMPT_E_RED
 
 class XSBase:
@@ -25,9 +25,9 @@ class XSBase:
         element - Atomic Number, Name, or Symbol, or ChemicalElement object
         """
         # Get basic properties of the element in question
-        if not isinstance(element, ChemicalElement):
-            element = ChemicalElement(element)
-        self._z = element.atomic_number
+        if not isinstance(element, elements.ChemicalElement):
+            element = elements.ChemicalElement(element)
+        self._z = element.z
         self._es = element.symbol
         self._name = element.name
 
