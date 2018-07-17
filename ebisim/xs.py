@@ -149,8 +149,6 @@ class XSBase:
                          legend=legend, label_lines=label_lines)
         plt.show()
 
-
-
 class IIXS(XSBase):
     """
     A class derived of XSBase that deals with Impact Ionisation Cross Sections computed from the
@@ -301,8 +299,8 @@ class RRXS(IIXS):
         if not title:
             title = "$_{%d}$%s radiative recombination cross sections"%(self._z, self._es)
         return super().create_plot(xscale=xscale, yscale=yscale, title=title,
-                            xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines,
-                            fig=fig)
+                                   xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines,
+                                   fig=fig)
 
 class DRXS(XSBase):
     """
@@ -396,7 +394,8 @@ class DRXS(XSBase):
         xs_df = self._compute_xs_df_for_plot(energies)
         # call plotting.plot_xs()
         if not title:
-            title = "$_{%d}$%s DR cross sections (Electron beam FWHM = %0.1f eV) "%(self._z, self._es, self._fwhm)
+            title = "$_{%d}$%s DR cross sections \
+                     (Electron beam FWHM = %0.1f eV)"%(self._z, self._es, self._fwhm)
         fig = plotting.plot_xs(xs_df, xscale=xscale, yscale=yscale, title=title,
                                xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines,
                                fig=fig)
