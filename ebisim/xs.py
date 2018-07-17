@@ -429,7 +429,7 @@ class EBISSpecies:
         self._drxs = DRXS(self._element, fwhm)
 
     @property
-    def ChemicalElement(self):
+    def element(self):
         """Returns the ChemicalElement Object of the species"""
         return self._element
 
@@ -466,7 +466,7 @@ class EBISSpecies:
         Returns the figure handle to a plot combining all cross sections
         """
         title = "$_{%d}$%s Combined cross sections (Electron beam FWHM = %0.1f eV)"\
-                %(self._element.z, self._element.symbol, self.fwhm)
+                %(self.element.z, self.element.symbol, self.fwhm)
         common_kwargs = dict(xlim=xlim, ylim=ylim, xscale=xscale, yscale=yscale)
         fig = self._iixs.create_plot(label_lines=False, **common_kwargs)
         fig = self._rrxs.create_plot(fig=fig, **common_kwargs)
