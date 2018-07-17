@@ -342,8 +342,15 @@ class DRXS(XSBase):
         # Import DR Transitions for this Element
         # Columns: DELTA_E_AI (eV), RECOMB_STRENGTH (1e-20 cm**2 eV),
         # RECOMB_TYPE(DR, TR, QR,...), RECOMB_NAME(KLL, KLM, ...), CHARGE_STATE
-        with utils.open_resource("DR/%s_KLL.csv" % self._es) as fobj:
-            self._dr_by_cs = pd.read_csv(fobj, index_col=None)
+        try:
+            with utils.open_resource("DR/%s_KLL.csv" % self._es) as fobj:
+                self._dr_by_cs = pd.read_csv(fobj, index_col=None)
+        except FileNotFoundError as e:
+            print("NO DR FILE FOUND")
+            print(e)
+            print("--> FALLING BACK TO DUMMY")
+            with utils.open_resource("DR/_FALLBACKDUMMY.csv") as fobj:
+                self._dr_by_cs = pd.read_csv(fobj, index_col=None)
         self._dr_by_cs = self._dr_by_cs.groupby("CHARGE_STATE")
 
     def xs(self, cs, e_kin):
@@ -401,3 +408,42 @@ class DRXS(XSBase):
                                fig=fig)
         # Return figure handle
         return fig
+
+# class EBISSpecies:
+#     """
+#     collection of properties relevant to an atomic species in an EBIS for solving rate equations
+#     """
+#     def __init__(self, element, fwhm):
+#         """
+#         Creates the species by defining the element and automatically creating objects for the
+#         Lotz and KLL cross section
+
+#         Input Parameters
+#         element - Atomic Number, Symbol or Name
+#         fwhm - fwhm of the Gaussian used for spreading the DR cross sections
+#         """
+#         # Get basic properties of the element in question
+#         self._element = elements.ChemicalElement(element)
+#         self._IIXS = IIXS(self._element)
+#         self._RRXS = RRXS(self._element)
+#         self._DRXS = DRXS(self._element, fwhm)
+
+#     @property
+#     def ChemicalElement(self):
+#         """Returns the ChemicalElement Object of the species"""
+#         return self._element
+
+#     @property
+#     def IIXS(self):
+#         """Returns the IIXS Object of the species"""
+#         return self._IIXS
+
+#     @property
+#     def RRXS(self):
+#         """Returns the RRXS Object of the species"""
+#         return self._RRXS
+    
+#     @property
+#     def DRXS(self):
+#         """Returns the DRXS Object of the species"""
+#         return self._DRXS
