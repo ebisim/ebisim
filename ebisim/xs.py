@@ -401,49 +401,75 @@ class DRXS(XSBase):
         xs_df = self._compute_xs_df_for_plot(energies)
         # call plotting.plot_xs()
         if not title:
-            title = "$_{%d}$%s DR cross sections \
-                     (Electron beam FWHM = %0.1f eV)"%(self._z, self._es, self._fwhm)
+            title = "$_{%d}$%s DR cross sections (Electron beam FWHM = %0.1f eV)"\
+                    %(self._z, self._es, self._fwhm)
         fig = plotting.plot_xs(xs_df, xscale=xscale, yscale=yscale, title=title,
                                xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines,
                                fig=fig)
         # Return figure handle
         return fig
 
-# class EBISSpecies:
-#     """
-#     collection of properties relevant to an atomic species in an EBIS for solving rate equations
-#     """
-#     def __init__(self, element, fwhm):
-#         """
-#         Creates the species by defining the element and automatically creating objects for the
-#         Lotz and KLL cross section
+class EBISSpecies:
+    """
+    collection of properties relevant to an atomic species in an EBIS for solving rate equations
+    """
+    def __init__(self, element, fwhm):
+        """
+        Creates the species by defining the element and automatically creating objects for the
+        Lotz and KLL cross section
 
-#         Input Parameters
-#         element - Atomic Number, Symbol or Name
-#         fwhm - fwhm of the Gaussian used for spreading the DR cross sections
-#         """
-#         # Get basic properties of the element in question
-#         self._element = elements.ChemicalElement(element)
-#         self._IIXS = IIXS(self._element)
-#         self._RRXS = RRXS(self._element)
-#         self._DRXS = DRXS(self._element, fwhm)
+        Input Parameters
+        element - Atomic Number, Symbol or Name
+        fwhm - fwhm of the Gaussian used for spreading the DR cross sections
+        """
+        # Get basic properties of the element in question
+        self._element = elements.ChemicalElement(element)
+        self._iixs = IIXS(self._element)
+        self._rrxs = RRXS(self._element)
+        self._drxs = DRXS(self._element, fwhm)
 
-#     @property
-#     def ChemicalElement(self):
-#         """Returns the ChemicalElement Object of the species"""
-#         return self._element
+    @property
+    def ChemicalElement(self):
+        """Returns the ChemicalElement Object of the species"""
+        return self._element
 
-#     @property
-#     def IIXS(self):
-#         """Returns the IIXS Object of the species"""
-#         return self._IIXS
+    @property
+    def iixs(self):
+        """Returns the IIXS Object of the species"""
+        return self._iixs
 
-#     @property
-#     def RRXS(self):
-#         """Returns the RRXS Object of the species"""
-#         return self._RRXS
-    
-#     @property
-#     def DRXS(self):
-#         """Returns the DRXS Object of the species"""
-#         return self._DRXS
+    @property
+    def rrxs(self):
+        """Returns the RRXS Object of the species"""
+        return self._rrxs
+
+    @property
+    def drxs(self):
+        """Returns the DRXS Object of the species"""
+        return self._drxs
+
+    @property
+    def fwhm(self):
+        """"
+        Returns the current value of fwhm set for this cross section object
+        Setting a new fwhm clears the xs_matrix cache
+        """
+        return self._drxs.fwhm
+
+    @fwhm.setter
+    def fwhm(self, val):
+        """fwhm setter (clears cache on set)"""
+        self._drxs.fwhm = val
+
+    def plot_combined_xs(self, xlim, ylim, xscale="linear", yscale="log", legend=True):
+        """
+        Returns the figure handle to a plot combining all cross sections
+        """
+        title = "$_{%d}$%s Combined cross sections (Electron beam FWHM = %0.1f eV)"\
+                %(self._element.z, self._element.symbol, self.fwhm)
+        common_kwargs = dict(xlim=xlim, ylim=ylim, xscale=xscale, yscale=yscale)
+        fig = self._iixs.create_plot(label_lines=False, **common_kwargs)
+        fig = self._rrxs.create_plot(fig=fig, **common_kwargs)
+        fig = self._drxs.create_plot(fig=fig, legend=legend, title=title, **common_kwargs)
+        return fig
+        
