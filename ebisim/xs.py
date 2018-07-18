@@ -332,8 +332,9 @@ class DRXS(XSBase):
     @fwhm.setter
     def fwhm(self, val):
         """fwhm setter (clears cache on set)"""
-        self._xsmat_cache = {}
-        self._fwhm = val
+        if self._fwhm != val:
+            self._xsmat_cache = {}
+            self._fwhm = val
 
     def _load_data(self):
         """
