@@ -15,7 +15,7 @@ def plot_energy_scan(data, cs, ylim=None, title=None, invert_hor=False, x2fun=No
     fig = plt.figure(figsize=(6, 3), dpi=150)
     ax1 = fig.add_subplot(111)
 
-    for c in range(data.shape[2]):
+    for c in range(data.shape[1]-1):
         if c in cs:
             plt.plot(data["e_kin"], data[c], figure=fig, label=str(c) + "+")
         else:
@@ -62,7 +62,7 @@ def plot_cs_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
     ax = fig.gca()
 
     for cs in range(ode_solution.y.shape[0]):
-        if np.array_equal(ode_solution.y[cs, :], np.array([0])):
+        if np.array_equal(np.unique(ode_solution.y[cs, :]), np.array([0])):
             plt.semilogx([], [], figure=fig) # Ghost draw for purely zero cases
         else:
             plt.semilogx(ode_solution.t, ode_solution.y[cs, :], figure=fig, label=str(cs) + "+")

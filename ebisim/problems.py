@@ -197,15 +197,15 @@ class EnergyScan:
         """
         t = self._eval_times[np.argmin(np.abs(self._eval_times - t))] # find closest t
         # data = self._solution.loc[self._solution["t"] == t]
-        data = self._solution.loc.groupyby("t").get_group(t)
+        data = self._solution.groupby("t").get_group(t)
         if normalise:
             for c in range(self._element.z+1):
                 data[c] = data[c]/data[c].mean()
-            title = ("Normalised abundance of $_{%d}$%s at $T=%.1G$ ms"
+            title = ("Normalised abundance of $_{%d}$%s at $T=%.3f$ ms"
                      %(self._element.z, self._element.symbol, 1000*t))
             ylim = None
         else:
-            title = ("Relative abundance of $_{%d}$%s at $T=%.1G$ ms"
+            title = ("Relative abundance of $_{%d}$%s at $T=%.3f$ ms"
                      %(self._element.z, self._element.symbol, 1000*t))
             ylim = (0.01, 1)
 
