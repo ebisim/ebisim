@@ -6,6 +6,8 @@ import pandas as pd
 import scipy.integrate
 
 from . import plotting
+from . import xs
+from . import elements
 from .physconst import Q_E
 
 class SimpleEBISProblem:
@@ -13,42 +15,41 @@ class SimpleEBISProblem:
     class defining an EBIS charge breeding simulation and providing the interface to solve it
     """
 
-    def __init__(self, species, j, e_kin, fwhm):
+    def __init__(self, element, j, e_kin, fwhm):
         """
         Defines the general problem constants (current density, electron energy and spread)
 
         Input parameters
-        species - the Species object containing the physical information about cross section etc
+        element - Identifier of the element under investigation
         j - current density
         e_kin - electron energy
         fwhm - electron energy spread (for DR width)
         """
-        self._species = species
+        #species - the Species object containing the physical information about cross section etc
+        self._species = xs.EBISSpecies(element, fwhm)
         self._j = j
         self._e_kin = e_kin
-        self._species.fwhm = fwhm
         self._solution = None
         #Default initial condition for solving the EBIS ODE System (all atoms in 1+ charge state)
-        self._default_initial = np.zeros(self._species.ElementProperties.atomic_number + 1)
+        self._default_initial = np.zeros(self._species.element.z + 1)
         self._default_initial[1] = 1
-
-    @property
-    def fwhm(self):
-        """"
-        Returns the current value of fwhm set for this cross section object
-        Setting a new fwhm clears the xs_matrix cache
-        """
-        return self._species.fwhm
-
-    @fwhm.setter
-    def fwhm(self, val):
-        """fwhm setter (clears cache on set)"""
-        self._species.fwhm = val
 
     @property
     def solution(self):
         """Returns the solution of the lates solve of this problem"""
         return self._solution
+
+    @property
+    def e_kin(self):
+        """Returns the kinetic energy"""
+        return self._e_kin
+
+    @e_kin.setter
+    def e_kin(self, val):
+        """Set e_kin to new value and delete existing solution"""
+        if val != self._e_kin:
+            self._solution = None
+            self._e_kin = val
 
     def _ode_system(self, _, y): # No time dependence in this problem
         """
@@ -102,7 +103,7 @@ class SimpleEBISProblem:
         xlim = (1e-4, tmax)
         title = ("Charge State Evolution of " + self._species.element.name
                  + " (Z = " + str(self._species.element.z) + "), $E_{kin} = "
-                 + str(self._e_kin) + "$ eV, FWHM = " + str(self.fwhm) + " eV")
+                 + str(self._e_kin) + "$ eV, FWHM = " + str(self._species.fwhm) + " eV")
         return plotting.plot_cs_evolution(self.solution, xlim=xlim, title=title)
 
 class ContinuousNeutralInjectionEBISProblem(SimpleEBISProblem):
@@ -111,14 +112,14 @@ class ContinuousNeutralInjectionEBISProblem(SimpleEBISProblem):
     at a constant rate to mimick continous neutral injection
     """
 
-    def __init__(self, species, j, e_kin, fwhm):
+    def __init__(self, element, j, e_kin, fwhm):
         """
         Initialiser for a continuous injection problem, calls init of SimpleEBISProblem and adjusts
         the default initial condition, i.e. emtpy trap.
         """
-        super().__init__(species, j, e_kin, fwhm)
+        super().__init__(element, j, e_kin, fwhm)
         #Default initial condition for solving the EBIS ODE System (all atoms in neutral state)
-        self._default_initial = np.zeros(self._species.ElementProperties.atomic_number + 1)
+        self._default_initial = np.zeros(self._species.element.z + 1)
         self._default_initial[0] = 1e-9
 
     def _ode_system(self, _, y): # No time dependence in this problem
@@ -134,38 +135,25 @@ class EnergyScan:
     Class that provides a simple interface to perform a scan of the electron beam energy for
     a SimpleEBISProblem (and inherited)
     """
-    def __init__(self, problemtype, species, j, fwhm, energies, eval_times):
+    def __init__(self, problemtype, element, j, fwhm, energies, eval_times):
         """
         Initialises the energy scan settings
 
         Input Parameters
         problemtype - class handle specifiying the problem
-        species - the Species object containing the physical information about cross section etc
+        element - Identifier of the element under investigation
         j - current density
         fwhm - electron energy spread (for DR width)
         energies - list of the energies to scan
         eval_times - list of the times to evaluate
         """
-        self._problemtype = problemtype
-        self._species = species
+        # species - the Species object containing the physical information about cross section etc
+        self._problem = problemtype(element, j, 0, fwhm)
+        self._element = elements.ChemicalElement(element)
         self._j = j
-        self._species.fwhm = fwhm
         self._energies = np.array(energies)
         self._eval_times = np.array(eval_times)
         self._solution = None
-
-    @property
-    def fwhm(self):
-        """"
-        Returns the current value of fwhm set for this cross section object
-        Setting a new fwhm clears the xs_matrix cache
-        """
-        return self._species.fwhm
-
-    @fwhm.setter
-    def fwhm(self, val):
-        """fwhm setter (clears cache on set)"""
-        self._species.fwhm = val
 
     @property
     def solution(self):
@@ -184,8 +172,8 @@ class EnergyScan:
         # Solve ODES
         scan_solutions = pd.DataFrame()
         for e_kin in self._energies:
-            problem = self._problemtype(self._species, self._j, e_kin, self.fwhm)
-            solution = problem.solve(max_time, t_eval=self._eval_times)
+            self._problem.e_kin = e_kin
+            solution = self._problem.solve(max_time, t_eval=self._eval_times)
             sol_df = pd.DataFrame(solution.y.T)
             sol_df["t"] = solution.t
             sol_df["e_kin"] = e_kin
@@ -211,14 +199,14 @@ class EnergyScan:
         # data = self._solution.loc[self._solution["t"] == t]
         data = self._solution.loc.groupyby("t").get_group(t)
         if normalise:
-            for c in range(self._species.element.z+1):
+            for c in range(self._element.z+1):
                 data[c] = data[c]/data[c].mean()
             title = ("Normalised abundance of $_{%d}$%s at $T=%.1G$ ms"
-                     %(self._species.element.z, self._species.element.symbol, 1000*t))
+                     %(self._element.z, self._element.symbol, 1000*t))
             ylim = None
         else:
             title = ("Relative abundance of $_{%d}$%s at $T=%.1G$ ms"
-                     %(self._species.element.z, self._species.element.symbol, 1000*t))
+                     %(self._element.z, self._element.symbol, 1000*t))
             ylim = (0.01, 1)
 
         fig = plotting.plot_energy_scan(data, cs, ylim=ylim, title=title, invert_hor=invert_hor,
