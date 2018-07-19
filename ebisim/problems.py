@@ -90,7 +90,7 @@ class SimpleEBISProblem:
         self._solution = solution
         return solution
 
-    def plot_charge_state_evolution(self):
+    def plot_solution(self):
         """
         After the problem has been solved, the charge state evolution can be plotted by calling
         this function
@@ -101,9 +101,9 @@ class SimpleEBISProblem:
             print("Error! Need to solve problem before plotting")
         tmax = self.solution.t.max()
         xlim = (1e-4, tmax)
-        title = ("Charge State Evolution of " + self._species.element.name
-                 + " (Z = " + str(self._species.element.z) + "), $E_{kin} = "
-                 + str(self._e_kin) + "$ eV, FWHM = " + str(self._species.fwhm) + " eV")
+        title = "$_{%d}$%s charge state evolution, $E_{kin} = %0.1f$ eV, FWHM = %0.1f eV)"\
+                %(self._species.element.z, self._species.element.symbol,
+                  self._e_kin, self._species.fwhm)
         return plotting.plot_cs_evolution(self.solution, xlim=xlim, title=title)
 
 class ContinuousNeutralInjectionEBISProblem(SimpleEBISProblem):

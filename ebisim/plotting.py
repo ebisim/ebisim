@@ -47,7 +47,7 @@ def plot_energy_scan(data, cs, ylim=None, title=None, invert_hor=False, x2fun=No
     return fig
 
 def plot_cs_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
-                      title="Charge State Evolution", legend=False, label_lines=True):
+                      title="Charge state evolution", legend=False, label_lines=True):
     """
     Method that plots the solution of an EBIS charge breeding simulation
     returns figure handle
@@ -62,7 +62,10 @@ def plot_cs_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
     ax = fig.gca()
 
     for cs in range(ode_solution.y.shape[0]):
-        plt.semilogx(ode_solution.t, ode_solution.y[cs, :], figure=fig, label=str(cs) + "+")
+        if np.array_equal(ode_solution.y[cs, :], np.array([0])):
+            plt.semilogx([], [], figure=fig) # Ghost draw for purely zero cases
+        else:
+            plt.semilogx(ode_solution.t, ode_solution.y[cs, :], figure=fig, label=str(cs) + "+")
 
     _decorate_axes(ax, title=title, xlabel="Time (s)", ylabel="Relative Abundance",
                    xlim=xlim, ylim=ylim, grid=True, legend=legend, label_lines=label_lines)
