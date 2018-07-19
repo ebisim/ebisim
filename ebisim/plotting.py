@@ -8,6 +8,44 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.dates import date2num
 
+def plot_energy_scan(data, cs, ylim=None, title=None, invert_hor=False, x2fun=None, x2label=""):
+    """
+    Plots the charge state abundance vs the energy
+    """
+    fig = plt.figure(figsize=(6, 3), dpi=150)
+    ax1 = fig.add_subplot(111)
+
+    for c in range(data.shape[2]):
+        if c in cs:
+            plt.plot(data["e_kin"], data[c], figure=fig, label=str(c) + "+")
+        else:
+            plt.plot([], [], figure=fig)
+
+
+    xlim = (data["e_kin"].min(), data["e_kin"].max())
+    xlabel = "Electron Energy (eV)"
+    ylabel = "Abundance"
+    _decorate_axes(ax1, xlabel=xlabel, ylabel=ylabel, xlim=xlim, ylim=ylim)
+    if invert_hor:
+        plt.gca().invert_xaxis()
+
+    if x2fun:
+        ax2 = ax1.twiny()
+        def tick_function(x):
+            """tick function for the second axis"""
+            V = x2fun(x)
+            return ["%.0f" % z for z in V]
+        new_tick_locations = ax1.get_xticks()
+        ax2.set_xlim(ax1.get_xlim())
+        ax2.set_xticks(new_tick_locations)
+        ax2.set_xticklabels(tick_function(new_tick_locations))
+        ax2.set_xlabel(x2label)
+        if title: title += "\n\n"
+    if title: ax1.set_title(title)
+    plt.tight_layout()
+
+    return fig
+
 def plot_cs_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
                       title="Charge State Evolution", legend=False, label_lines=True):
     """
