@@ -314,12 +314,15 @@ class DRXS(XSBase):
         """
         return self._fwhm
 
-    @fwhm.setter
-    def fwhm(self, val):
-        """fwhm setter (clears cache on set)"""
-        if self._fwhm != val:
-            self._xsmat_cache = {}
-            self._fwhm = val
+    ##### The fwhm is currently immutable because I need to find a way to deal with the case
+    ##### that the object has several users of which one may change the fwhm, which would
+    ##### break the validity for all other users
+    # @fwhm.setter
+    # def fwhm(self, val):
+    #     """fwhm setter (clears cache on set)"""
+    #     if self._fwhm != val:
+    #         self._xsmat_cache = {}
+    #         self._fwhm = val
 
     def _load_data(self):
         """
@@ -442,10 +445,13 @@ class EBISSpecies:
         """
         return self._drxs.fwhm
 
-    @fwhm.setter
-    def fwhm(self, val):
-        """fwhm setter (clears cache on set)"""
-        self._drxs.fwhm = val
+    ##### The fwhm is currently immutable because I need to find a way to deal with the case
+    ##### that the object has several users of which one may change the fwhm, which would
+    ##### break the validity for all other users
+    # @fwhm.setter
+    # def fwhm(self, val):
+    #     """fwhm setter (clears cache on set)"""
+    #     self._drxs.fwhm = val
 
     def plot_combined_xs(self, xlim, ylim, xscale="linear", yscale="log", legend=True):
         """
