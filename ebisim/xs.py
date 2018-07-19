@@ -5,7 +5,6 @@ recombination
 
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
 import scipy.stats
 
 from . import utils
@@ -114,8 +113,8 @@ class XSBase:
         xs_df = pd.DataFrame(rows, columns=colnames)
         return xs_df
 
-    def create_plot(self, xscale="log", yscale="log", title=None, xlim=None, ylim=None,
-                    legend=False, label_lines=True, fig=None):
+    def plot(self, xscale="log", yscale="log", title=None, xlim=None, ylim=None,
+             legend=False, label_lines=True, fig=None):
         """
         Creates a figure showing the cross sections and returns the figure handle
         # Needs to be implemented by inheriting class
@@ -134,20 +133,6 @@ class XSBase:
         # Return figure handle
         return None
 
-    def show_plot(self, xscale="log", yscale="log", xlim=None, ylim=None,
-                  legend=False, label_lines=True):
-        """
-        Creates a figure showing the Cross section and calls the show method
-
-        Input Parameters
-        xscale, yscale - (optional) Scaling of x and y axis (log or linear)
-        xlim, ylim - (optional) plot limits
-        legend - (optional) show legend?
-        line_labels - annotate lines?
-        """
-        self.create_plot(xscale=xscale, yscale=yscale, xlim=xlim, ylim=ylim,
-                         legend=legend, label_lines=label_lines)
-        plt.show()
 
 class IIXS(XSBase):
     """
@@ -199,8 +184,8 @@ class IIXS(XSBase):
         xs *= 4.5e-14
         return xs
 
-    def create_plot(self, xscale="log", yscale="log", title=None, xlim=None, ylim=None,
-                    legend=False, label_lines=True, fig=None):
+    def plot(self, xscale="log", yscale="log", title=None, xlim=None, ylim=None,
+             legend=False, label_lines=True, fig=None):
         """
         Creates a figure showing the cross sections and returns the figure handle
 
@@ -283,8 +268,8 @@ class RRXS(IIXS):
 
         return xs*1e4 #convert to cm^2
 
-    def create_plot(self, xscale="log", yscale="log", title=None, xlim=None, ylim=None,
-                    legend=False, label_lines=True, fig=None):
+    def plot(self, xscale="log", yscale="log", title=None, xlim=None, ylim=None,
+             legend=False, label_lines=True, fig=None):
         """
         Creates a figure showing the cross sections and returns the figure handle
 
@@ -298,9 +283,9 @@ class RRXS(IIXS):
         """
         if not title:
             title = "$_{%d}$%s radiative recombination cross sections"%(self._z, self._es)
-        return super().create_plot(xscale=xscale, yscale=yscale, title=title,
-                                   xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines,
-                                   fig=fig)
+        return super().plot(xscale=xscale, yscale=yscale, title=title,
+                            xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines,
+                            fig=fig)
 
 class DRXS(XSBase):
     """
@@ -377,8 +362,8 @@ class DRXS(XSBase):
 
         return xs*1e-20 # normalise to cm**2
 
-    def create_plot(self, xscale="linear", yscale="linear", title=None, xlim=None, ylim=None,
-                    legend=True, label_lines=False, fig=None):
+    def plot(self, xscale="linear", yscale="linear", title=None, xlim=None, ylim=None,
+             legend=True, label_lines=False, fig=None):
         """
         Creates a figure showing the cross sections and returns the figure handle
 
@@ -469,8 +454,7 @@ class EBISSpecies:
         title = "$_{%d}$%s Combined cross sections (Electron beam FWHM = %0.1f eV)"\
                 %(self.element.z, self.element.symbol, self.fwhm)
         common_kwargs = dict(xlim=xlim, ylim=ylim, xscale=xscale, yscale=yscale)
-        fig = self._iixs.create_plot(label_lines=False, **common_kwargs)
-        fig = self._rrxs.create_plot(fig=fig, **common_kwargs)
-        fig = self._drxs.create_plot(fig=fig, legend=legend, title=title, **common_kwargs)
+        fig = self._iixs.plot(label_lines=False, legend=legend, **common_kwargs)
+        fig = self._rrxs.plot(fig=fig, **common_kwargs)
+        fig = self._drxs.plot(fig=fig, legend=False, title=title, **common_kwargs)
         return fig
-        
