@@ -13,6 +13,10 @@ from .physconst import Q_E
 class SimpleEBISProblem:
     """
     class defining an EBIS charge breeding simulation and providing the interface to solve it
+    Time independent problems only
+
+    Solving is done depending on the latest setting for the kinetic energy so this could create
+    race conditions. Be a bit careful with that, when doing batch work.
     """
 
     def __init__(self, element, j, e_kin, fwhm):
@@ -51,25 +55,44 @@ class SimpleEBISProblem:
             self._solution = None
             self._e_kin = val
 
-    def _ode_system(self, _, y): # No time dependence in this problem
+    # def _ode_system(self, _, y): # No time dependence in this problem
+    #     """
+    #     The ode system describing the charge breeding
+    #     """
+    #     j = self._j / Q_E
+    #     xs_mat = self._species.iixs.xs_matrix(self._e_kin) \
+    #              + self._species.rrxs.xs_matrix(self._e_kin) \
+    #              + self._species.drxs.xs_matrix(self._e_kin)
+    #     # dydt = self._species.LotzCrossSections.cross_section_matrix(self._e_kin).dot(y)
+    #     #dydt += self._species.KLLCrossSections.cross_section_matrix(self._e_kin, self._fwhm).dot(y)
+    #     dydt = j * xs_mat.dot(y)
+    #     return dydt
+
+    # def return_ode_system(self):
+    #     """
+    #     Releases a handle to the internal ODE system method
+    #     This can be used for use in an external solver
+    #     """
+    #     return self._ode_system
+
+    def _jacobian(self):
         """
-        The ode system describing the charge breeding
+        The jacobian of the RHS of the ODE (I think this is the Hessian of y)
         """
         j = self._j / Q_E
         xs_mat = self._species.iixs.xs_matrix(self._e_kin) \
                  + self._species.rrxs.xs_matrix(self._e_kin) \
-                 + self._species.drxs.xs_matrix(self._e_kin) \
-        # dydt = self._species.LotzCrossSections.cross_section_matrix(self._e_kin).dot(y)
-        #dydt += self._species.KLLCrossSections.cross_section_matrix(self._e_kin, self._fwhm).dot(y)
-        dydt = j * xs_mat.dot(y)
-        return dydt
+                 + self._species.drxs.xs_matrix(self._e_kin)
+        jac = j * xs_mat
+        return jac
 
-    def return_ode_system(self):
+    def _generate_ode_func(self):
         """
-        Releases a handle to the internal ODE system method
-        This can be used for use in an external solver
+        Generates a callable function for the RHS of the ode system describing the charge breeding
         """
-        return self._ode_system
+        jac = self._jacobian() # Cache jac (it is time indpendent) to save calls
+        ode = lambda t, y: jac.dot(y) # time independent problem
+        return ode
 
     def solve(self, max_time, y0=None, **kwargs):
         """
@@ -83,10 +106,18 @@ class SimpleEBISProblem:
         y0 - initial distribution (numpy vector where the python index = charge state)
         **kwargs - are forwarded to the solver (scipy.integrate.solve_ivp)
         """
+        # LSODA solver requires "callable" jacobian
+        _jac = self._jacobian() # Cache jac (it is time indpendent) to save calls
+        jac = lambda t, y: _jac
+        # the ode system
+        dydt = self._generate_ode_func()
+
         if y0 is None:
             y0 = self._default_initial
-        solution = scipy.integrate.solve_ivp(self._ode_system, [0, max_time], y0, **kwargs)
-        solution.y = solution.y / np.sum(solution.y, axis=0)
+        # solution = scipy.integrate.solve_ivp(self._ode_system, [0, max_time], y0, **kwargs)
+        solution = scipy.integrate.solve_ivp(dydt, [0, max_time], y0, jac=jac,
+                                             method="LSODA", **kwargs)
+        solution.y = solution.y / np.sum(solution.y, axis=0) # Normalise to sum 1 at each time step
         self._solution = solution
         return solution
 
@@ -110,6 +141,10 @@ class ContinuousNeutralInjectionEBISProblem(SimpleEBISProblem):
     """
     The class has been modified to increase the abundance in the neutral charge state
     at a constant rate to mimick continous neutral injection
+    Time independent problems only
+
+    Solving is done depending on the latest setting for the kinetic energy so this could create
+    race conditions. Be a bit careful with that, when doing batch work.
     """
 
     def __init__(self, element, j, e_kin, fwhm):
@@ -120,15 +155,25 @@ class ContinuousNeutralInjectionEBISProblem(SimpleEBISProblem):
         super().__init__(element, j, e_kin, fwhm)
         #Default initial condition for solving the EBIS ODE System (all atoms in neutral state)
         self._default_initial = np.zeros(self._species.element.z + 1)
-        self._default_initial[0] = 1e-9
+        self._default_initial[0] = 1e-12
 
-    def _ode_system(self, _, y): # No time dependence in this problem
+    def _generate_ode_func(self):
         """
-        The ode system describing the charge breeding
+        Generates a callable function for the RHS of the ode system describing the charge breeding
         """
-        dydt = super()._ode_system(None, y)
-        dydt[0] += 1
-        return dydt
+        jac = self._jacobian() # Cache jac (it is time indpendent) to save calls
+        feed = np.zeros(self._species.element.z + 1)
+        feed[0] = 1
+        ode = lambda t, y: jac.dot(y) + feed # time independent problem
+        return ode
+
+    # def _ode_system(self, _, y): # No time dependence in this problem
+    #     """
+    #     The ode system describing the charge breeding
+    #     """
+    #     dydt = super()._ode_system(None, y)
+    #     dydt[0] += 1
+    #     return dydt
 
 class EnergyScan:
     """
@@ -162,7 +207,7 @@ class EnergyScan:
         """
         return self._solution
 
-    def solve(self):
+    def solve(self, y0=None):
         """
         Trigger the computation of the energy scan that has previously been set up
         This can be fairly time consuming!
@@ -173,7 +218,7 @@ class EnergyScan:
         scan_solutions = pd.DataFrame()
         for e_kin in self._energies:
             self._problem.e_kin = e_kin
-            solution = self._problem.solve(max_time, t_eval=self._eval_times)
+            solution = self._problem.solve(max_time, y0=y0, t_eval=self._eval_times)
             sol_df = pd.DataFrame(solution.y.T)
             sol_df["t"] = solution.t
             sol_df["e_kin"] = e_kin
