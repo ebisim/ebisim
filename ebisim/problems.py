@@ -1,6 +1,7 @@
 """
 Module containing classes that provide interface for problem setup and solution
 """
+import sys
 import numpy as np
 import pandas as pd
 import scipy.integrate
@@ -207,7 +208,7 @@ class EnergyScan:
         """
         return self._solution
 
-    def solve(self, y0=None):
+    def solve(self, y0=None, show_progress=True):
         """
         Trigger the computation of the energy scan that has previously been set up
         This can be fairly time consuming!
@@ -216,6 +217,7 @@ class EnergyScan:
         max_time = np.max(self._eval_times)
         # Solve ODES
         scan_solutions = pd.DataFrame()
+        prog = 0
         for e_kin in self._energies:
             self._problem.e_kin = e_kin
             solution = self._problem.solve(max_time, y0=y0, t_eval=self._eval_times)
@@ -223,7 +225,12 @@ class EnergyScan:
             sol_df["t"] = solution.t
             sol_df["e_kin"] = e_kin
             scan_solutions = scan_solutions.append(sol_df, ignore_index=True)
+            prog += 1
+            if show_progress:
+                sys.stdout.write("\rProgress:  {:>4.1f}%".format(100 * prog / len(self._energies)))
         self._solution = scan_solutions
+        if show_progress:
+            sys.stdout.writelines([])
         return scan_solutions
 
     def plot_abundance_at_time(self, t, cs, normalise=False, invert_hor=False,
