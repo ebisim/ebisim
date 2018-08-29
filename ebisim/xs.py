@@ -418,7 +418,7 @@ class EBISSpecies:
         self._drxs = DRXS(self._element, fwhm)
 
     def __repr__(self):
-        return "EBISSpecies('%s', %sd)"%(self.element.symbol, self.fwhm)
+        return "EBISSpecies('%s', %s)"%(self.element.symbol, str(self.fwhm))
 
     def __str__(self):
         return "EBISSpecies - Element: %s (%s, Z = %d), FWHM = %.2f eV"%(
