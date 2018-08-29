@@ -59,10 +59,11 @@ def plot_energy_time_scan(data, cs, xlim=None, ylim=None, title=None):
     fig = plt.figure(figsize=(6, 3), dpi=150)
     ax = fig.add_subplot(111)
 
-    levels = np.arange(101)/100
+    levels = np.arange(21)/20
     plot = ax.contourf(e_kin, t, abd, levels=levels, cmap="plasma")
     ax.set_yscale("log")
     plt.colorbar(plot, ticks=np.arange(0, 1.1, 0.1))
+    ax.contour(e_kin, t, abd, levels=levels, colors="k", linewidths=.5)
     _decorate_axes(ax, title=title,
                    xlabel="Electron kinetic energy (eV)", ylabel="Time (s)",
                    xlim=xlim, ylim=ylim, grid=False, legend=False, label_lines=False)
