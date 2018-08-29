@@ -265,6 +265,19 @@ class EnergyScan:
                                         x2fun=x2fun, x2label=x2label)
         return fig
 
+    def plot_abundance_of_cs(self, cs, xlim=None, ylim=None):
+        """
+        Creates a 2D plot of the abundance of a charge state for a given range of energies and
+        breeding times (as available in the solution object)
+
+        Input Parameters
+        cs - charge state to plot
+        xlim/ylim - axes limits
+        """
+        title = "Abundance of $_{%d}$%s$^%d+$"%(self._element.z, self._element.symbol, cs)
+        fig = plotting.plot_energy_time_scan(self.solution, cs, xlim=xlim, ylim=ylim, title=title)
+        return fig
+
     ###### The parallel solving is not working yet
     # def solve_parallel(self, processes=2):
     #     """
