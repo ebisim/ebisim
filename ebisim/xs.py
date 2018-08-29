@@ -114,7 +114,7 @@ class XSBase:
         return xs_df
 
     def plot(self, xscale="log", yscale="log", title=None, xlim=None, ylim=None,
-             legend=False, label_lines=True, fig=None):
+             legend=False, label_lines=True, fig=None, ls="-"):
         """
         Creates a figure showing the cross sections and returns the figure handle
         # Needs to be implemented by inheriting class
@@ -126,6 +126,7 @@ class XSBase:
         legend - (optional) show legend?
         line_labels - annotate lines?
         fig - plot on existing figure
+        ls - linestyle
         """
         # pylint: disable=unused-argument
         # Generate Data with _compute_xs_df_for_plot
@@ -185,7 +186,7 @@ class IIXS(XSBase):
         return xs
 
     def plot(self, xscale="log", yscale="log", title=None, xlim=None, ylim=None,
-             legend=False, label_lines=True, fig=None):
+             legend=False, label_lines=True, fig=None, ls="-"):
         """
         Creates a figure showing the cross sections and returns the figure handle
 
@@ -196,6 +197,7 @@ class IIXS(XSBase):
         legend - (optional) show legend?
         line_labels - annotate lines?
         fig - plot on existing figure
+        ls - linestyle
         """
         # Generate Data with _compute_xs_df_for_plot
         e_min = self._e_bind[0][-1]/10
@@ -213,7 +215,7 @@ class IIXS(XSBase):
             title = "$_{%d}$%s Lotz ionisation cross sections"%(self._z, self._es)
         fig = plotting.plot_xs(xs_df, xscale=xscale, yscale=yscale, title=title,
                                xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines,
-                               fig=fig)
+                               fig=fig, ls=ls)
         # Return figure handle
         return fig
 
@@ -269,7 +271,7 @@ class RRXS(IIXS):
         return xs*1e4 #convert to cm^2
 
     def plot(self, xscale="log", yscale="log", title=None, xlim=None, ylim=None,
-             legend=False, label_lines=True, fig=None):
+             legend=False, label_lines=True, fig=None, ls="-"):
         """
         Creates a figure showing the cross sections and returns the figure handle
 
@@ -280,12 +282,13 @@ class RRXS(IIXS):
         legend - (optional) show legend?
         line_labels - annotate lines?
         fig - plot on existing figure
+        ls - linestyle
         """
         if not title:
             title = "$_{%d}$%s radiative recombination cross sections"%(self._z, self._es)
         return super().plot(xscale=xscale, yscale=yscale, title=title,
                             xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines,
-                            fig=fig)
+                            fig=fig, ls=ls)
 
 class DRXS(XSBase):
     """
@@ -366,7 +369,7 @@ class DRXS(XSBase):
         return xs*1e-20 # normalise to cm**2
 
     def plot(self, xscale="linear", yscale="linear", title=None, xlim=None, ylim=None,
-             legend=True, label_lines=False, fig=None):
+             legend=True, label_lines=False, fig=None, ls="-"):
         """
         Creates a figure showing the cross sections and returns the figure handle
 
@@ -377,6 +380,7 @@ class DRXS(XSBase):
         legend - (optional) show legend?
         line_labels - annotate lines?
         fig - plot on existing figure
+        ls - linestyle
         """
         # Generate Data with _compute_xs_df_for_plot
         e_min = self._dr_by_cs.min().DELTA_E_AI.min() - 3 * self._fwhm
@@ -394,7 +398,7 @@ class DRXS(XSBase):
                     %(self._z, self._es, self._fwhm)
         fig = plotting.plot_xs(xs_df, xscale=xscale, yscale=yscale, title=title,
                                xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines,
-                               fig=fig)
+                               fig=fig, ls=ls)
         # Return figure handle
         return fig
 
@@ -467,7 +471,7 @@ class EBISSpecies:
         title = "$_{%d}$%s Combined cross sections (Electron beam FWHM = %0.1f eV)"\
                 %(self.element.z, self.element.symbol, self.fwhm)
         common_kwargs = dict(xlim=xlim, ylim=ylim, xscale=xscale, yscale=yscale)
-        fig = self._iixs.plot(label_lines=False, legend=legend, **common_kwargs)
-        fig = self._rrxs.plot(fig=fig, ls="--", **common_kwargs)
-        fig = self._drxs.plot(fig=fig, ls="-.", legend=False, title=title, **common_kwargs)
+        fig = self._iixs.plot(label_lines=False, legend=legend, ls="--", **common_kwargs)
+        fig = self._rrxs.plot(fig=fig, ls="-.", **common_kwargs)
+        fig = self._drxs.plot(fig=fig, ls="-", legend=False, title=title, **common_kwargs)
         return fig
