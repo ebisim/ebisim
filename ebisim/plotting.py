@@ -46,6 +46,28 @@ def plot_energy_scan(data, cs, ylim=None, title=None, invert_hor=False, x2fun=No
 
     return fig
 
+def plot_energy_time_scan(data, cs, xlim=None, ylim=None, title=None):
+    """
+    Plots the abundance of a charge state depending on the breeding time and energy
+    """
+    plotdf = data[["t", "e_kin", cs]].rename(columns={cs:"DATA"})
+    nt = len(plotdf.t.unique())
+    e_kin = plotdf.e_kin.values.reshape((-1, nt))
+    t = plotdf.t.values.reshape((-1, nt))
+    abd = plotdf.DATA.values.reshape((-1, nt))
+
+    fig = plt.figure(figsize=(6, 3), dpi=150)
+    ax = fig.add_subplot(111)
+
+    levels = np.arange(101)/100
+    plot = ax.contourf(e_kin, t, abd, levels=levels, cmap="plasma")
+    ax.set_yscale("log")
+    plt.colorbar(plot, ticks=np.arange(0, 1.1, 0.1))
+    _decorate_axes(ax, title=title,
+                   xlabel="Electron kinetic energy (eV)", ylabel="Time (s)",
+                   xlim=xlim, ylim=ylim, grid=False, legend=False, label_lines=False)
+    return fig
+
 def plot_cs_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
                       title="Charge state evolution", legend=False, label_lines=True):
     """
@@ -79,7 +101,7 @@ def plot_xs(xs_df, fig=None, xscale="log", yscale="log",
     Input Parameters
     xs_df - dataframe holding the required data, one column must be ekin (energy) other columns
             represent each chargestate (columns should be in ascending order)
-    fig - (optional) Pass hangle to lot on existing figure
+    fig - (optional) Pass handle to plot on existing figure
     xscale, yscale - (optional) Scaling of x and y axis (log or linear)
     title - (optional) Plot title
     xlim, ylim - (optional) plot limits
@@ -119,7 +141,7 @@ def _decorate_axes(ax, title=None, xlabel=None, ylabel=None, xlim=None, ylim=Non
     if legend: ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     # Label lines should be called at the end of the plot generation since it relies on axlim
     if label_lines:
-        step = np.ceil(len(ax.get_lines())/10)
+        step = int(np.ceil(len(ax.get_lines())/10))
         labelLines(ax.get_lines()[::step], size=7, bbox={"pad":0.1, "fc":"w", "ec":"none"})
 
 ####
