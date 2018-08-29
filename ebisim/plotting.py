@@ -94,7 +94,8 @@ def plot_cs_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
     return fig
 
 def plot_xs(xs_df, fig=None, xscale="log", yscale="log",
-            title=None, xlim=None, ylim=None, legend=False, label_lines=True):
+            title=None, xlim=None, ylim=None, legend=False, label_lines=True,
+            ls="-"):
     """
     Creates a figure showing the cross sections and returns the figure handle
 
@@ -107,6 +108,7 @@ def plot_xs(xs_df, fig=None, xscale="log", yscale="log",
     xlim, ylim - (optional) plot limits
     legend - (optional) show legend?
     line_labels - annotate lines?
+    ls - linestyle
     """
     if not fig: fig = plt.figure(figsize=(8, 6), dpi=150)
     ax = fig.gca()
@@ -118,7 +120,7 @@ def plot_xs(xs_df, fig=None, xscale="log", yscale="log",
         if np.array_equal(xs.unique(), np.array([0])):
             plt.plot([], []) # If all xs are zero, do a ghost plot to advance color cycle
         else:
-            plt.plot(ekin, xs, figure=fig, lw=1, label=str(cs)+"+") # otherwise plot data
+            plt.plot(ekin, xs, figure=fig, ls=ls, lw=1, label=str(cs)+"+") # otherwise plot data
 
     ax.set_xscale(xscale)
     ax.set_yscale(yscale)
