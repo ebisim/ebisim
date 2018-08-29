@@ -274,7 +274,7 @@ class EnergyScan:
         cs - charge state to plot
         xlim/ylim - axes limits
         """
-        title = "Abundance of $_{%d}$%s$^%d+$"%(self._element.z, self._element.symbol, cs)
+        title = "Abundance of $_{%d}$%s$^{%d+}$"%(self._element.z, self._element.symbol, cs)
         fig = plotting.plot_energy_time_scan(self.solution, cs, xlim=xlim, ylim=ylim, title=title)
         return fig
 
