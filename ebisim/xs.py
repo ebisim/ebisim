@@ -468,6 +468,6 @@ class EBISSpecies:
                 %(self.element.z, self.element.symbol, self.fwhm)
         common_kwargs = dict(xlim=xlim, ylim=ylim, xscale=xscale, yscale=yscale)
         fig = self._iixs.plot(label_lines=False, legend=legend, **common_kwargs)
-        fig = self._rrxs.plot(fig=fig, ls="--" **common_kwargs)
+        fig = self._rrxs.plot(fig=fig, ls="--", **common_kwargs)
         fig = self._drxs.plot(fig=fig, ls="-.", legend=False, title=title, **common_kwargs)
         return fig
