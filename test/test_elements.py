@@ -32,9 +32,11 @@ def test_ChemicalElement():
     k = [19, "K", "Potassium"]
     cs = [55, "Cs", "Caesium"]
     u = [92, "U", "Uranium"]
+    a = {"K":39, "Cs":133, "U":238}
     for elem in [k, cs, u]:
         for idx in elem:
             ce = ebisim.elements.ChemicalElement(idx)
             assert ce.z == elem[0]
             assert ce.symbol == elem[1]
             assert ce.name == elem[2]
+            assert ce.a == a[elem[1]]
