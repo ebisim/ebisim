@@ -5,12 +5,18 @@ recombination
 
 import numpy as np
 import pandas as pd
-import scipy.stats
+# import scipy.stats
 
 from . import utils
 from . import elements
 from . import plotting
 from .physconst import RY_EV, ALPHA, PI, COMPT_E_RED
+
+def normpdf(x, mu, sigma):
+    """
+    The pdf of the normal distribution
+    """
+    return np.exp(-(x - mu)**2 / (2 * sigma**2)) / np.sqrt(2 * PI * sigma**2)
 
 class XSBase:
     """
@@ -337,14 +343,25 @@ class DRXS(XSBase):
         # RECOMB_TYPE(DR, TR, QR,...), RECOMB_NAME(KLL, KLM, ...), CHARGE_STATE
         try:
             with utils.open_resource("DR/%s_KLL.csv" % self._element.symbol) as fobj:
-                self._dr_by_cs = pd.read_csv(fobj, index_col=None)
+                dr_by_cs = pd.read_csv(fobj, index_col=None)
         except FileNotFoundError as e:
             print("NO DR FILE FOUND")
             print(e)
             print("--> FALLING BACK TO DUMMY")
             with utils.open_resource("DR/_FALLBACKDUMMY.csv") as fobj:
-                self._dr_by_cs = pd.read_csv(fobj, index_col=None)
-        self._dr_by_cs = self._dr_by_cs.groupby("CHARGE_STATE")
+                dr_by_cs = pd.read_csv(fobj, index_col=None)
+        dr_by_cs = dr_by_cs.groupby("CHARGE_STATE")
+
+        self._resonance_energies = {}
+        self._recomb_strengths = {}
+        for cs in dr_by_cs.groups:
+            drdf = dr_by_cs.get_group(cs)
+            self._resonance_energies[cs] = drdf.DELTA_E_AI.values.copy()
+            self._recomb_strengths[cs] = drdf.RECOMB_STRENGTH.values.copy()
+        
+        self._eres_min = dr_by_cs.min().DELTA_E_AI.min()
+        self._eres_max = dr_by_cs.max().DELTA_E_AI.max()
+
 
     def xs(self, cs, e_kin):
         """
@@ -357,15 +374,11 @@ class DRXS(XSBase):
         cs - Charge State (0 for neutral atom)
         e_kin - kinetic energy of projectile Electron
         """
-        if cs not in self._dr_by_cs.groups: # If no DR Data available for this CS return 0
-            return 0
-        else:
-            drdf = self._dr_by_cs.get_group(cs)
+        if cs not in self._resonance_energies: #Check if key cs exists
+            return 0 # If no DR Data available for this CS return 0
 
-        xs = 0
-        sig = self._fwhm/(2*np.sqrt(2*np.log(2)))
-        for delta_e, strength in zip(drdf.DELTA_E_AI, drdf.RECOMB_STRENGTH):
-            xs += strength * scipy.stats.norm.pdf(e_kin, loc=delta_e, scale=sig)
+        sig = self._fwhm/2.35482 # 2.35482approx.(2*np.sqrt(2*np.log(2)))
+        xs = np.sum(self._recomb_strengths[cs] * normpdf(e_kin, self._resonance_energies[cs], sig))
 
         return xs*1e-20 # normalise to cm**2
 
@@ -384,8 +397,8 @@ class DRXS(XSBase):
         ls - linestyle
         """
         # Generate Data with _compute_xs_df_for_plot
-        e_min = self._dr_by_cs.min().DELTA_E_AI.min() - 3 * self._fwhm
-        e_max = self._dr_by_cs.max().DELTA_E_AI.max() + 3 * self._fwhm
+        e_min = self._eres_min - 3 * self._fwhm
+        e_max = self._eres_max + 3 * self._fwhm
         if xlim:
             e_min = np.min([e_min, xlim[0]])
             e_max = np.max([e_max, xlim[1]])
