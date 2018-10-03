@@ -80,14 +80,14 @@ class ChemicalElement(collections.namedtuple("ChemicalElement", ["z", "symbol", 
         name = element_name(z)
         if a is None:
             idx = _ELEM_Z.index(z)
-            a=_ELEM_A[idx]
+            a = _ELEM_A[idx]
         return super(ChemicalElement, cls).__new__(cls, z, symbol, name, a)
-    
+
     def latex_isotope(self):
         """
         returns a latex formatted string describing the isotope
         """
-        return "$^{%d}_{%d}${%s}"%(self.a, self.z, self.symbol)
+        return "$^{%d}_{%d}$%s"%(self.a, self.z, self.symbol)
 
 ### Old version of Chemical Element, saved as a fail safe or to extend in the future
 # class ChemicalElement:
