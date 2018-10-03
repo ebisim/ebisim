@@ -8,9 +8,9 @@ import numpy as np
 
 def test_XSBase_element_properties():
     xsobj = ebisim.xs.XSBase(3)
-    assert xsobj._es == "Li"
-    assert xsobj._name == "Lithium"
-    assert xsobj._z == 3
+    assert xsobj._element.symbol == "Li"
+    assert xsobj._element.name == "Lithium"
+    assert xsobj._element.z == 3
 
 def test_XSBase_xs():
     xsobj = ebisim.xs.XSBase(3)

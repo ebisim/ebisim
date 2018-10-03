@@ -30,9 +30,10 @@ class XSBase:
         # Get basic properties of the element in question
         if not isinstance(element, elements.ChemicalElement):
             element = elements.ChemicalElement(element)
-        self._z = element.z
-        self._es = element.symbol
-        self._name = element.name
+        self._element = element
+        # self._z = element.z
+        # self._es = element.symbol
+        # self._name = element.name
 
         # Instantiate cache for Cross Section Matrices
         self._xsmat_cache = {}
@@ -65,7 +66,7 @@ class XSBase:
         """
         computes the cross section matrix for a given kinetic energy if not found in cache
         """
-        n = self._z + 1
+        n = self._element.z + 1
 
         # Compute all cross sections
         xs = np.zeros(n)
@@ -109,7 +110,7 @@ class XSBase:
         for ek in energies:
             xs = -1 * np.diag(self.xs_matrix(ek))
             rows.append(np.hstack([ek, xs]))
-        colnames = ["ekin"] + [str(cs) for cs in range(self._z+1)]
+        colnames = ["ekin"] + [str(cs) for cs in range(self._element.z+1)]
         xs_df = pd.DataFrame(rows, columns=colnames)
         return xs_df
 
@@ -151,7 +152,7 @@ class IIXS(XSBase):
         # list of lists where each sublist hold the energies for one charge state
         # self._e_bind[n] describes charge state n+
         self._e_bind = []
-        with utils.open_resource("BindingEnergies/%d.txt" % self._z) as fobj:
+        with utils.open_resource("BindingEnergies/%d.txt" % self._element.z) as fobj:
             for line in fobj:
                 line = line.split()
                 line = [float(elem.strip()) for elem in line]
@@ -161,7 +162,7 @@ class IIXS(XSBase):
         # list of lists where each sublist hold the configuration for on charge state
         # self._cfg[n] describes charge state n+
         self._cfg = []
-        with utils.open_resource("BindingEnergies/%dconf.txt" % self._z) as fobj:
+        with utils.open_resource("BindingEnergies/%dconf.txt" % self._element.z) as fobj:
             for line in fobj:
                 line = line.split()
                 line = [int(elem.strip()) for elem in line]
@@ -176,7 +177,7 @@ class IIXS(XSBase):
         cs - Charge State (0 for neutral atom)
         e_kin - kinetic energy of projectile Electron
         """
-        if cs == self._z:
+        if cs == self._element.z:
             return 0
         xs = 0
         for e_bind, num_el in zip(self._e_bind[cs], self._cfg[cs]):
@@ -212,7 +213,7 @@ class IIXS(XSBase):
         xs_df = self._compute_xs_df_for_plot(energies)
         # call plotting.plot_xs()
         if not title:
-            title = "$_{%d}$%s Lotz ionisation cross sections"%(self._z, self._es)
+            title = "%s Lotz ionisation cross sections"%self._element.latex_isotope()
         fig = plotting.plot_xs(xs_df, xscale=xscale, yscale=yscale, title=title,
                                xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines,
                                fig=fig, ls=ls)
@@ -240,7 +241,7 @@ class RRXS(IIXS):
         if cs == 0:
             return 0 # Atom cannot recombine
 
-        if cs < self._z:
+        if cs < self._element.z:
             cfg = self._cfg[cs]
             ### Determine number of electrons in ion valence shell (highest occupied)
             # The sorting of orbitals in Roberts files is a bit obscure but seems to be consistent
@@ -253,7 +254,7 @@ class RRXS(IIXS):
             n_0 = max(SHELL_KEY[:len(cfg)])
             occup = sum(cfg[k] for k in range(len(cfg)) if SHELL_KEY[k] == n_0)
             # print("n_0:", n_0, "occup", occup)
-        elif cs == self._z:
+        elif cs == self._element.z:
             n_0 = 1
             occup = 0
 
@@ -262,7 +263,7 @@ class RRXS(IIXS):
         # print("cs:", cs, "w_n0:", w_n0, "n_0eff", n_0eff)
 
         ### the rest
-        z_eff = (self._z + cs) / 2
+        z_eff = (self._element.z + cs) / 2
         chi = 2 * z_eff**2 * RY_EV / e_kin
 
         xs = 8 * PI * ALPHA / (3 * np.sqrt(3)) * COMPT_E_RED**2 * \
@@ -285,7 +286,7 @@ class RRXS(IIXS):
         ls - linestyle
         """
         if not title:
-            title = "$_{%d}$%s radiative recombination cross sections"%(self._z, self._es)
+            title = "%s radiative recombination cross sections"%self._element.latex_isotope()
         return super().plot(xscale=xscale, yscale=yscale, title=title,
                             xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines,
                             fig=fig, ls=ls)
@@ -335,7 +336,7 @@ class DRXS(XSBase):
         # Columns: DELTA_E_AI (eV), RECOMB_STRENGTH (1e-20 cm**2 eV),
         # RECOMB_TYPE(DR, TR, QR,...), RECOMB_NAME(KLL, KLM, ...), CHARGE_STATE
         try:
-            with utils.open_resource("DR/%s_KLL.csv" % self._es) as fobj:
+            with utils.open_resource("DR/%s_KLL.csv" % self._element.symbol) as fobj:
                 self._dr_by_cs = pd.read_csv(fobj, index_col=None)
         except FileNotFoundError as e:
             print("NO DR FILE FOUND")
@@ -394,8 +395,8 @@ class DRXS(XSBase):
         xs_df = self._compute_xs_df_for_plot(energies)
         # call plotting.plot_xs()
         if not title:
-            title = "$_{%d}$%s DR cross sections (Electron beam FWHM = %0.1f eV)"\
-                    %(self._z, self._es, self._fwhm)
+            title = "%s DR cross sections (Electron beam FWHM = %0.1f eV)"\
+                    %(self._element.latex_isotope(), self._fwhm)
         fig = plotting.plot_xs(xs_df, xscale=xscale, yscale=yscale, title=title,
                                xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines,
                                fig=fig, ls=ls)
@@ -468,8 +469,8 @@ class EBISSpecies:
         """
         Returns the figure handle to a plot combining all cross sections
         """
-        title = "$_{%d}$%s Combined cross sections (Electron beam FWHM = %0.1f eV)"\
-                %(self.element.z, self.element.symbol, self.fwhm)
+        title = "%s Combined cross sections (Electron beam FWHM = %0.1f eV)"\
+                %(self.element.latex_isotope(), self.fwhm)
         common_kwargs = dict(xlim=xlim, ylim=ylim, xscale=xscale, yscale=yscale)
         fig = self._iixs.plot(label_lines=False, legend=legend, ls="--", **common_kwargs)
         fig = self._rrxs.plot(fig=fig, ls="-.", **common_kwargs)
