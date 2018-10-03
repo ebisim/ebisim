@@ -5,7 +5,6 @@ recombination
 
 import numpy as np
 import pandas as pd
-# import scipy.stats
 
 from . import utils
 from . import elements
@@ -37,14 +36,11 @@ class XSBase:
         if not isinstance(element, elements.ChemicalElement):
             element = elements.ChemicalElement(element)
         self._element = element
-        # self._z = element.z
-        # self._es = element.symbol
-        # self._name = element.name
 
         # Instantiate cache for Cross Section Matrices
         self._xsmat_cache = {}
 
-        # Load reuired data from resource files
+        # Load required data from resource files
         self._load_data()
 
     def _load_data(self):
@@ -358,7 +354,7 @@ class DRXS(XSBase):
             drdf = dr_by_cs.get_group(cs)
             self._resonance_energies[cs] = drdf.DELTA_E_AI.values.copy()
             self._recomb_strengths[cs] = drdf.RECOMB_STRENGTH.values.copy()
-        
+
         self._eres_min = dr_by_cs.min().DELTA_E_AI.min()
         self._eres_max = dr_by_cs.max().DELTA_E_AI.max()
 
