@@ -133,8 +133,8 @@ class SimpleEBISProblem:
             print("Error! Need to solve problem before plotting")
         tmax = self.solution.t.max()
         xlim = (1e-4, tmax)
-        title = "$_{%d}$%s charge state evolution, $E_{kin} = %0.1f$ eV, FWHM = %0.1f eV)"\
-                %(self._species.element.z, self._species.element.symbol,
+        title = "%s charge state evolution, $E_{kin} = %0.1f$ eV, FWHM = %0.1f eV)"\
+                %(self._species.element.latex_isotope(),
                   self._e_kin, self._species.fwhm)
         return plotting.plot_cs_evolution(self.solution, xlim=xlim, title=title)
 
@@ -253,12 +253,12 @@ class EnergyScan:
         if normalise:
             for c in range(self._element.z+1):
                 data[c] = data[c]/data[c].mean()
-            title = ("Normalised abundance of $_{%d}$%s at $T=%.3f$ ms"
-                     %(self._element.z, self._element.symbol, 1000*t))
+            title = ("Normalised abundance of %s at $T=%.3f$ ms"
+                     %(self._element.latex_isotope(), 1000*t))
             ylim = None
         else:
-            title = ("Relative abundance of $_{%d}$%s at $T=%.3f$ ms"
-                     %(self._element.z, self._element.symbol, 1000*t))
+            title = ("Relative abundance of %s at $T=%.3f$ ms"
+                     %(self._element.latex_isotope(), 1000*t))
             ylim = (0.01, 1)
 
         fig = plotting.plot_energy_scan(data, cs, ylim=ylim, title=title, invert_hor=invert_hor,
@@ -274,7 +274,7 @@ class EnergyScan:
         cs - charge state to plot
         xlim/ylim - axes limits
         """
-        title = "Abundance of $_{%d}$%s$^{%d +}$"%(self._element.z, self._element.symbol, cs)
+        title = "Abundance of %s$^{%d +}$"%(self._element.latex_isotope(), cs)
         fig = plotting.plot_energy_time_scan(self.solution, cs, xlim=xlim, ylim=ylim, title=title)
         return fig
 
