@@ -208,7 +208,7 @@ class DRXS:
 
     UNIT: cm^2
     """
-    def __init__(self, element, fwhm):
+    def __init__(self, element):
         """
         Initialise cross section object
 
@@ -216,7 +216,6 @@ class DRXS:
         element - Atomic Number, Name, or Symbol, or ChemicalElement object
         fwhm - Width of the Gaussian energy spread profile used to compute the spectrum
         """
-        self._fwhm = fwhm
         # Get basic properties of the element in question
         self._element = elements.cast_to_ChemicalElement(element)
         # Activate caching for Cross Section Vectors
@@ -247,14 +246,6 @@ class DRXS:
         self._e_res_max = dr_by_cs.max().DELTA_E_AI.max()
 
     @property
-    def fwhm(self):
-        """"
-        Returns the current value of fwhm set for this cross section object
-        Setting a new fwhm clears the xs_matrix cache
-        """
-        return self._fwhm
-
-    @property
     def element(self):
         """Returns the ChemicalElement Object of the xs object"""
         return self._element
@@ -272,17 +263,8 @@ class DRXS:
         Property returning the highest DRR energy within all charge states
         """
         return self._e_res_max
-    ##### The fwhm is currently immutable because I need to find a way to deal with the case
-    ##### that the object has several users of which one may change the fwhm, which would
-    ##### break the validity for all other users
-    # @fwhm.setter
-    # def fwhm(self, val):
-    #     """fwhm setter (clears cache on set)"""
-    #     if self._fwhm != val:
-    #         self._xsmat_cache = {}
-    #         self._fwhm = val
 
-    def xs(self, cs, e_kin):
+    def xs(self, cs, e_kin, fwhm):
         """
         Computes the DR (MR) cross section of a given charge state at a given electron energy
         assuming that the resonances are delta peaks that are smeared out due to the
@@ -296,12 +278,12 @@ class DRXS:
         if cs not in self._resonance_energies: #Check if key cs exists
             return 0 # If no DR Data available for this CS return 0
 
-        sig = self._fwhm/2.35482 # 2.35482approx.(2*np.sqrt(2*np.log(2)))
+        sig = fwhm/2.35482 # 2.35482approx.(2*np.sqrt(2*np.log(2)))
         xs = np.sum(self._recomb_strengths[cs] * normpdf(e_kin, self._resonance_energies[cs], sig))
 
         return xs*1e-20 # normalise to cm**2
 
-    def xs_vector(self, e_kin):
+    def xs_vector(self, e_kin, fwhm):
         # pylint: disable=E0202
         """
         Returns a vector with the cross sections for a given electron energy
@@ -318,9 +300,9 @@ class DRXS:
         Input Parameters
         e_kin - Electron kinetic energy
         """
-        return np.array([self.xs(cs, e_kin) for cs in range(self._element.z + 1)])
+        return np.array([self.xs(cs, e_kin, fwhm) for cs in range(self._element.z + 1)])
 
-    def xs_matrix(self, e_kin):
+    def xs_matrix(self, e_kin, fwhm):
         """
         Returns a matrix with the cross sections for a given electron energy
         that can be used to solve the rate equations in a convenient manner.
@@ -332,7 +314,7 @@ class DRXS:
         Input Parameters
         e_kin - Electron kinetic energy
         """
-        xs = self.xs_vector(e_kin)
+        xs = self.xs_vector(e_kin, fwhm)
         return np.diag(xs[1:], 1) - np.diag(xs)
 
 
@@ -340,7 +322,7 @@ class EBISSpecies:
     """
     collection of properties relevant to an atomic species in an EBIS for solving rate equations
     """
-    def __init__(self, element, fwhm):
+    def __init__(self, element):
         """
         Creates the species by defining the element and automatically creating objects for the
         Lotz and KLL cross section
@@ -353,14 +335,14 @@ class EBISSpecies:
         self._element = elements.cast_to_ChemicalElement(element)
         self._eixs = EIXS(self._element)
         self._rrxs = RRXS(self._element)
-        self._drxs = DRXS(self._element, fwhm)
+        self._drxs = DRXS(self._element)
 
     def __repr__(self):
-        return "EBISSpecies('%s', %s)"%(self.element.symbol, str(self.fwhm))
+        return "EBISSpecies('%s')"%(self.element.symbol)
 
     def __str__(self):
-        return "EBISSpecies - Element: %s (%s, Z = %d), FWHM = %.2f eV"%(
-            self.element.name, self.element.symbol, self.element.z, self.fwhm)
+        return "EBISSpecies - Element: %s (%s, Z = %d)"%(
+            self.element.name, self.element.symbol, self.element.z)
 
     @property
     def element(self):
@@ -381,19 +363,3 @@ class EBISSpecies:
     def drxs(self):
         """Returns the DRXS Object of the species"""
         return self._drxs
-
-    @property
-    def fwhm(self):
-        """"
-        Returns the current value of fwhm set for this cross section object
-        Setting a new fwhm clears the xs_matrix cache
-        """
-        return self._drxs.fwhm
-
-    ##### The fwhm is currently immutable because I need to find a way to deal with the case
-    ##### that the object has several users of which one may change the fwhm, which would
-    ##### break the validity for all other users
-    # @fwhm.setter
-    # def fwhm(self, val):
-    #     """fwhm setter (clears cache on set)"""
-    #     self._drxs.fwhm = val

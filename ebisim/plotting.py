@@ -213,7 +213,7 @@ def plot_dr_xs(element, fwhm, **kwargs):
     **kwargs - passed on to _plot_xs, check arguments thereof
     """
     # Create cross section object
-    xsobj = xs.DRXS(element, fwhm)
+    xsobj = xs.DRXS(element)
     # Find some energy intervals and such
     e_min = xsobj.e_res_min - 3 * fwhm
     e_max = xsobj.e_res_max + 3 * fwhm
@@ -226,7 +226,7 @@ def plot_dr_xs(element, fwhm, **kwargs):
     # Generate data
     rows = []
     for ek in energies:
-        xsec = xsobj.xs_vector(ek)
+        xsec = xsobj.xs_vector(ek, fwhm)
         rows.append(np.hstack([ek, xsec]))
     colnames = ["ekin"] + [str(cs) for cs in range(xsobj.element.z+1)]
     xs_df = pd.DataFrame(rows, columns=colnames)

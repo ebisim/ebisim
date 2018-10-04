@@ -31,7 +31,8 @@ class SimpleEBISProblem:
         fwhm - electron energy spread (for DR width)
         """
         #species - the Species object containing the physical information about cross section etc
-        self._species = xs.EBISSpecies(element, fwhm)
+        self._species = xs.EBISSpecies(element)
+        self._fwhm = fwhm
         self._j = j
         self._e_kin = e_kin
         self._solution = None
@@ -83,7 +84,7 @@ class SimpleEBISProblem:
         j = self._j / Q_E
         xs_mat = self._species.eixs.xs_matrix(self._e_kin) \
                  + self._species.rrxs.xs_matrix(self._e_kin) \
-                 + self._species.drxs.xs_matrix(self._e_kin)
+                 + self._species.drxs.xs_matrix(self._e_kin, self._fwhm)
         jac = j * xs_mat
         return jac
 
@@ -135,7 +136,7 @@ class SimpleEBISProblem:
         xlim = (1e-4, tmax)
         title = "%s charge state evolution, $E_{kin} = %0.1f$ eV, FWHM = %0.1f eV)"\
                 %(self._species.element.latex_isotope(),
-                  self._e_kin, self._species.fwhm)
+                  self._e_kin, self._fwhm)
         return plotting.plot_cs_evolution(self.solution, xlim=xlim, title=title)
 
 class ContinuousNeutralInjectionEBISProblem(SimpleEBISProblem):
