@@ -142,6 +142,44 @@ class RRXS(EIXS):
 
     UNIT: cm^2
     """
+    def __init__(self, element):
+        """
+        Initialise cross section object
+
+        Input Parameters
+        element - Atomic Number, Name, or Symbol, or ChemicalElement object
+        """
+        super().__init__(element)
+        #Precompute some quantities going into the xs that only depend on cs for efficiency
+        n_0 = []
+        occup = []
+        for cs in range(self._element.z + 1):
+            if cs < self._element.z:
+                cfg = self._cfg[cs]
+                ### Determine number of electrons in ion valence shell (highest occupied)
+                # The sorting of orbitals in Roberts files is a bit obscure but seems consistent
+                # and correct (checked a few configurations to verify that)
+                # According to the readme files the columns are:
+                # 1s 2s 2p- 2p+ 3s 3p- 3p+ 3d- 3d+ 4s 4p- 4p+ 4d- 4d+ ...
+                # 5s 5p- 5p+ 4f- 4f+ 5d- 5d+ 6s 6p- 6p+ 5f- 5f+ 6d- 6d+ 7s
+                SHELL_KEY = [1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
+                             5, 5, 5, 4, 4, 5, 5, 6, 6, 6, 5, 5, 6, 6, 7] #n of each orbit in order
+                temp_shell = SHELL_KEY[:len(cfg)]
+                n_0_temp = max(temp_shell[k] if cfg[k] != 0 else 0 for k in range(len(cfg)))
+                n_0.append(n_0_temp)
+                occup.append(sum(cfg[k] for k in range(len(cfg)) if SHELL_KEY[k] == n_0_temp))
+                # print("n_0:", n_0, "occup", occup)
+            elif cs == self._element.z:
+                n_0.append(1)
+                occup.append(0)
+        self._n_0 = np.array(n_0)
+        self._occup = np.array(occup)
+        self._w_n0 = (2*self._n_0**2 - self._occup)/(2*self._n_0**2)
+        self._n_0eff = self._n_0 + (1 - self._w_n0) - 0.3
+        self._z_eff = (self._element.z + np.arange(self._element.z+1)) / 2
+        self._chi_prep = 2 * self._z_eff**2 * RY_EV
+        del(self._n_0, self._occup, self._w_n0, self._z_eff, self._e_bind) # Not needed atm
+
     def xs(self, cs, e_kin):
         """
         Computes the RR cross section of a given charge state at a given electron energy
@@ -152,37 +190,29 @@ class RRXS(EIXS):
         cs - Charge State (0 for neutral atom)
         e_kin - kinetic energy of projectile Electron
         """
-        if cs == 0:
-            return 0 # Atom cannot recombine
+        return self.xs_vector(e_kin)[cs] #Vectorized solution is fast enough to do it this way
 
-        if cs < self._element.z:
-            cfg = self._cfg[cs]
-            ### Determine number of electrons in ion valence shell (highest occupied)
-            # The sorting of orbitals in Roberts files is a bit obscure but seems to be consistent
-            # and correct (checked a few configurations to verify that)
-            # According to the readme files the columns are:
-            # 1s 2s 2p- 2p+ 3s 3p- 3p+ 3d- 3d+ 4s 4p- 4p+ 4d- 4d+ ...
-            # 5s 5p- 5p+ 4f- 4f+ 5d- 5d+ 6s 6p- 6p+ 5f- 5f+ 6d- 6d+ 7s
-            SHELL_KEY = [1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
-                         5, 5, 5, 4, 4, 5, 5, 6, 6, 6, 5, 5, 6, 6, 7] # n of each orbital in order
-            n_0 = max(SHELL_KEY[:len(cfg)])
-            occup = sum(cfg[k] for k in range(len(cfg)) if SHELL_KEY[k] == n_0)
-            # print("n_0:", n_0, "occup", occup)
-        elif cs == self._element.z:
-            n_0 = 1
-            occup = 0
+    def xs_vector(self, e_kin):
+        # pylint: disable=E0202
+        """
+        Returns a vector with the cross sections for a given electron energy
+        that can be used to solve the rate equations in a convenient manner.
 
-        w_n0 = (2*n_0**2 - occup)/(2*n_0**2)
-        n_0eff = n_0 + (1 - w_n0) - 0.3
-        # print("cs:", cs, "w_n0:", w_n0, "n_0eff", n_0eff)
+        The vector index of each entry corresponds to the charge state
 
-        ### the rest
-        z_eff = (self._element.z + cs) / 2
-        chi = 2 * z_eff**2 * RY_EV / e_kin
+        Vectors are cached for better performance
+        Be careful as this can occupy memory when a lot of energies are polled over time
+        Cachesize is adjustable via XS_CACHE_MAXSIZE variable
 
+        UNIT: cm^2
+
+        Input Parameters
+        e_kin - Electron kinetic energy
+        """
+        chi = self._chi_prep / e_kin
         xs = 8 * PI * ALPHA / (3 * np.sqrt(3)) * COMPT_E_RED**2 * \
-                     chi * np.log(1 + chi/(2 * n_0eff**2))
-
+                chi * np.log(1 + chi/(2 * self._n_0eff**2))
+        xs[0] = 0
         return xs*1e4 #convert to cm^2
 
     def xs_matrix(self, e_kin):
