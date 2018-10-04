@@ -94,11 +94,9 @@ class XSBase:
         xs_mat = np.diag(-1 * xs) # negative cross section on diagonal (losses)
         # gains depend on whether looking at ionisation or recombination
         if self.__class__.XSTYPE == "IONISE":
-            for cs in range(0, n-1):
-                xs_mat[cs+1, cs] = xs[cs]
+            xs_mat += np.diag(xs[:-1], -1)
         elif self.__class__.XSTYPE == "RECOMB":
-            for cs in range(1, n):
-                xs_mat[cs-1, cs] = xs[cs]
+            xs_mat += np.diag(xs[1:], 1)
 
         return xs_mat
 
