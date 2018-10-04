@@ -40,7 +40,7 @@ class XSBase:
         # Instantiate cache for Cross Section Matrices
         self._xsmat_cache = {}
 
-        # Load required data from resource files
+        # Load required data from resource files, can set further fields
         self._load_data()
 
     def _load_data(self):
@@ -71,9 +71,6 @@ class XSBase:
         n = self._element.z + 1
 
         # Compute all cross sections
-        # xs = np.zeros(n)
-        # for cs in range(n):
-        #     xs[cs] = self.xs(cs, e_kin)
         xs = np.array([self.xs(cs, e_kin) for cs in range(n)])
 
         # Assemble matrix
