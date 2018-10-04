@@ -20,98 +20,6 @@ def normpdf(x, mu, sigma):
     """
     return np.exp(-(x - mu)**2 / (2 * sigma**2)) / np.sqrt(2 * PI * sigma**2)
 
-class XSBase:
-    """
-    Base class for cross section classes
-    """
-
-    XSTYPE = None
-    # Needs to be set to "RECOMB" or "IONISE" by derived class to assemble xs_matrices correctly
-
-    def __init__(self, element):
-        """
-        Initialise cross section object
-
-        Input Parameters
-        element - Atomic Number, Name, or Symbol, or ChemicalElement object
-        """
-        # Get basic properties of the element in question
-        self._element = elements.cast_to_ChemicalElement(element)
-        # Activate caching for Cross Section Vectors
-        self.xs_vector = lru_cache(maxsize=XS_CACHE_MAXSIZE)(self.xs_vector)
-
-        # Load required data from resource files, can set further fields
-        self._load_data()
-
-    @property
-    def element(self):
-        """Returns the ChemicalElement Object of the xs object"""
-        return self._element
-
-    def _load_data(self):
-        """
-        Load the required data from the resource directory
-        --> Needs to be implemented by derived class
-        """
-        pass
-
-    def xs(self, cs, e_kin):
-        """
-        Computes the cross section of a given charge state at a given electron energy
-        UNIT: cm^2
-
-        Input Parameters
-        cs - Charge State (0 for neutral atom)
-        e_kin - kinetic energy of projectile Electron
-
-        --> Needs to be implemented by derived class
-        --> Needs to accept any kinetic energy and 0 <= cs <= Z
-        """
-        return 1000*e_kin+cs # dummy return for easy debugging and testing
-
-    def xs_vector(self, e_kin):
-        # pylint: disable=E0202
-        """
-        Returns a vector with the cross sections for a given electron energy
-        that can be used to solve the rate equations in a convenient manner.
-
-        The vector index of each entry corresponds to the charge state
-
-        Vectors are cached for better performance
-        Be careful as this can occupy memory when a lot of energies are polled over time
-        Cachesize is adjustable via XS_CACHE_MAXSIZE variable
-
-        UNIT: cm^2
-
-        Input Parameters
-        e_kin - Electron kinetic energy
-        """
-        return np.array([self.xs(cs, e_kin) for cs in range(self._element.z + 1)])
-
-    def xs_matrix(self, e_kin):
-        """
-        Returns a matrix with the cross sections for a given electron energy
-        that can be used to solve the rate equations in a convenient manner.
-
-        Matrices are assembled from (cached) vectors for better performance
-
-        UNIT: cm^2
-
-        Input Parameters
-        e_kin - Electron kinetic energy
-        """
-        xs = self.xs_vector(e_kin)
-
-        # Assemble matrix
-        xs_mat = np.diag(-1 * xs) # negative cross section on diagonal (losses)
-        # gains depend on whether looking at ionisation or recombination
-        if self.__class__.XSTYPE == "IONISE":
-            xs_mat += np.diag(xs[:-1], -1)
-        elif self.__class__.XSTYPE == "RECOMB":
-            xs_mat += np.diag(xs[1:], 1)
-
-        return xs_mat
-
 
 class EIXS:
     """
@@ -226,6 +134,7 @@ class EIXS:
         xs = self.xs_vector(e_kin)
         return np.diag(xs[:-1], -1) - np.diag(xs)
 
+
 class RRXS(EIXS):
     """
     A class derived of IIXS that provides convenient handling of the Radiative recombination
@@ -290,6 +199,7 @@ class RRXS(EIXS):
         """
         xs = self.xs_vector(e_kin)
         return np.diag(xs[1:], 1) - np.diag(xs)
+
 
 class DRXS:
     """
