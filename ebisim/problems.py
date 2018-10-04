@@ -61,7 +61,7 @@ class SimpleEBISProblem:
     #     The ode system describing the charge breeding
     #     """
     #     j = self._j / Q_E
-    #     xs_mat = self._species.iixs.xs_matrix(self._e_kin) \
+    #     xs_mat = self._species.e.xs_matrix(self._e_kin) \
     #              + self._species.rrxs.xs_matrix(self._e_kin) \
     #              + self._species.drxs.xs_matrix(self._e_kin)
     #     # dydt = self._species.LotzCrossSections.cross_section_matrix(self._e_kin).dot(y)
@@ -81,7 +81,7 @@ class SimpleEBISProblem:
         The jacobian of the RHS of the ODE (I think this is the Hessian of y)
         """
         j = self._j / Q_E
-        xs_mat = self._species.iixs.xs_matrix(self._e_kin) \
+        xs_mat = self._species.eixs.xs_matrix(self._e_kin) \
                  + self._species.rrxs.xs_matrix(self._e_kin) \
                  + self._species.drxs.xs_matrix(self._e_kin)
         jac = j * xs_mat

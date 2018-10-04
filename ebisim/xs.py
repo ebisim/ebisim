@@ -14,6 +14,7 @@ from .physconst import RY_EV, ALPHA, PI, COMPT_E_RED
 
 XS_CACHE_MAXSIZE = 10000 # The maxsize for the caching of xs matrices
 
+# The normpdf function is used by the DR cross section method
 def normpdf(x, mu, sigma):
     """
     The pdf of the normal distribution
@@ -126,7 +127,7 @@ class XSBase:
         return None
 
 
-class IIXS(XSBase):
+class EIXS(XSBase):
     """
     A class derived of XSBase that deals with Impact Ionisation Cross Sections computed from the
     Lotz formula
@@ -201,7 +202,7 @@ class IIXS(XSBase):
         # Return figure handle
         return fig
 
-class RRXS(IIXS):
+class RRXS(EIXS):
     """
     A class derived of IIXS that provides convenient handling of the Radiative recombination
     cross sections
@@ -393,7 +394,7 @@ class EBISSpecies:
         """
         # Get basic properties of the element in question
         self._element = elements.ChemicalElement(element)
-        self._iixs = IIXS(self._element)
+        self._eixs = EIXS(self._element)
         self._rrxs = RRXS(self._element)
         self._drxs = DRXS(self._element, fwhm)
 
@@ -410,9 +411,9 @@ class EBISSpecies:
         return self._element
 
     @property
-    def iixs(self):
+    def eixs(self):
         """Returns the IIXS Object of the species"""
-        return self._iixs
+        return self._eixs
 
     @property
     def rrxs(self):
@@ -447,7 +448,7 @@ class EBISSpecies:
         title = "%s Combined cross sections (Electron beam FWHM = %0.1f eV)"\
                 %(self.element.latex_isotope(), self.fwhm)
         common_kwargs = dict(xlim=xlim, ylim=ylim, xscale=xscale, yscale=yscale)
-        fig = self._iixs.plot(label_lines=False, legend=legend, ls="--", **common_kwargs)
+        fig = self._eixs.plot(label_lines=False, legend=legend, ls="--", **common_kwargs)
         fig = self._rrxs.plot(fig=fig, ls="-.", **common_kwargs)
         fig = self._drxs.plot(fig=fig, ls="-", legend=False, title=title, **common_kwargs)
         return fig
