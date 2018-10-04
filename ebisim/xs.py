@@ -9,7 +9,6 @@ import pandas as pd
 
 from . import utils
 from . import elements
-from . import plotting
 from .physconst import RY_EV, ALPHA, PI, COMPT_E_RED
 
 XS_CACHE_MAXSIZE = 10000 # The maxsize for the caching of xs matrices
@@ -103,32 +102,6 @@ class XSBase:
 
         return xs_mat
 
-    def _compute_xs_df_for_plot(self, energies):
-        """
-        Private helper function that generates the dataframe for plotting
-        """
-        rows = []
-        for ek in energies:
-            xs = -1 * np.diag(self.xs_matrix(ek))
-            rows.append(np.hstack([ek, xs]))
-        colnames = ["ekin"] + [str(cs) for cs in range(self._element.z+1)]
-        xs_df = pd.DataFrame(rows, columns=colnames)
-        return xs_df
-
-    def plot(self, **kwargs):
-        """
-        Creates a figure showing the cross sections and returns the figure handle
-        # Needs to be implemented by inheriting class
-
-        Input Parameters
-        **kwargs - passed on to plotting.plot_xs, check arguments thereof
-        """
-        # pylint: disable=unused-argument
-        # Generate Data with _compute_xs_df_for_plot
-        # call plotting.plot_xs()
-        # Return figure handle
-        return None
-
 
 class EIXS(XSBase):
     """
@@ -197,30 +170,6 @@ class EIXS(XSBase):
         xs *= 4.5e-14
         return xs
 
-    def plot(self, **kwargs):
-        """
-        Creates a figure showing the cross sections and returns the figure handle
-
-        Input Parameters
-        **kwargs - passed on to plotting.plot_xs, check arguments thereof
-        """
-        # Generate Data with _compute_xs_df_for_plot
-        e_min = self._e_bind_min/10
-        e_max = 10*self._e_bind_max
-        e_max = 10**np.ceil(np.log10(e_max))
-        if "xlim" in kwargs:
-            e_min = np.min([e_min, kwargs["xlim"][0]])
-            e_max = np.max([e_max, kwargs["xlim"][1]])
-        else:
-            kwargs["xlim"] = (1, e_max)
-        energies = np.logspace(np.log10(e_min), np.log10(e_max), 5000)
-        xs_df = self._compute_xs_df_for_plot(energies)
-        # call plotting.plot_xs()
-        if "title" not in kwargs:
-            kwargs["title"] = "EI cross sections of %s"%self._element.latex_isotope()
-        fig = plotting.plot_xs(xs_df, **kwargs)
-        # Return figure handle
-        return fig
 
 class RRXS(EIXS):
     """
@@ -273,16 +222,6 @@ class RRXS(EIXS):
 
         return xs*1e4 #convert to cm^2
 
-    def plot(self, **kwargs):
-        """
-        Creates a figure showing the cross sections and returns the figure handle
-
-        Input Parameters
-        **kwargs - passed on to plotting.plot_xs, check arguments thereof
-        """
-        if "title" not in kwargs:
-            kwargs["title"] = "RR cross sections of %s"%self._element.latex_isotope()
-        return super().plot(**kwargs)
 
 class DRXS(XSBase):
     """
@@ -382,35 +321,6 @@ class DRXS(XSBase):
 
         return xs*1e-20 # normalise to cm**2
 
-    def plot(self, **kwargs):
-        """
-        Creates a figure showing the cross sections and returns the figure handle
-
-        Input Parameters
-        **kwargs - passed on to plotting.plot_xs, check arguments thereof
-        """
-        # Generate Data with _compute_xs_df_for_plot
-        e_min = self._e_res_min - 3 * self._fwhm
-        e_max = self._e_res_max + 3 * self._fwhm
-        if "xlim" in kwargs:
-            e_min = np.min([e_min, kwargs["xlim"][0]])
-            e_max = np.max([e_max, kwargs["xlim"][1]])
-        else:
-            kwargs["xlim"] = (e_min, e_max)
-        energies = np.arange(e_min, e_max)
-        xs_df = self._compute_xs_df_for_plot(energies)
-        # call plotting.plot_xs()
-        if "title" not in kwargs:
-            kwargs["title"] = "DR cross sections of %s (Electron beam FWHM = %0.1f eV)"\
-                    %(self._element.latex_isotope(), self._fwhm)
-        # Set some kwargs if they are not given by caller
-        kwargs["xscale"] = kwargs.get("xscale", "linear")
-        kwargs["yscale"] = kwargs.get("yscale", "linear")
-        kwargs["legend"] = kwargs.get("legend", True)
-        kwargs["label_lines"] = kwargs.get("label_lines", False)
-        fig = plotting.plot_xs(xs_df, **kwargs)
-        # Return figure handle
-        return fig
 
 class EBISSpecies:
     """
@@ -473,15 +383,3 @@ class EBISSpecies:
     # def fwhm(self, val):
     #     """fwhm setter (clears cache on set)"""
     #     self._drxs.fwhm = val
-
-    def plot_combined_xs(self, xlim, ylim, xscale="linear", yscale="log", legend=True):
-        """
-        Returns the figure handle to a plot combining all cross sections
-        """
-        title = "%s Combined cross sections (Electron beam FWHM = %0.1f eV)"\
-                %(self.element.latex_isotope(), self.fwhm)
-        common_kwargs = dict(xlim=xlim, ylim=ylim, xscale=xscale, yscale=yscale)
-        fig = self._eixs.plot(label_lines=False, legend=legend, ls="--", **common_kwargs)
-        fig = self._rrxs.plot(fig=fig, ls="-.", **common_kwargs)
-        fig = self._drxs.plot(fig=fig, ls="-", legend=False, title=title, **common_kwargs)
-        return fig

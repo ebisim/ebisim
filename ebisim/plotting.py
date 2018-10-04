@@ -4,9 +4,13 @@ Module containing logic for plotting
 from datetime import datetime
 from math import atan2, degrees
 import numpy as np
+import pandas as pd
 
 import matplotlib.pyplot as plt
 from matplotlib.dates import date2num
+
+from . import xs
+from . import elements
 
 def plot_energy_scan(data, cs, ylim=None, title=None, invert_hor=False, x2fun=None, x2label=""):
     """
@@ -111,10 +115,9 @@ def plot_cs_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
 #### XS Plotting #######
 ########################
 
-
-def plot_xs(xs_df, fig=None, xscale="log", yscale="log",
-            title=None, xlim=None, ylim=None, legend=False, label_lines=True,
-            ls="-"):
+def _plot_xs(xs_df, fig=None, xscale="log", yscale="log",
+             title=None, xlim=None, ylim=None, legend=False, label_lines=True,
+             ls="-"):
     """
     Creates a figure showing the cross sections and returns the figure handle
 
@@ -135,17 +138,123 @@ def plot_xs(xs_df, fig=None, xscale="log", yscale="log",
     ekin = xs_df.ekin
     xs_df = xs_df.drop("ekin", axis=1)
     ax.set_prop_cycle(None) # Reset property (color) cycle, needed when plotting on existing fig
-    for (cs, xs) in xs_df.iteritems():
-        if np.array_equal(xs.unique(), np.array([0])):
+    for (cs, xsec) in xs_df.iteritems():
+        if np.array_equal(xsec.unique(), np.array([0])):
             plt.plot([], []) # If all xs are zero, do a ghost plot to advance color cycle
         else:
-            plt.plot(ekin, xs, figure=fig, ls=ls, lw=1, label=str(cs)+"+") # otherwise plot data
+            plt.plot(ekin, xsec, figure=fig, ls=ls, lw=1, label=str(cs)+"+") # otherwise plot data
 
     ax.set_xscale(xscale)
     ax.set_yscale(yscale)
     _decorate_axes(ax, title=title,
                    xlabel="Electron kinetic energy (eV)", ylabel="Cross section (cm$^2$)",
                    xlim=xlim, ylim=ylim, grid=True, legend=legend, label_lines=label_lines)
+    return fig
+
+def _plot_eirrxs(element, xstype, **kwargs):
+    """
+    Helper function for RR and EI cross section plots
+
+    Input Parameters
+    **kwargs - passed on to _plot_xs, check arguments thereof
+    """
+    # Create cross section object
+    xsobj = xstype(element)
+    # Find some energy intervals and such
+    e_min = xsobj.e_bind_min / 10
+    e_max = 10 * xsobj.e_bind_max
+    e_max = 10**np.ceil(np.log10(e_max))
+    if kwargs.get("xlim") is not None:
+        e_min = np.min([e_min, kwargs["xlim"][0]])
+        e_max = np.max([e_max, kwargs["xlim"][1]])
+    else:
+        kwargs["xlim"] = (10, e_max)
+    energies = np.logspace(np.log10(e_min), np.log10(e_max), 5000)
+    # Generate data
+    rows = []
+    for ek in energies:
+        xsec = -1 * np.diag(xsobj.xs_matrix(ek))
+        rows.append(np.hstack([ek, xsec]))
+    colnames = ["ekin"] + [str(cs) for cs in range(xsobj.element.z+1)]
+    xs_df = pd.DataFrame(rows, columns=colnames)
+    # call _plot_xs with correct title and data
+    if kwargs.get("title") is None:
+        if isinstance(xsobj, xs.EIXS):
+            kwargs["title"] = "EI cross sections of %s"%xsobj.element.latex_isotope()
+        if isinstance(xsobj, xs.RRXS):
+            kwargs["title"] = "RR cross sections of %s"%xsobj.element.latex_isotope()
+    fig = _plot_xs(xs_df, **kwargs)
+    # Return figure handle
+    return fig
+
+def plot_ei_xs(element, **kwargs):
+    """
+    Creates a figure showing the EI cross sections and returns the figure handle
+
+    Input Parameters
+    **kwargs - passed on to _plot_xs, check arguments thereof
+    """
+    return _plot_eirrxs(element, xs.EIXS, **kwargs)
+
+def plot_rr_xs(element, **kwargs):
+    """
+    Creates a figure showing the RR cross sections and returns the figure handle
+
+    Input Parameters
+    **kwargs - passed on to _plot_xs, check arguments thereof
+    """
+    return _plot_eirrxs(element, xs.RRXS, **kwargs)
+
+def plot_dr_xs(element, fwhm, **kwargs):
+    """
+    Creates a figure showing the DR cross sections and returns the figure handle
+
+    Input Parameters
+    **kwargs - passed on to _plot_xs, check arguments thereof
+    """
+    # Create cross section object
+    xsobj = xs.DRXS(element, fwhm)
+    # Find some energy intervals and such
+    e_min = xsobj.e_res_min - 3 * fwhm
+    e_max = xsobj.e_res_max + 3 * fwhm
+    if kwargs.get("xlim") is not None:
+        e_min = np.min([e_min, kwargs["xlim"][0]])
+        e_max = np.max([e_max, kwargs["xlim"][1]])
+    else:
+        kwargs["xlim"] = (e_min, e_max)
+    energies = np.arange(e_min, e_max)
+    # Generate data
+    rows = []
+    for ek in energies:
+        xsec = -1 * np.diag(xsobj.xs_matrix(ek))
+        rows.append(np.hstack([ek, xsec]))
+    colnames = ["ekin"] + [str(cs) for cs in range(xsobj.element.z+1)]
+    xs_df = pd.DataFrame(rows, columns=colnames)
+    # Set some kwargs if they are not given by caller
+    kwargs["xscale"] = kwargs.get("xscale", "linear")
+    kwargs["yscale"] = kwargs.get("yscale", "linear")
+    kwargs["legend"] = kwargs.get("legend", True)
+    kwargs["label_lines"] = kwargs.get("label_lines", False)
+    # call _plot_xs with correct title and data
+    if kwargs.get("title") is None:
+        kwargs["title"] = "DR cross sections of %s (Electron beam FWHM = %0.1f eV)"\
+                %(xsobj.element.latex_isotope(), fwhm)
+    fig = _plot_xs(xs_df, **kwargs)
+    # Return figure handle
+    return fig
+
+def plot_combined_xs(element, fwhm, xlim=None, ylim=(1e-24, 1e-16),
+                     xscale="linear", yscale="log", legend=True):
+    """
+    Combo Plot of EI RR DR for element with fwhm for DR resonances
+    """
+    element = elements.cast_to_ChemicalElement(element)
+    title = "Combined cross sections of %s (Electron beam FWHM = %0.1f eV)"\
+            %(element.latex_isotope(), fwhm)
+    common_kwargs = dict(xlim=xlim, ylim=ylim, xscale=xscale, yscale=yscale)
+    fig = plot_ei_xs(element, label_lines=False, legend=legend, ls="--", **common_kwargs)
+    fig = plot_rr_xs(element, fig=fig, ls="-.", **common_kwargs)
+    fig = plot_dr_xs(element, fwhm, fig=fig, ls="-", legend=False, title=title, **common_kwargs)
     return fig
 
 
