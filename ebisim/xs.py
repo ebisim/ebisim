@@ -291,14 +291,13 @@ class RRXS(EIXS):
         xs = self.xs_vector(e_kin)
         return np.diag(xs[1:], 1) - np.diag(xs)
 
-class DRXS(XSBase):
+class DRXS:
     """
     A class derived of XSBase that deals with Di(Multi)electronic Recombination Cross Sections
     Assuming a Gaussian profile widening due to the electron beam enegry spread
 
     UNIT: cm^2
     """
-    XSTYPE = "RECOMB"
     def __init__(self, element, fwhm):
         """
         Initialise cross section object
@@ -308,43 +307,11 @@ class DRXS(XSBase):
         fwhm - Width of the Gaussian energy spread profile used to compute the spectrum
         """
         self._fwhm = fwhm
-        super().__init__(element)
+        # Get basic properties of the element in question
+        self._element = elements.cast_to_ChemicalElement(element)
+        # Activate caching for Cross Section Vectors
+        self.xs_vector = lru_cache(maxsize=XS_CACHE_MAXSIZE)(self.xs_vector)
 
-    @property
-    def fwhm(self):
-        """"
-        Returns the current value of fwhm set for this cross section object
-        Setting a new fwhm clears the xs_matrix cache
-        """
-        return self._fwhm
-
-    @property
-    def e_res_min(self):
-        """
-        Property returning the smallest DRR energy within all charge states
-        """
-        return self._e_res_min
-
-    @property
-    def e_res_max(self):
-        """
-        Property returning the highest DRR energy within all charge states
-        """
-        return self._e_res_max
-    ##### The fwhm is currently immutable because I need to find a way to deal with the case
-    ##### that the object has several users of which one may change the fwhm, which would
-    ##### break the validity for all other users
-    # @fwhm.setter
-    # def fwhm(self, val):
-    #     """fwhm setter (clears cache on set)"""
-    #     if self._fwhm != val:
-    #         self._xsmat_cache = {}
-    #         self._fwhm = val
-
-    def _load_data(self):
-        """
-        Private Helper Method for loading the binding energies and electron configuration
-        """
         # Import DR Transitions for this Element
         # Columns: DELTA_E_AI (eV), RECOMB_STRENGTH (1e-20 cm**2 eV),
         # RECOMB_TYPE(DR, TR, QR,...), RECOMB_NAME(KLL, KLM, ...), CHARGE_STATE
@@ -369,6 +336,41 @@ class DRXS(XSBase):
         self._e_res_min = dr_by_cs.min().DELTA_E_AI.min()
         self._e_res_max = dr_by_cs.max().DELTA_E_AI.max()
 
+    @property
+    def fwhm(self):
+        """"
+        Returns the current value of fwhm set for this cross section object
+        Setting a new fwhm clears the xs_matrix cache
+        """
+        return self._fwhm
+
+    @property
+    def element(self):
+        """Returns the ChemicalElement Object of the xs object"""
+        return self._element
+
+    @property
+    def e_res_min(self):
+        """
+        Property returning the smallest DRR energy within all charge states
+        """
+        return self._e_res_min
+
+    @property
+    def e_res_max(self):
+        """
+        Property returning the highest DRR energy within all charge states
+        """
+        return self._e_res_max
+    ##### The fwhm is currently immutable because I need to find a way to deal with the case
+    ##### that the object has several users of which one may change the fwhm, which would
+    ##### break the validity for all other users
+    # @fwhm.setter
+    # def fwhm(self, val):
+    #     """fwhm setter (clears cache on set)"""
+    #     if self._fwhm != val:
+    #         self._xsmat_cache = {}
+    #         self._fwhm = val
 
     def xs(self, cs, e_kin):
         """
@@ -388,6 +390,40 @@ class DRXS(XSBase):
         xs = np.sum(self._recomb_strengths[cs] * normpdf(e_kin, self._resonance_energies[cs], sig))
 
         return xs*1e-20 # normalise to cm**2
+
+    def xs_vector(self, e_kin):
+        # pylint: disable=E0202
+        """
+        Returns a vector with the cross sections for a given electron energy
+        that can be used to solve the rate equations in a convenient manner.
+
+        The vector index of each entry corresponds to the charge state
+
+        Vectors are cached for better performance
+        Be careful as this can occupy memory when a lot of energies are polled over time
+        Cachesize is adjustable via XS_CACHE_MAXSIZE variable
+
+        UNIT: cm^2
+
+        Input Parameters
+        e_kin - Electron kinetic energy
+        """
+        return np.array([self.xs(cs, e_kin) for cs in range(self._element.z + 1)])
+
+    def xs_matrix(self, e_kin):
+        """
+        Returns a matrix with the cross sections for a given electron energy
+        that can be used to solve the rate equations in a convenient manner.
+
+        Matrices are assembled from (cached) vectors for better performance
+
+        UNIT: cm^2
+
+        Input Parameters
+        e_kin - Electron kinetic energy
+        """
+        xs = self.xs_vector(e_kin)
+        return np.diag(xs[1:], 1) - np.diag(xs)
 
 
 class EBISSpecies:
