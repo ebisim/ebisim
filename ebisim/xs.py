@@ -3,6 +3,7 @@ Module containing the classes providing access to the relevant cross section for
 recombination
 """
 
+from functools import lru_cache
 import numpy as np
 import pandas as pd
 
@@ -10,6 +11,8 @@ from . import utils
 from . import elements
 from . import plotting
 from .physconst import RY_EV, ALPHA, PI, COMPT_E_RED
+
+XS_CACHE_MAXSIZE = 10000 # The maxsize for the caching of xs matrices
 
 def normpdf(x, mu, sigma):
     """
@@ -37,8 +40,8 @@ class XSBase:
             element = elements.ChemicalElement(element)
         self._element = element
 
-        # Instantiate cache for Cross Section Matrices
-        self._xsmat_cache = {}
+        # Activate caching for Cross Section Matrices
+        self.xs_matrix = lru_cache(maxsize=XS_CACHE_MAXSIZE)(self.xs_matrix)
 
         # Load required data from resource files, can set further fields
         self._load_data()
@@ -64,9 +67,20 @@ class XSBase:
         """
         return 1000*e_kin+cs # dummy return for easy debugging and testing
 
-    def _compute_xs_mat(self, e_kin):
+    def xs_matrix(self, e_kin):
+        # pylint: disable=E0202
         """
-        computes the cross section matrix for a given kinetic energy if not found in cache
+        Returns a matrix with the cross sections for a given electron energy
+        that can be used to solve the rate equations in a convenient manner.
+
+        Matrices are cached for better performance
+        Be careful as this can occupy memory when a lot of energies are polled over time
+        Cachesize is adjustable via XS_CACHE_MAXSIZE variable
+
+        UNIT: cm^2
+
+        Input Parameters
+        e_kin - Electron kinetic energy
         """
         n = self._element.z + 1
 
@@ -84,23 +98,6 @@ class XSBase:
                 xs_mat[cs-1, cs] = xs[cs]
 
         return xs_mat
-
-    def xs_matrix(self, e_kin):
-        """
-        Returns a matrix with the cross sections for a given electron energy
-        that can be used to solve the rate equations in a convenient manner.
-
-        Matrices are cached for better performance
-        Be careful as this can occupy memory when a lot of energies are polled over time
-
-        UNIT: cm^2
-
-        Input Parameters
-        e_kin - Electron kinetic energy
-        """
-        if e_kin not in self._xsmat_cache.keys():
-            self._xsmat_cache[e_kin] = self._compute_xs_mat(e_kin)
-        return self._xsmat_cache[e_kin]
 
     def _compute_xs_df_for_plot(self, energies):
         """
