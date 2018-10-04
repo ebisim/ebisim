@@ -71,9 +71,10 @@ class XSBase:
         n = self._element.z + 1
 
         # Compute all cross sections
-        xs = np.zeros(n)
-        for cs in range(n):
-            xs[cs] = self.xs(cs, e_kin)
+        # xs = np.zeros(n)
+        # for cs in range(n):
+        #     xs[cs] = self.xs(cs, e_kin)
+        xs = np.array([self.xs(cs, e_kin) for cs in range(n)])
 
         # Assemble matrix
         xs_mat = np.diag(-1 * xs) # negative cross section on diagonal (losses)
