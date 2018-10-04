@@ -37,7 +37,6 @@ class XSBase:
         """
         # Get basic properties of the element in question
         self._element = elements.cast_to_ChemicalElement(element)
-
         # Activate caching for Cross Section Vectors
         self.xs_vector = lru_cache(maxsize=XS_CACHE_MAXSIZE)(self.xs_vector)
 
@@ -114,18 +113,25 @@ class XSBase:
         return xs_mat
 
 
-class EIXS(XSBase):
+class EIXS:
     """
-    A class derived of XSBase that deals with Impact Ionisation Cross Sections computed from the
-    Lotz formula
+    A class that deals with Electron Ionisation Cross Sections computed from the Lotz formula
 
     UNIT: cm^2
     """
-    XSTYPE = "IONISE"
-    def _load_data(self):
+    def __init__(self, element):
         """
-        Private Helper Method for loading the binding energies and electron configuration
+        Initialise cross section object
+
+        Input Parameters
+        element - Atomic Number, Name, or Symbol, or ChemicalElement object
         """
+        # Get basic properties of the element in question
+        self._element = elements.cast_to_ChemicalElement(element)
+        # Activate caching for Cross Section Vectors
+        self.xs_vector = lru_cache(maxsize=XS_CACHE_MAXSIZE)(self.xs_vector)
+
+        # Load required data from resource files, can set further fields
         # Import binding energies for each electron in all charge states
         # list of lists where each sublist hold the energies for one charge state
         # self._e_bind[n] describes charge state n+
@@ -148,6 +154,11 @@ class EIXS(XSBase):
 
         self._e_bind_min = self._e_bind[0][-1]
         self._e_bind_max = self._e_bind[-1][0]
+
+    @property
+    def element(self):
+        """Returns the ChemicalElement Object of the xs object"""
+        return self._element
 
     @property
     def e_bind_min(self):
@@ -181,6 +192,39 @@ class EIXS(XSBase):
         xs *= 4.5e-14
         return xs
 
+    def xs_vector(self, e_kin):
+        # pylint: disable=E0202
+        """
+        Returns a vector with the cross sections for a given electron energy
+        that can be used to solve the rate equations in a convenient manner.
+
+        The vector index of each entry corresponds to the charge state
+
+        Vectors are cached for better performance
+        Be careful as this can occupy memory when a lot of energies are polled over time
+        Cachesize is adjustable via XS_CACHE_MAXSIZE variable
+
+        UNIT: cm^2
+
+        Input Parameters
+        e_kin - Electron kinetic energy
+        """
+        return np.array([self.xs(cs, e_kin) for cs in range(self._element.z + 1)])
+
+    def xs_matrix(self, e_kin):
+        """
+        Returns a matrix with the cross sections for a given electron energy
+        that can be used to solve the rate equations in a convenient manner.
+
+        Matrices are assembled from (cached) vectors for better performance
+
+        UNIT: cm^2
+
+        Input Parameters
+        e_kin - Electron kinetic energy
+        """
+        xs = self.xs_vector(e_kin)
+        return np.diag(xs[:-1], -1) - np.diag(xs)
 
 class RRXS(EIXS):
     """
@@ -189,7 +233,6 @@ class RRXS(EIXS):
 
     UNIT: cm^2
     """
-    XSTYPE = "RECOMB"
     def xs(self, cs, e_kin):
         """
         Computes the RR cross section of a given charge state at a given electron energy
@@ -233,6 +276,20 @@ class RRXS(EIXS):
 
         return xs*1e4 #convert to cm^2
 
+    def xs_matrix(self, e_kin):
+        """
+        Returns a matrix with the cross sections for a given electron energy
+        that can be used to solve the rate equations in a convenient manner.
+
+        Matrices are assembled from (cached) vectors for better performance
+
+        UNIT: cm^2
+
+        Input Parameters
+        e_kin - Electron kinetic energy
+        """
+        xs = self.xs_vector(e_kin)
+        return np.diag(xs[1:], 1) - np.diag(xs)
 
 class DRXS(XSBase):
     """
