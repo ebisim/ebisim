@@ -45,6 +45,11 @@ class XSBase:
         # Load required data from resource files, can set further fields
         self._load_data()
 
+    @property
+    def element(self):
+        """Returns the ChemicalElement Object of the xs object"""
+        return self._element
+
     def _load_data(self):
         """
         Load the required data from the resource directory
