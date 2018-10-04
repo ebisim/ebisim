@@ -46,6 +46,12 @@ def plot_energy_scan(data, cs, ylim=None, title=None, invert_hor=False, x2fun=No
 
     return fig
 
+
+########################
+#### E scan Plotting ###
+########################
+
+
 def plot_energy_time_scan(data, cs, xlim=None, ylim=None, title=None):
     """
     Plots the abundance of a charge state depending on the breeding time and energy
@@ -68,6 +74,12 @@ def plot_energy_time_scan(data, cs, xlim=None, ylim=None, title=None):
                    xlabel="Electron kinetic energy (eV)", ylabel="Time (s)",
                    xlim=xlim, ylim=ylim, grid=False, legend=False, label_lines=False)
     return fig
+
+
+########################
+#### CS Evo Plotting ###
+########################
+
 
 def plot_cs_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
                       title="Charge state evolution", legend=False, label_lines=True):
@@ -93,6 +105,12 @@ def plot_cs_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
     _decorate_axes(ax, title=title, xlabel="Time (s)", ylabel="Relative Abundance",
                    xlim=xlim, ylim=ylim, grid=True, legend=legend, label_lines=label_lines)
     return fig
+
+
+########################
+#### XS Plotting #######
+########################
+
 
 def plot_xs(xs_df, fig=None, xscale="log", yscale="log",
             title=None, xlim=None, ylim=None, legend=False, label_lines=True,
@@ -130,6 +148,12 @@ def plot_xs(xs_df, fig=None, xscale="log", yscale="log",
                    xlim=xlim, ylim=ylim, grid=True, legend=legend, label_lines=label_lines)
     return fig
 
+
+########################
+#### Helper Methods ####
+########################
+
+
 def _decorate_axes(ax, title=None, xlabel=None, ylabel=None, xlim=None, ylim=None, grid=True,
                    legend=False, label_lines=True):
     """
@@ -149,11 +173,11 @@ def _decorate_axes(ax, title=None, xlabel=None, ylabel=None, xlim=None, ylim=Non
         lines = lines [::step]
         labelLines(lines, size=7, bbox={"pad":0.1, "fc":"w", "ec":"none"})
 
-####
+###########################################################################################
 #### Code for decorating line plots with online labels
 #### Code pulled from https://github.com/cphyc/matplotlib-label-lines
 #### Based on https://stackoverflow.com/questions/16992038/inline-labels-in-matplotlib
-####
+###########################################################################################
 # Label line with line2D label data
 def labelLine(line, x, label=None, align=True, **kwargs):
     '''Label a single matplotlib line at position x'''
