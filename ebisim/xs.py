@@ -38,8 +38,8 @@ class XSBase:
         # Get basic properties of the element in question
         self._element = elements.cast_to_ChemicalElement(element)
 
-        # Activate caching for Cross Section Matrices
-        self.xs_matrix = lru_cache(maxsize=XS_CACHE_MAXSIZE)(self.xs_matrix)
+        # Activate caching for Cross Section Vectors
+        self.xs_vector = lru_cache(maxsize=XS_CACHE_MAXSIZE)(self.xs_vector)
 
         # Load required data from resource files, can set further fields
         self._load_data()
@@ -70,13 +70,15 @@ class XSBase:
         """
         return 1000*e_kin+cs # dummy return for easy debugging and testing
 
-    def xs_matrix(self, e_kin):
+    def xs_vector(self, e_kin):
         # pylint: disable=E0202
         """
-        Returns a matrix with the cross sections for a given electron energy
+        Returns a vector with the cross sections for a given electron energy
         that can be used to solve the rate equations in a convenient manner.
 
-        Matrices are cached for better performance
+        The vector index of each entry corresponds to the charge state
+
+        Vectors are cached for better performance
         Be careful as this can occupy memory when a lot of energies are polled over time
         Cachesize is adjustable via XS_CACHE_MAXSIZE variable
 
@@ -85,10 +87,21 @@ class XSBase:
         Input Parameters
         e_kin - Electron kinetic energy
         """
-        n = self._element.z + 1
+        return np.array([self.xs(cs, e_kin) for cs in range(self._element.z + 1)])
 
-        # Compute all cross sections
-        xs = np.array([self.xs(cs, e_kin) for cs in range(n)])
+    def xs_matrix(self, e_kin):
+        """
+        Returns a matrix with the cross sections for a given electron energy
+        that can be used to solve the rate equations in a convenient manner.
+
+        Matrices are assembled from (cached) vectors for better performance
+
+        UNIT: cm^2
+
+        Input Parameters
+        e_kin - Electron kinetic energy
+        """
+        xs = self.xs_vector(e_kin)
 
         # Assemble matrix
         xs_mat = np.diag(-1 * xs) # negative cross section on diagonal (losses)

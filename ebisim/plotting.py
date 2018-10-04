@@ -173,7 +173,7 @@ def _plot_eirrxs(element, xstype, **kwargs):
     # Generate data
     rows = []
     for ek in energies:
-        xsec = -1 * np.diag(xsobj.xs_matrix(ek))
+        xsec = xsobj.xs_vector(ek)
         rows.append(np.hstack([ek, xsec]))
     colnames = ["ekin"] + [str(cs) for cs in range(xsobj.element.z+1)]
     xs_df = pd.DataFrame(rows, columns=colnames)
@@ -226,7 +226,7 @@ def plot_dr_xs(element, fwhm, **kwargs):
     # Generate data
     rows = []
     for ek in energies:
-        xsec = -1 * np.diag(xsobj.xs_matrix(ek))
+        xsec = xsobj.xs_vector(ek)
         rows.append(np.hstack([ek, xsec]))
     colnames = ["ekin"] + [str(cs) for cs in range(xsobj.element.z+1)]
     xs_df = pd.DataFrame(rows, columns=colnames)
