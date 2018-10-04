@@ -159,6 +159,23 @@ class EIXS(XSBase):
                 line = [int(elem.strip()) for elem in line]
                 self._cfg.append(line)
 
+        self._e_bind_min = self._e_bind[0][-1]
+        self._e_bind_max = self._e_bind[-1][0]
+
+    @property
+    def e_bind_min(self):
+        """
+        Property returning the smallest binding energy within all charge states
+        """
+        return self._e_bind_min
+
+    @property
+    def e_bind_max(self):
+        """
+        Property returning the highest binding energy within all charge states
+        """
+        return self._e_bind_max
+
     def xs(self, cs, e_kin):
         """
         Computes the Lotz cross section of a given charge state at a given electron energy
@@ -185,8 +202,8 @@ class EIXS(XSBase):
         **kwargs - passed on to plotting.plot_xs, check arguments thereof
         """
         # Generate Data with _compute_xs_df_for_plot
-        e_min = self._e_bind[0][-1]/10
-        e_max = 10*self._e_bind[-1][0]
+        e_min = self._e_bind_min/10
+        e_max = 10*self._e_bind_max
         e_max = 10**np.ceil(np.log10(e_max))
         if "xlim" in kwargs:
             e_min = np.min([e_min, kwargs["xlim"][0]])
@@ -291,6 +308,19 @@ class DRXS(XSBase):
         """
         return self._fwhm
 
+    @property
+    def e_res_min(self):
+        """
+        Property returning the smallest DRR energy within all charge states
+        """
+        return self._e_res_min
+
+    @property
+    def e_res_max(self):
+        """
+        Property returning the highest DRR energy within all charge states
+        """
+        return self._e_res_max
     ##### The fwhm is currently immutable because I need to find a way to deal with the case
     ##### that the object has several users of which one may change the fwhm, which would
     ##### break the validity for all other users
@@ -326,8 +356,8 @@ class DRXS(XSBase):
             self._resonance_energies[cs] = drdf.DELTA_E_AI.values.copy()
             self._recomb_strengths[cs] = drdf.RECOMB_STRENGTH.values.copy()
 
-        self._eres_min = dr_by_cs.min().DELTA_E_AI.min()
-        self._eres_max = dr_by_cs.max().DELTA_E_AI.max()
+        self._e_res_min = dr_by_cs.min().DELTA_E_AI.min()
+        self._e_res_max = dr_by_cs.max().DELTA_E_AI.max()
 
 
     def xs(self, cs, e_kin):
@@ -357,8 +387,8 @@ class DRXS(XSBase):
         **kwargs - passed on to plotting.plot_xs, check arguments thereof
         """
         # Generate Data with _compute_xs_df_for_plot
-        e_min = self._eres_min - 3 * self._fwhm
-        e_max = self._eres_max + 3 * self._fwhm
+        e_min = self._e_res_min - 3 * self._fwhm
+        e_max = self._e_res_max + 3 * self._fwhm
         if "xlim" in kwargs:
             e_min = np.min([e_min, kwargs["xlim"][0]])
             e_max = np.max([e_max, kwargs["xlim"][1]])
