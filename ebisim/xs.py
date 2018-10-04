@@ -114,20 +114,13 @@ class XSBase:
         xs_df = pd.DataFrame(rows, columns=colnames)
         return xs_df
 
-    def plot(self, xscale="log", yscale="log", title=None, xlim=None, ylim=None,
-             legend=False, label_lines=True, fig=None, ls="-"):
+    def plot(self, **kwargs):
         """
         Creates a figure showing the cross sections and returns the figure handle
         # Needs to be implemented by inheriting class
 
         Input Parameters
-        xscale, yscale - (optional) Scaling of x and y axis (log or linear)
-        title -(optional) Plot title
-        xlim, ylim - (optional) plot limits
-        legend - (optional) show legend?
-        line_labels - annotate lines?
-        fig - plot on existing figure
-        ls - linestyle
+        **kwargs - passed on to plotting.plot_xs, check arguments thereof
         """
         # pylint: disable=unused-argument
         # Generate Data with _compute_xs_df_for_plot
@@ -186,37 +179,28 @@ class IIXS(XSBase):
         xs *= 4.5e-14
         return xs
 
-    def plot(self, xscale="log", yscale="log", title=None, xlim=None, ylim=None,
-             legend=False, label_lines=True, fig=None, ls="-"):
+    def plot(self, **kwargs):
         """
         Creates a figure showing the cross sections and returns the figure handle
 
         Input Parameters
-        xscale, yscale - (optional) Scaling of x and y axis (log or linear)
-        title -(optional) Plot title
-        xlim, ylim - (optional) plot limits
-        legend - (optional) show legend?
-        line_labels - annotate lines?
-        fig - plot on existing figure
-        ls - linestyle
+        **kwargs - passed on to plotting.plot_xs, check arguments thereof
         """
         # Generate Data with _compute_xs_df_for_plot
         e_min = self._e_bind[0][-1]/10
         e_max = 10*self._e_bind[-1][0]
         e_max = 10**np.ceil(np.log10(e_max))
-        if xlim:
-            e_min = np.min([e_min, xlim[0]])
-            e_max = np.max([e_max, xlim[1]])
+        if "xlim" in kwargs:
+            e_min = np.min([e_min, kwargs["xlim"][0]])
+            e_max = np.max([e_max, kwargs["xlim"][1]])
         else:
-            xlim = (1, e_max)
+            kwargs["xlim"] = (1, e_max)
         energies = np.logspace(np.log10(e_min), np.log10(e_max), 5000)
         xs_df = self._compute_xs_df_for_plot(energies)
         # call plotting.plot_xs()
-        if not title:
-            title = "%s Lotz ionisation cross sections"%self._element.latex_isotope()
-        fig = plotting.plot_xs(xs_df, xscale=xscale, yscale=yscale, title=title,
-                               xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines,
-                               fig=fig, ls=ls)
+        if "title" not in kwargs:
+            kwargs["title"] = "EI cross sections of %s"%self._element.latex_isotope()
+        fig = plotting.plot_xs(xs_df, **kwargs)
         # Return figure handle
         return fig
 
@@ -271,25 +255,16 @@ class RRXS(IIXS):
 
         return xs*1e4 #convert to cm^2
 
-    def plot(self, xscale="log", yscale="log", title=None, xlim=None, ylim=None,
-             legend=False, label_lines=True, fig=None, ls="-"):
+    def plot(self, **kwargs):
         """
         Creates a figure showing the cross sections and returns the figure handle
 
         Input Parameters
-        xscale, yscale - (optional) Scaling of x and y axis (log or linear)
-        title -(optional) Plot title
-        xlim, ylim - (optional) plot limits
-        legend - (optional) show legend?
-        line_labels - annotate lines?
-        fig - plot on existing figure
-        ls - linestyle
+        **kwargs - passed on to plotting.plot_xs, check arguments thereof
         """
-        if not title:
-            title = "%s radiative recombination cross sections"%self._element.latex_isotope()
-        return super().plot(xscale=xscale, yscale=yscale, title=title,
-                            xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines,
-                            fig=fig, ls=ls)
+        if "title" not in kwargs:
+            kwargs["title"] = "RR cross sections of %s"%self._element.latex_isotope()
+        return super().plot(**kwargs)
 
 class DRXS(XSBase):
     """
@@ -376,37 +351,33 @@ class DRXS(XSBase):
 
         return xs*1e-20 # normalise to cm**2
 
-    def plot(self, xscale="linear", yscale="linear", title=None, xlim=None, ylim=None,
-             legend=True, label_lines=False, fig=None, ls="-"):
+    def plot(self, **kwargs):
         """
         Creates a figure showing the cross sections and returns the figure handle
 
         Input Parameters
-        xscale, yscale - (optional) Scaling of x and y axis (log or linear)
-        title -(optional) Plot title
-        xlim, ylim - (optional) plot limits
-        legend - (optional) show legend?
-        line_labels - annotate lines?
-        fig - plot on existing figure
-        ls - linestyle
+        **kwargs - passed on to plotting.plot_xs, check arguments thereof
         """
         # Generate Data with _compute_xs_df_for_plot
         e_min = self._eres_min - 3 * self._fwhm
         e_max = self._eres_max + 3 * self._fwhm
-        if xlim:
-            e_min = np.min([e_min, xlim[0]])
-            e_max = np.max([e_max, xlim[1]])
+        if "xlim" in kwargs:
+            e_min = np.min([e_min, kwargs["xlim"][0]])
+            e_max = np.max([e_max, kwargs["xlim"][1]])
         else:
-            xlim = (e_min, e_max)
+            kwargs["xlim"] = (e_min, e_max)
         energies = np.arange(e_min, e_max)
         xs_df = self._compute_xs_df_for_plot(energies)
         # call plotting.plot_xs()
-        if not title:
-            title = "%s DR cross sections (Electron beam FWHM = %0.1f eV)"\
+        if "title" not in kwargs:
+            kwargs["title"] = "DR cross sections of %s (Electron beam FWHM = %0.1f eV)"\
                     %(self._element.latex_isotope(), self._fwhm)
-        fig = plotting.plot_xs(xs_df, xscale=xscale, yscale=yscale, title=title,
-                               xlim=xlim, ylim=ylim, legend=legend, label_lines=label_lines,
-                               fig=fig, ls=ls)
+        # Set some kwargs if they are not given by caller
+        kwargs["xscale"] = kwargs.get("xscale", "linear")
+        kwargs["yscale"] = kwargs.get("yscale", "linear")
+        kwargs["legend"] = kwargs.get("legend", True)
+        kwargs["label_lines"] = kwargs.get("label_lines", False)
+        fig = plotting.plot_xs(xs_df, **kwargs)
         # Return figure handle
         return fig
 
