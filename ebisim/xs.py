@@ -37,9 +37,7 @@ class XSBase:
         element - Atomic Number, Name, or Symbol, or ChemicalElement object
         """
         # Get basic properties of the element in question
-        if not isinstance(element, elements.ChemicalElement):
-            element = elements.ChemicalElement(element)
-        self._element = element
+        self._element = elements.cast_to_ChemicalElement(element)
 
         # Activate caching for Cross Section Matrices
         self.xs_matrix = lru_cache(maxsize=XS_CACHE_MAXSIZE)(self.xs_matrix)
@@ -423,7 +421,7 @@ class EBISSpecies:
         fwhm - fwhm of the Gaussian used for spreading the DR cross sections
         """
         # Get basic properties of the element in question
-        self._element = elements.ChemicalElement(element)
+        self._element = elements.cast_to_ChemicalElement(element)
         self._eixs = EIXS(self._element)
         self._rrxs = RRXS(self._element)
         self._drxs = DRXS(self._element, fwhm)

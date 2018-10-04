@@ -59,6 +59,17 @@ def element_name(element):
         idx = _ELEM_ES.index(element)
     return _ELEM_NAME[idx]
 
+def cast_to_ChemicalElement(element):
+    """
+    Checks if element is of type ChemicalElement
+    If yes the element is returned unchanged
+    If no a ChemicalElement object is created based on element and returned
+    """
+    if isinstance(element, ChemicalElement):
+        return element
+    return ChemicalElement(element)
+
+
 class ChemicalElement(collections.namedtuple("ChemicalElement", ["z", "symbol", "name", "a"])):
     """
     Named tuple holding some essential information about a chemical element

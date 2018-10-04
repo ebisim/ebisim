@@ -195,7 +195,7 @@ class EnergyScan:
         """
         # species - the Species object containing the physical information about cross section etc
         self._problem = problemtype(element, j, 0, fwhm)
-        self._element = elements.ChemicalElement(element)
+        self._element = elements.cast_to_ChemicalElement(element)
         self._j = j
         self._energies = np.array(energies)
         self._eval_times = np.array(eval_times)
