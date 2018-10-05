@@ -4,8 +4,10 @@ recombination
 """
 
 from functools import lru_cache
+import math
 import numpy as np
 import pandas as pd
+import numba
 
 from . import utils
 from . import elements
@@ -13,14 +15,53 @@ from .physconst import RY_EV, ALPHA, PI, COMPT_E_RED
 
 XS_CACHE_MAXSIZE = 10000 # The maxsize for the caching of xs matrices
 
-# The normpdf function is used by the DR cross section method
-def normpdf(x, mu, sigma):
+### The following are low level functions going into the cross section computation
+### They are jit compiled by numba to increase their performance
+### Unfortunately the readability of the code suffers a bit this way, but ... ce la vie
+@numba.jit
+def _normpdf(x, mu, sigma):
     """
     The pdf of the normal distribution
     """
-    return np.exp(-(x - mu)**2 / (2 * sigma**2)) / np.sqrt(2 * PI * sigma**2)
+    return np.exp(-(x - mu)**2 / (2 * sigma**2)) / (2 * PI * sigma**2)**0.5
 
+@numba.jit
+def _eixs_xs(e_kin, e_bind_arr, cfg_arr):
+    """
+    The function responsible for computing EI cross sections
+    """
+    xs = 0
+    for e_bind, num_el in zip(e_bind_arr, cfg_arr):
+        if e_kin > e_bind and num_el > 0:
+            xs += num_el * math.log(e_kin / e_bind) / (e_kin * e_bind)
+    xs *= 4.5e-14
+    return xs
 
+@numba.jit
+def _eixs_xs_vector(e_kin, e_bind_mat, cfg_mat):
+    n = e_bind_mat.shape[1] #=Z+1
+    m = e_bind_mat.shape[0] # number of rows
+    xs_vec = np.zeros(n)
+    for cs in range(n-1):
+        xs = 0
+        for row in range(m):
+            e_bind = e_bind_mat[row, cs]
+            num_el = cfg_mat[row, cs]
+            if e_kin > e_bind and num_el > 0:
+                xs += num_el * math.log(e_kin / e_bind) / (e_kin * e_bind)
+        xs_vec[cs] = xs
+    xs_vec *= 4.5e-14
+    return xs_vec
+
+@numba.jit
+def _drxs_xs(e_kin, fwhm, recomb_strengths, resonance_energies):
+    """
+    This functions computes dr cross sections as a weighted sum auf normal pdfs
+    """
+    sig = fwhm/2.35482 # 2.35482approx.(2*np.sqrt(2*np.log(2)))
+    return np.sum(recomb_strengths * _normpdf(e_kin, resonance_energies, sig))*1e-20
+
+### Here start the class definitions for the different cross section classes
 class EIXS:
     """
     A class that deals with Electron Ionisation Cross Sections computed from the Lotz formula
@@ -47,18 +88,28 @@ class EIXS:
         with utils.open_resource("BindingEnergies/%d.txt" % self._element.z) as fobj:
             for line in fobj:
                 line = line.split()
-                line = [float(elem.strip()) for elem in line]
+                line = np.array([float(elem.strip()) for elem in line])
                 self._e_bind.append(line)
 
         # Import Electron Configurations for each charge state
         # list of lists where each sublist hold the configuration for on charge state
         # self._cfg[n] describes charge state n+
         self._cfg = []
+        n_cfg_max = 0
         with utils.open_resource("BindingEnergies/%dconf.txt" % self._element.z) as fobj:
             for line in fobj:
                 line = line.split()
-                line = [int(elem.strip()) for elem in line]
+                line = np.array([int(elem.strip()) for elem in line])
+                n_cfg_max = max(n_cfg_max, len(line))
                 self._cfg.append(line)
+
+        # This block could be useful in the future for parallelising cross section computations
+        self._e_bind_mat = np.zeros((n_cfg_max, self.element.z+1))
+        self._cfg_mat = np.zeros((n_cfg_max, self.element.z+1))
+        for cs, data in enumerate(self._e_bind):
+            self._e_bind_mat[:len(data), cs] = data
+        for cs, data in enumerate(self._cfg):
+            self._cfg_mat[:len(data), cs] = data
 
         self._e_bind_min = self._e_bind[0][-1]
         self._e_bind_max = self._e_bind[-1][0]
@@ -91,14 +142,7 @@ class EIXS:
         cs - Charge State (0 for neutral atom)
         e_kin - kinetic energy of projectile Electron
         """
-        if cs == self._element.z:
-            return 0
-        xs = 0
-        for e_bind, num_el in zip(self._e_bind[cs], self._cfg[cs]):
-            if e_kin > e_bind and num_el > 0:
-                xs += num_el * np.log(e_kin / e_bind) / (e_kin * e_bind)
-        xs *= 4.5e-14
-        return xs
+        return self.xs_vector(e_kin)[cs] #fast enough to do it this way
 
     def xs_vector(self, e_kin):
         # pylint: disable=E0202
@@ -117,7 +161,7 @@ class EIXS:
         Input Parameters
         e_kin - Electron kinetic energy
         """
-        return np.array([self.xs(cs, e_kin) for cs in range(self._element.z + 1)])
+        return _eixs_xs_vector(e_kin, self._e_bind_mat, self._cfg_mat)
 
     def xs_matrix(self, e_kin):
         """
@@ -282,6 +326,7 @@ class DRXS:
         # for cs, data in self._recomb_strengths.items():
         #     self._recomb_strengths_mat[:len(data), cs] = data
 
+        self._avail_cs = sorted(self._resonance_energies.keys())
         self._e_res_min = dr_by_cs.min().DELTA_E_AI.min()
         self._e_res_max = dr_by_cs.max().DELTA_E_AI.max()
 
@@ -315,13 +360,7 @@ class DRXS:
         cs - Charge State (0 for neutral atom)
         e_kin - kinetic energy of projectile Electron
         """
-        if cs not in self._resonance_energies: #Check if key cs exists
-            return 0 # If no DR Data available for this CS return 0
-
-        sig = fwhm/2.35482 # 2.35482approx.(2*np.sqrt(2*np.log(2)))
-        xs = np.sum(self._recomb_strengths[cs] * normpdf(e_kin, self._resonance_energies[cs], sig))
-
-        return xs*1e-20 # normalise to cm**2
+        return self.xs_vector(e_kin, fwhm)[cs] #fast enough to do it this way
 
     def xs_vector(self, e_kin, fwhm):
         # pylint: disable=E0202
@@ -340,7 +379,10 @@ class DRXS:
         Input Parameters
         e_kin - Electron kinetic energy
         """
-        return np.array([self.xs(cs, e_kin, fwhm) for cs in range(self._element.z + 1)])
+        xs = np.zeros(self._element.z + 1)
+        for cs in self._avail_cs:
+            xs[cs] = _drxs_xs(e_kin, fwhm, self._recomb_strengths[cs], self._resonance_energies[cs])
+        return xs
 
     def xs_matrix(self, e_kin, fwhm):
         """
