@@ -267,10 +267,20 @@ class DRXS:
 
         self._resonance_energies = {}
         self._recomb_strengths = {}
+        n_trans_max = 0
         for cs in dr_by_cs.groups:
             drdf = dr_by_cs.get_group(cs)
+            n_trans_max = max(len(drdf.index), n_trans_max)
             self._resonance_energies[cs] = drdf.DELTA_E_AI.values.copy()
             self._recomb_strengths[cs] = drdf.RECOMB_STRENGTH.values.copy()
+
+        # This block could be useful in the future for parallelising cross section computations
+        # self._resonance_energies_mat = np.zeros((n_trans_max, self.element.z+1))
+        # self._recomb_strengths_mat = np.zeros((n_trans_max, self.element.z+1))
+        # for cs, data in self._resonance_energies.items():
+        #     self._resonance_energies_mat[:len(data), cs] = data
+        # for cs, data in self._recomb_strengths.items():
+        #     self._recomb_strengths_mat[:len(data), cs] = data
 
         self._e_res_min = dr_by_cs.min().DELTA_E_AI.min()
         self._e_res_max = dr_by_cs.max().DELTA_E_AI.max()
