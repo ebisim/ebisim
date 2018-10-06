@@ -26,18 +26,6 @@ def _normpdf(x, mu, sigma):
     return np.exp(-(x - mu)**2 / (2 * sigma**2)) / (2 * PI * sigma**2)**0.5
 
 @numba.jit
-def _eixs_xs(e_kin, e_bind_arr, cfg_arr):
-    """
-    The function responsible for computing EI cross sections
-    """
-    xs = 0
-    for e_bind, num_el in zip(e_bind_arr, cfg_arr):
-        if e_kin > e_bind and num_el > 0:
-            xs += num_el * math.log(e_kin / e_bind) / (e_kin * e_bind)
-    xs *= 4.5e-14
-    return xs
-
-@numba.jit
 def _eixs_xs_vector(e_kin, e_bind_mat, cfg_mat):
     n = e_bind_mat.shape[1] #=Z+1
     m = e_bind_mat.shape[0] # number of rows
