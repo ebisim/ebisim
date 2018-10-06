@@ -142,7 +142,7 @@ def _plot_xs(xs_df, fig=None, xscale="log", yscale="log",
         if np.array_equal(xsec.unique(), np.array([0])):
             plt.plot([], []) # If all xs are zero, do a ghost plot to advance color cycle
         else:
-            plt.plot(ekin, xsec, figure=fig, ls=ls, lw=1, label=str(cs)+"+") # otherwise plot data
+            plt.plot(ekin, 1e4*xsec, figure=fig, ls=ls, lw=1, label=str(cs)+"+") # otherwise plot data
 
     ax.set_xscale(xscale)
     ax.set_yscale(yscale)

@@ -38,7 +38,7 @@ def _eixs_xs_vector(e_kin, e_bind_mat, cfg_mat):
             if e_kin > e_bind and num_el > 0:
                 xs += num_el * math.log(e_kin / e_bind) / (e_kin * e_bind)
         xs_vec[cs] = xs
-    xs_vec *= 4.5e-14
+    xs_vec *= 4.5e-18
     return xs_vec
 
 @numba.jit
@@ -47,14 +47,14 @@ def _drxs_xs(e_kin, fwhm, recomb_strengths, resonance_energies):
     This functions computes dr cross sections as a weighted sum auf normal pdfs
     """
     sig = fwhm/2.35482 # 2.35482approx.(2*np.sqrt(2*np.log(2)))
-    return np.sum(recomb_strengths * _normpdf(e_kin, resonance_energies, sig))*1e-20
+    return np.sum(recomb_strengths * _normpdf(e_kin, resonance_energies, sig))*1e-24
 
 ### Here start the class definitions for the different cross section classes
 class EIXS:
     """
     A class that deals with Electron Ionisation Cross Sections computed from the Lotz formula
 
-    UNIT: cm^2
+    UNIT: m^2
     """
     def __init__(self, element):
         """
@@ -124,7 +124,7 @@ class EIXS:
     def xs(self, cs, e_kin):
         """
         Computes the Lotz cross section of a given charge state at a given electron energy
-        UNIT: cm^2
+        UNIT: m^2
 
         Input Parameters
         cs - Charge State (0 for neutral atom)
@@ -144,7 +144,7 @@ class EIXS:
         Be careful as this can occupy memory when a lot of energies are polled over time
         Cachesize is adjustable via XS_CACHE_MAXSIZE variable
 
-        UNIT: cm^2
+        UNIT: m^2
 
         Input Parameters
         e_kin - Electron kinetic energy
@@ -158,7 +158,7 @@ class EIXS:
 
         Matrices are assembled from (cached) vectors for better performance
 
-        UNIT: cm^2
+        UNIT: m^2
 
         Input Parameters
         e_kin - Electron kinetic energy
@@ -172,7 +172,7 @@ class RRXS(EIXS):
     A class derived of IIXS that provides convenient handling of the Radiative recombination
     cross sections
 
-    UNIT: cm^2
+    UNIT: m^2
     """
     def __init__(self, element):
         """
@@ -215,7 +215,7 @@ class RRXS(EIXS):
     def xs(self, cs, e_kin):
         """
         Computes the RR cross section of a given charge state at a given electron energy
-        UNIT: cm^2
+        UNIT: m^2
         According to Kim and Pratt Phys Rev A (27,6) p.27/2913 (1983)
 
         Input Parameters
@@ -236,7 +236,7 @@ class RRXS(EIXS):
         Be careful as this can occupy memory when a lot of energies are polled over time
         Cachesize is adjustable via XS_CACHE_MAXSIZE variable
 
-        UNIT: cm^2
+        UNIT: m^2
 
         Input Parameters
         e_kin - Electron kinetic energy
@@ -245,7 +245,7 @@ class RRXS(EIXS):
         xs = 8 * PI * ALPHA / (3 * np.sqrt(3)) * COMPT_E_RED**2 * \
                 chi * np.log(1 + chi/(2 * self._n_0eff**2))
         xs[0] = 0
-        return xs*1e4 #convert to cm^2
+        return xs
 
     def xs_matrix(self, e_kin):
         """
@@ -254,7 +254,7 @@ class RRXS(EIXS):
 
         Matrices are assembled from (cached) vectors for better performance
 
-        UNIT: cm^2
+        UNIT: m^2
 
         Input Parameters
         e_kin - Electron kinetic energy
@@ -268,7 +268,7 @@ class DRXS:
     A class derived of XSBase that deals with Di(Multi)electronic Recombination Cross Sections
     Assuming a Gaussian profile widening due to the electron beam enegry spread
 
-    UNIT: cm^2
+    UNIT: m^2
     """
     def __init__(self, element):
         """
@@ -342,7 +342,7 @@ class DRXS:
         Computes the DR (MR) cross section of a given charge state at a given electron energy
         assuming that the resonances are delta peaks that are smeared out due to the
         energy spread of the electron beam of the EBIS
-        UNIT: cm^2
+        UNIT: m^2
 
         Input Parameters
         cs - Charge State (0 for neutral atom)
@@ -362,7 +362,7 @@ class DRXS:
         Be careful as this can occupy memory when a lot of energies are polled over time
         Cachesize is adjustable via XS_CACHE_MAXSIZE variable
 
-        UNIT: cm^2
+        UNIT: m^2
 
         Input Parameters
         e_kin - Electron kinetic energy
@@ -379,7 +379,7 @@ class DRXS:
 
         Matrices are assembled from (cached) vectors for better performance
 
-        UNIT: cm^2
+        UNIT: m^2
 
         Input Parameters
         e_kin - Electron kinetic energy

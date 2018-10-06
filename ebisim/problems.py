@@ -26,14 +26,14 @@ class SimpleEBISProblem:
 
         Input parameters
         element - Identifier of the element under investigation
-        j - current density
+        j - current density in A / cm^2
         e_kin - electron energy
         fwhm - electron energy spread (for DR width)
         """
         #species - the Species object containing the physical information about cross section etc
         self._species = xs.EBISSpecies(element)
         self._fwhm = fwhm
-        self._j = j
+        self._j = j * 1e4 # convert to A/m**2
         self._e_kin = e_kin
         self._solution = None
         #Default initial condition for solving the EBIS ODE System (all atoms in 1+ charge state)
@@ -189,7 +189,7 @@ class EnergyScan:
         Input Parameters
         problemtype - class handle specifiying the problem
         element - Identifier of the element under investigation
-        j - current density
+        j - current density in A/cm**2
         fwhm - electron energy spread (for DR width)
         energies - list of the energies to scan
         eval_times - list of the times to evaluate
