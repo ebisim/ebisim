@@ -308,3 +308,114 @@ class EnergyScan:
     #     for sol_df in sol_dfs:
     #         scan_solutions = scan_solutions.append(sol_df, ignore_index=True)
     #     self._solution = scan_solutions
+
+class ComplexEBISProblem:
+    """
+    class defining an EBIS charge breeding simulation and providing the interface to solve it
+    Time independent problems only
+
+    Solving is done depending on the latest setting for the kinetic energy so this could create
+    race conditions. Be a bit careful with that, when doing batch work.
+    """
+
+    def __init__(self, element, j, e_kin, fwhm):
+        """
+        Defines the general problem constants (current density, electron energy and spread)
+
+        Input parameters
+        element - Identifier of the element under investigation
+        j - current density in A / cm^2
+        e_kin - electron energy
+        fwhm - electron energy spread (for DR width)
+        """
+        #species - the Species object containing the physical information about cross section etc
+        self._species = xs.EBISSpecies(element)
+        self._element = self._species.element
+        self._fwhm = fwhm
+        self._j = j * 1e4 # convert to A/m**2
+        self._e_kin = e_kin
+        self._solution = None
+        #Default initial condition for solving the EBIS ODE System (all atoms in 1+ charge state)
+        self._default_initial = np.ones(2*(self._element.z + 1))
+        self._default_initial[1] = 1e10
+        self._default_initial[self._element.z + 2] = self._default_initial[1] * 5
+
+    @property
+    def solution(self):
+        """Returns the solution of the lates solve of this problem"""
+        return self._solution
+
+    @property
+    def e_kin(self):
+        """Returns the kinetic energy"""
+        return self._e_kin
+
+    @e_kin.setter
+    def e_kin(self, val):
+        """Set e_kin to new value and delete existing solution"""
+        if val != self._e_kin:
+            self._solution = None
+            self._e_kin = val
+
+    def _rhs(self, t, y):
+        """
+        """
+        N = y[:self._element.z + 1]
+        E = y[self._element.z + 1:]
+        kbT = E/N
+
+        R_ei = self._j / Q_E * self._species.eixs.xs_vector(self.e_kin) * N
+        R_rr = self._j / Q_E * self._species.rrxs.xs_vector(self.e_kin) * N
+        R_dr = self._j / Q_E * self._species.drxs.xs_vector(self.e_kin, self._fwhm) * N
+
+        S_ei = self._j / Q_E * self._species.eixs.xs_vector(self.e_kin) * E
+        S_rr = self._j / Q_E * self._species.rrxs.xs_vector(self.e_kin) * E
+        S_dr = self._j / Q_E * self._species.drxs.xs_vector(self.e_kin, self._fwhm) * E
+
+        R_tot = -(R_ei + R_rr + R_dr)
+        R_tot[1:] += R_ei[:-1]
+        R_tot[:-1] += R_rr[1:] + R_dr[1:]
+
+        S_tot = -(S_ei + S_rr + S_dr)
+        S_tot[1:] += S_ei[:-1]
+        S_tot[:-1] += S_rr[1:] + S_dr[1:]
+
+        return np.concatenate((R_tot, S_tot))
+
+
+
+    def solve(self, max_time, y0=None, **kwargs):
+        """
+        solves the charge state evolution up to the given time
+        An intital distribution can be provided, if None is given, all ions will start as 1+
+
+        Returns the ODE solution object and saves it in solution property for later access
+
+        Input Parameters
+        max_time - Integration maximum time
+        y0 - initial distribution (numpy vector where the python index = charge state)
+        **kwargs - are forwarded to the solver (scipy.integrate.solve_ivp)
+        """
+        if y0 is None:
+            y0 = self._default_initial
+        # solution = scipy.integrate.solve_ivp(self._ode_system, [0, max_time], y0, **kwargs)
+        solution = scipy.integrate.solve_ivp(self._rhs, [0, max_time], y0, **kwargs)
+        # solution.y = solution.y / np.sum(solution.y, axis=0) # Normalise to sum 1 at each time step
+        self._solution = solution
+        return solution
+
+    def plot_solution(self):
+        """
+        After the problem has been solved, the charge state evolution can be plotted by calling
+        this function
+
+        Returns figure handle and does not call show()
+        """
+        if self.solution is None:
+            print("Error! Need to solve problem before plotting")
+        tmax = self.solution.t.max()
+        xlim = (1e-4, tmax)
+        title = "%s charge state evolution, $E_{kin} = %0.1f$ eV, FWHM = %0.1f eV)"\
+                %(self._species.element.latex_isotope(),
+                  self._e_kin, self._fwhm)
+        return plotting.plot_cs_evolution(self.solution, xlim=xlim, title=title)
