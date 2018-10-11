@@ -9,7 +9,8 @@ import scipy.integrate
 from . import plotting
 from . import xs
 from . import elements
-from .physconst import Q_E
+from . import plasma
+from .physconst import Q_E, M_E, M_P
 
 class SimpleEBISProblem:
     """
@@ -337,8 +338,8 @@ class ComplexEBISProblem:
         self._solution = None
         #Default initial condition for solving the EBIS ODE System (all atoms in 1+ charge state)
         self._default_initial = np.ones(2*(self._element.z + 1))
-        self._default_initial[1] = 1e10
-        self._default_initial[self._element.z + 2] = self._default_initial[1] * 5
+        self._default_initial[1] = 1e16
+        self._default_initial[self._element.z + 2] = self._default_initial[1] * .025
 
     @property
     def solution(self):
@@ -360,10 +361,12 @@ class ComplexEBISProblem:
     def _rhs(self, t, y):
         """
         """
+        ve = plasma.electron_velocity(self._e_kin)
+        Ne = self._j / Q_E / ve
         N = y[:self._element.z + 1]
         E = y[self._element.z + 1:]
-        kbT = E/N
-
+        kbT = np.nan_to_num(E/N)
+        # print(Ne, N)
         R_ei = self._j / Q_E * self._species.eixs.xs_vector(self.e_kin) * N
         R_rr = self._j / Q_E * self._species.rrxs.xs_vector(self.e_kin) * N
         R_dr = self._j / Q_E * self._species.drxs.xs_vector(self.e_kin, self._fwhm) * N
@@ -371,12 +374,15 @@ class ComplexEBISProblem:
         S_ei = self._j / Q_E * self._species.eixs.xs_vector(self.e_kin) * E
         S_rr = self._j / Q_E * self._species.rrxs.xs_vector(self.e_kin) * E
         S_dr = self._j / Q_E * self._species.drxs.xs_vector(self.e_kin, self._fwhm) * E
-
+        # coul_xs = plasma.coulomb_xs_vec(N, Ne, kbT, self._e_kin, self._element.a)
+        # S_eh = Ne * ve * coul_xs * N * 2 * M_E / (self._element.a * M_P)
+        S_eh = plasma.electron_heating_vec(N, Ne, kbT, self._e_kin, self._element.a)
+        # print(max(S_eh))
         R_tot = -(R_ei + R_rr + R_dr)
         R_tot[1:] += R_ei[:-1]
         R_tot[:-1] += R_rr[1:] + R_dr[1:]
 
-        S_tot = -(S_ei + S_rr + S_dr)
+        S_tot = -(S_ei + S_rr + S_dr) + S_eh
         S_tot[1:] += S_ei[:-1]
         S_tot[:-1] += S_rr[1:] + S_dr[1:]
 
