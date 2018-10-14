@@ -110,6 +110,34 @@ def plot_cs_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
                    xlim=xlim, ylim=ylim, grid=True, legend=legend, label_lines=label_lines)
     return fig
 
+def plot_generic_evolution(t, y, xlim=(1e-4, 1e3), ylim=None, ylabel="", title="",
+                           xscale="log", yscale="log", legend=False, label_lines=True):
+    """
+    Method that plots the evolution of a quantity of an EBIS charge breeding simulation
+    returns figure handle
+
+    ode_solution - solution object to plot
+    title - (optional) Plot title
+    xlim, ylim - (optional) plot limits
+    ylabel - label
+    legend - (optional) show legend?
+    line_labels - annotate lines?
+    """
+    fig = plt.figure(figsize=(8, 6), dpi=150)
+    ax = fig.gca()
+
+    for cs in range(y.shape[0]):
+        if np.array_equal(np.unique(y[cs, :]), np.array([0])):
+            plt.loglog([], [], figure=fig) # Ghost draw for purely zero cases
+        else:
+            plt.loglog(t, y[cs, :], figure=fig, label=str(cs) + "+")
+
+    ax.set_xscale(xscale)
+    ax.set_yscale(yscale)
+
+    _decorate_axes(ax, title=title, xlabel="Time (s)", ylabel=ylabel,
+                   xlim=xlim, ylim=ylim, grid=True, legend=legend, label_lines=label_lines)
+    return fig
 
 ########################
 #### XS Plotting #######
