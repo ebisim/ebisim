@@ -12,6 +12,9 @@ from . import elements
 from . import plasma
 from .physconst import Q_E, M_E, M_P
 
+MINIMAL_DENSITY = 1e-16 #m^-3 minimal particle number density
+MINIMAL_KBT = 0.001 #eV minimal temperature equivalent (300K)
+
 class SimpleEBISProblem:
     """
     class defining an EBIS charge breeding simulation and providing the interface to solve it
@@ -337,9 +340,10 @@ class ComplexEBISProblem:
         self._e_kin = e_kin
         self._solution = None
         #Default initial condition for solving the EBIS ODE System (all atoms in 1+ charge state)
-        self._default_initial = np.ones(2*(self._element.z + 1))
+        self._default_initial = np.ones(2*(self._element.z + 1)) * MINIMAL_DENSITY
+        self._default_initial[self._element.z + 1:] *= MINIMAL_KBT
         self._default_initial[1] = 1e16
-        self._default_initial[self._element.z + 2] = self._default_initial[1] * .025
+        self._default_initial[self._element.z + 2] = self._default_initial[1] * 0.5
 
     @property
     def solution(self):
@@ -362,29 +366,54 @@ class ComplexEBISProblem:
         """
         """
         ve = plasma.electron_velocity(self._e_kin)
-        Ne = self._j / Q_E / ve
-        N = y[:self._element.z + 1]
-        E = y[self._element.z + 1:]
-        kbT = np.nan_to_num(E/N)
-        # print(Ne, N)
-        R_ei = self._j / Q_E * self._species.eixs.xs_vector(self.e_kin) * N
-        R_rr = self._j / Q_E * self._species.rrxs.xs_vector(self.e_kin) * N
-        R_dr = self._j / Q_E * self._species.drxs.xs_vector(self.e_kin, self._fwhm) * N
+        je = self._j / Q_E
+        Ne = je / ve
 
-        S_ei = self._j / Q_E * self._species.eixs.xs_vector(self.e_kin) * E
-        S_rr = self._j / Q_E * self._species.rrxs.xs_vector(self.e_kin) * E
-        S_dr = self._j / Q_E * self._species.drxs.xs_vector(self.e_kin, self._fwhm) * E
+        N = y[:self._element.z + 1]
+        # mask_N = N < MINIMAL_DENSITY
+        # N[mask_N] = MINIMAL_DENSITY
+
+        E = y[self._element.z + 1:]
+        # mask_E = E < N * MINIMAL_KBT
+        # E[mask_E] = N[mask_E] * MINIMAL_KBT
+        # E[mask_N] = 0
+
+        # N, E = _density_temperature_bounds(N, E)
+        kbT = E/N
+        # kbT[mask_N] = MINIMAL_KBT
+
+
+        # N[N < MINIMAL_DENSITY] = MINIMAL_DENSITY
+        # mask = E/N < MINIMAL_KBT
+        # E[mask] = MINIMAL_KBT * N[mask]
+
+        # kbT = np.nan_to_num(E/N)
+        # kbT[kbT<=0.025*Q_E] = 0.025*Q_E
+        # print(Ne, N)
+        R_ei = je * N * self._species.eixs.xs_vector(self.e_kin)
+        R_rr = je * N * self._species.rrxs.xs_vector(self.e_kin)
+        R_dr = je * N * self._species.drxs.xs_vector(self.e_kin, self._fwhm)
+
+        S_ei = je * E * self._species.eixs.xs_vector(self.e_kin)
+        S_rr = je * E * self._species.rrxs.xs_vector(self.e_kin)
+        S_dr = je * E * self._species.drxs.xs_vector(self.e_kin, self._fwhm)
         # coul_xs = plasma.coulomb_xs_vec(N, Ne, kbT, self._e_kin, self._element.a)
         # S_eh = Ne * ve * coul_xs * N * 2 * M_E / (self._element.a * M_P)
         S_eh = plasma.electron_heating_vec(N, Ne, kbT, self._e_kin, self._element.a)
+        # S_eh[mask_N] = 0
         # print(max(S_eh))
         R_tot = -(R_ei + R_rr + R_dr)
         R_tot[1:] += R_ei[:-1]
         R_tot[:-1] += R_rr[1:] + R_dr[1:]
+        # R_tot[np.logical_and((R_tot < 0), mask_N)] = 0
+        # R_tot[0] += MINIMAL_DENSITY
 
         S_tot = -(S_ei + S_rr + S_dr) + S_eh
         S_tot[1:] += S_ei[:-1]
         S_tot[:-1] += S_rr[1:] + S_dr[1:]
+        # S_tot[0] += MINIMAL_DENSITY * kbT[0]
+        # S_tot[np.logical_or(mask_N, np.logical_and((S_tot < 0), mask_E))] = 0
+        # S_tot[np.logical_and((S_tot < 0), mask_N)] = 0
 
         return np.concatenate((R_tot, S_tot))
 
@@ -404,13 +433,16 @@ class ComplexEBISProblem:
         """
         if y0 is None:
             y0 = self._default_initial
-        # solution = scipy.integrate.solve_ivp(self._ode_system, [0, max_time], y0, **kwargs)
-        solution = scipy.integrate.solve_ivp(self._rhs, [0, max_time], y0, **kwargs)
+        lb = np.ones(y0.size) * MINIMAL_DENSITY
+        lb[self._element.z + 1:] *= MINIMAL_KBT
+        method = kwargs.pop("method", "Radau")
+        solution = scipy.integrate.solve_ivp(self._rhs, [0, max_time], y0, method=method, **kwargs)
+        # solution = solver.solve_ivp_thresh(self._rhs, [0, max_time], y0, lb=lb, **kwargs)
         # solution.y = solution.y / np.sum(solution.y, axis=0) # Normalise to sum 1 at each time step
         self._solution = solution
         return solution
 
-    def plot_solution(self):
+    def plot_cs_evo(self):
         """
         After the problem has been solved, the charge state evolution can be plotted by calling
         this function
@@ -422,6 +454,61 @@ class ComplexEBISProblem:
         tmax = self.solution.t.max()
         xlim = (1e-4, tmax)
         title = "%s charge state evolution, $E_{kin} = %0.1f$ eV, FWHM = %0.1f eV)"\
-                %(self._species.element.latex_isotope(),
-                  self._e_kin, self._fwhm)
-        return plotting.plot_cs_evolution(self.solution, xlim=xlim, title=title)
+                %(self._species.element.latex_isotope(), self._e_kin, self._fwhm)
+        t = self.solution.t
+        N = self.solution.y[:self._element.z + 1, :]
+        ylim = (0, N.max()*1.05)
+        ylabel = ("Density (m$^{-3}$)")
+        fig = plotting.plot_generic_evolution(t, N, xlim=xlim, ylim=ylim, ylabel=ylabel, title=title, yscale="linear")
+        return fig
+
+    def plot_energy_evo(self):
+        """
+        After the problem has been solved, the energy denisty evolution can be plotted by calling
+        this function
+
+        Returns figure handle and does not call show()
+        """
+        if self.solution is None:
+            print("Error! Need to solve problem before plotting")
+        tmax = self.solution.t.max()
+        xlim = (1e-4, tmax)
+        title = "%s energy density evolution, $E_{kin} = %0.1f$ eV, FWHM = %0.1f eV)"\
+                %(self._species.element.latex_isotope(), self._e_kin, self._fwhm)
+        t = self.solution.t
+        E = self.solution.y[self._element.z + 1:, :]
+        ylim = (1, E.max()*1.05)
+        ylabel = ("Energy density (eV / m$^{-3}$)")
+        fig = plotting.plot_generic_evolution(t, E, xlim=xlim, ylim=ylim, ylabel=ylabel, title=title)
+        return fig
+
+    def plot_temperature_evo(self):
+        """
+        After the problem has been solved, the temperature evolution can be plotted by calling
+        this function
+
+        Returns figure handle and does not call show()
+        """
+        if self.solution is None:
+            print("Error! Need to solve problem before plotting")
+        tmax = self.solution.t.max()
+        xlim = (1e-4, tmax)
+        title = "%s energy density evolution, $E_{kin} = %0.1f$ eV, FWHM = %0.1f eV)"\
+                %(self._species.element.latex_isotope(), self._e_kin, self._fwhm)
+        t = self.solution.t
+        # N = self.solution.y[:self._element.z + 1, :]
+        # E = self.solution.y[self._element.z + 1:, :]
+        T = self.solution.y[self._element.z + 1:, :] / self.solution.y[:self._element.z + 1, :]
+        ylim = (MINIMAL_KBT, T.max()*1.05)
+        ylabel = ("Temperature (eV)")
+        fig = plotting.plot_generic_evolution(t, T, xlim=xlim, ylim=ylim, ylabel=ylabel, title=title)
+        return fig
+
+def _density_temperature_bounds(N, E):
+    """
+    Makes sure N and E don't fall underneath the predefined minimal values
+    """
+    N[N < MINIMAL_DENSITY] = MINIMAL_DENSITY
+    mask = E/N < MINIMAL_KBT
+    E[mask] = MINIMAL_KBT * N[mask]
+    return N, E
