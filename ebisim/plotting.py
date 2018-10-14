@@ -12,14 +12,18 @@ from matplotlib.dates import date2num
 from . import xs
 from . import elements
 
+COLORMAP = plt.cm.gist_rainbow
+
 def plot_energy_scan(data, cs, ylim=None, title=None, invert_hor=False, x2fun=None, x2label=""):
     """
     Plots the charge state abundance vs the energy
     """
     fig = plt.figure(figsize=(6, 3), dpi=150)
     ax1 = fig.add_subplot(111)
+    n = data.shape[1] - 1
+    _set_line_prop_cycle(ax1, n)
 
-    for c in range(data.shape[1]-1):
+    for c in range(n):
         if c in cs:
             plt.plot(data["e_kin"], data[c], figure=fig, label=str(c) + "+")
         else:
@@ -98,9 +102,12 @@ def plot_cs_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
     line_labels - annotate lines?
     """
     fig = plt.figure(figsize=(8, 6), dpi=150)
-    ax = fig.gca()
+    ax = fig.add_subplot(111)
 
-    for cs in range(ode_solution.y.shape[0]):
+    n = ode_solution.y.shape[0]
+    _set_line_prop_cycle(ax, n)
+
+    for cs in range(n):
         if np.array_equal(np.unique(ode_solution.y[cs, :]), np.array([0])):
             plt.semilogx([], [], figure=fig) # Ghost draw for purely zero cases
         else:
@@ -124,9 +131,12 @@ def plot_generic_evolution(t, y, xlim=(1e-4, 1e3), ylim=None, ylabel="", title="
     line_labels - annotate lines?
     """
     fig = plt.figure(figsize=(8, 6), dpi=150)
-    ax = fig.gca()
+    ax = fig.add_subplot(111)
 
-    for cs in range(y.shape[0]):
+    n = y.shape[0]
+    _set_line_prop_cycle(ax, n)
+
+    for cs in range(n):
         if np.array_equal(np.unique(y[cs, :]), np.array([0])):
             plt.loglog([], [], figure=fig) # Ghost draw for purely zero cases
         else:
@@ -166,6 +176,7 @@ def _plot_xs(xs_df, fig=None, xscale="log", yscale="log",
     ekin = xs_df.ekin
     xs_df = xs_df.drop("ekin", axis=1)
     ax.set_prop_cycle(None) # Reset property (color) cycle, needed when plotting on existing fig
+    _set_line_prop_cycle(ax, xs_df.shape[1] - 1)
     for (cs, xsec) in xs_df.iteritems():
         if np.array_equal(xsec.unique(), np.array([0])):
             plt.plot([], []) # If all xs are zero, do a ghost plot to advance color cycle
@@ -289,6 +300,9 @@ def plot_combined_xs(element, fwhm, xlim=None, ylim=(1e-24, 1e-16),
 ########################
 #### Helper Methods ####
 ########################
+
+def _set_line_prop_cycle(ax, n_lines):
+    ax.set_prop_cycle(color=[COLORMAP(i) for i in np.linspace(0, 1, n_lines)])
 
 
 def _decorate_axes(ax, title=None, xlabel=None, ylabel=None, xlim=None, ylim=None, grid=True,
