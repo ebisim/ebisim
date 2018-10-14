@@ -8,7 +8,7 @@ import numpy as np
 
 from.physconst import M_E, M_P, PI, EPS_0, Q_E, C_L, M_E_EV
 
-# @numba.jit
+@numba.jit
 def electron_velocity(e_kin):
     """
     Returns the electron velocity corresponding to a kin. energy in m/s
@@ -18,7 +18,7 @@ def electron_velocity(e_kin):
     """
     return C_L * np.sqrt(1 - (M_E_EV / (M_E_EV + e_kin))**2)
 
-# @numba.jit
+@numba.jit
 def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
     """
     The coulomb logarithm for ion electron collisions
@@ -34,7 +34,8 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
     Mi = Ai * M_P
     if (qi*qi*10 > kbTe) and (kbTe > kbTi * M_E / Mi):
         return 23 - math.log(Ne**0.5 * qi * kbTe**-1.5)
-    elif (kbTe > kbTi * M_E / Mi):#(kbTe > qi*qi*10) and (qi*qi*10 > kbTi * M_E / Mi):
+    elif (kbTe > kbTi * M_E / Mi):
+    # elif (kbTe > qi*qi*10) and (qi*qi*10 > kbTi * M_E / Mi):
         return 24 - math.log(Ne**0.5 / kbTe)
     elif kbTe < kbTi * M_E / Mi:
         return 16 - math.log(Ni**0.5 * kbTi**-1.5 * qi * qi / Ai)
@@ -42,7 +43,7 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
         print(kbTe, kbTi)
         raise Exception
 
-# @numba.jit
+@numba.jit
 def clog_ei_vec(Ni, Ne, kbTi, kbTe, Ai):
     """
     Vector version of clog_ei
@@ -59,7 +60,7 @@ def clog_ei_vec(Ni, Ne, kbTi, kbTe, Ai):
         clog[q] = clog_ei(Ni[q], Ne, kbTi[q], kbTe, Ai, q)
     return clog
 
-# @numba.jit
+@numba.jit
 def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     """
     The coulomb logarithm for ion ion collisions
@@ -72,7 +73,7 @@ def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     B = Ni * qi *qi / kbTi + Nj * qj * qj /kbTj
     return 23 - math.log(A * B**0.5)
 
-# @numba.jit
+@numba.jit
 def clog_ii_mat(Ni, Nj, kbTi, kbTj, Ai, Aj):
     """
     Matrix version of clog_ii
@@ -91,7 +92,7 @@ def clog_ii_mat(Ni, Nj, kbTi, kbTj, Ai, Aj):
             clog[qi, qj] = clog_ii(Ni[qi], Nj[qj], kbTi[qi], kbTj[qj], Ai, Aj, qi, qj)
     return clog
 
-# @numba.jit
+@numba.jit
 def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
     """
     Computes the coulomb cross section for electron ion elastic collisions
@@ -106,7 +107,7 @@ def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
     clog = clog_ei(Ni, Ne, kbTi, Ee, Ai, qi)
     return 4 * PI * (qi * Q_E * Q_E / (4 * PI * EPS_0 * M_E))**2 * clog / v_e**4
 
-# @numba.jit
+@numba.jit
 def coulomb_xs_vec(Ni, Ne, kbTi, Ee, Ai):
     """
     Vector version of coulomb_xs
@@ -123,12 +124,19 @@ def coulomb_xs_vec(Ni, Ne, kbTi, Ee, Ai):
         xs[q] = coulomb_xs(Ni[q], Ne, kbTi[q], Ee, Ai, q)
     return xs
 
-# @numba.jit
+@numba.jit
 def electron_heating_vec(Ni, Ne, kbTi, Ee, Ai):
     """
-
+    Computes the heating rate due to elastic electron ion collisions
+    Referred to as Spitzer Heating
+    Ni - ion density in 1/m^3
+    Ne - electron density in 1/m^3
+    kbTi - electron energy /temperature in eV
+    Ee - electron kinetic energy in eV
+    Ai - ion mass in amu
     """
     ve = electron_velocity(Ee)
     coul_xs = coulomb_xs_vec(Ni, Ne, kbTi, Ee, Ai)
-    heat = Ne * ve * coul_xs * Ni * 2 * M_E / (Ai * M_P)
-    return heat/Q_E
+    heat = Ne * ve * coul_xs * Ni * 2 * M_E / (Ai * M_P) * Ee
+
+    return heat
