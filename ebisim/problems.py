@@ -122,6 +122,7 @@ class SimpleEBISProblem:
                   self._e_kin, self._fwhm)
         return plotting.plot_cs_evolution(self.solution, xlim=xlim, title=title)
 
+
 class ContinuousNeutralInjectionEBISProblem(SimpleEBISProblem):
     """
     The class has been modified to increase the abundance in the neutral charge state
@@ -152,13 +153,6 @@ class ContinuousNeutralInjectionEBISProblem(SimpleEBISProblem):
         ode = lambda t, y: jac.dot(y) + feed # time independent problem
         return ode
 
-    # def _ode_system(self, _, y): # No time dependence in this problem
-    #     """
-    #     The ode system describing the charge breeding
-    #     """
-    #     dydt = super()._ode_system(None, y)
-    #     dydt[0] += 1
-    #     return dydt
 
 class EnergyScan:
     """
@@ -292,6 +286,7 @@ class EnergyScan:
     #         scan_solutions = scan_solutions.append(sol_df, ignore_index=True)
     #     self._solution = scan_solutions
 
+
 class ComplexEBISProblem:
     """
     class defining an EBIS charge breeding simulation and providing the interface to solve it
@@ -421,7 +416,7 @@ class ComplexEBISProblem:
         if self.solution is None:
             print("Error! Need to solve problem before plotting")
         tmax = self.solution.t.max()
-        xlim = (1e-4, tmax)
+        xlim = (1e-5, tmax)
         title = "%s charge state evolution ($E_{kin} = %0.1f$ eV, FWHM = %0.1f eV)"\
                 %(self._species.element.latex_isotope(), self._e_kin, self._fwhm)
         t = self.solution.t
@@ -442,7 +437,7 @@ class ComplexEBISProblem:
         if self.solution is None:
             print("Error! Need to solve problem before plotting")
         tmax = self.solution.t.max()
-        xlim = (1e-4, tmax)
+        xlim = (1e-5, tmax)
         title = "%s energy density evolution ($E_{kin} = %0.1f$ eV, FWHM = %0.1f eV)"\
                 %(self._species.element.latex_isotope(), self._e_kin, self._fwhm)
         t = self.solution.t
@@ -463,12 +458,10 @@ class ComplexEBISProblem:
         if self.solution is None:
             print("Error! Need to solve problem before plotting")
         tmax = self.solution.t.max()
-        xlim = (1e-4, tmax)
+        xlim = (1e-5, tmax)
         title = "%s energy density evolution ($E_{kin} = %0.1f$ eV, FWHM = %0.1f eV)"\
                 %(self._species.element.latex_isotope(), self._e_kin, self._fwhm)
         t = self.solution.t
-        # N = self.solution.y[:self._element.z + 1, :]
-        # E = self.solution.y[self._element.z + 1:, :]
         T = self.solution.y[self._element.z + 1:, :]
         ylim = (MINIMAL_KBT, T.max()*1.05)
         ylabel = ("Temperature (eV)")
