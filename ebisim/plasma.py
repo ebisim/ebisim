@@ -7,7 +7,7 @@ import numba
 import numpy as np
 
 from .physconst import M_E, M_P, PI, EPS_0, Q_E, C_L, M_E_EV
-from .physconst import MINIMAL_DENSITY, MINIMAL_KBT
+from .physconst import MINIMAL_DENSITY
 
 @numba.jit
 def electron_velocity(e_kin):
@@ -44,22 +44,22 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
         print(qi, kbTe, kbTi)
         raise Exception
 
-@numba.jit
-def clog_ei_vec(Ni, Ne, kbTi, kbTe, Ai):
-    """
-    Vector version of clog_ei
-    Assumes Ni and kbTi are vectors of length Z +1 where the index corresponds to the charge state
-    Ni - ion density in 1/m^3
-    Ne - electron density in 1/m^3
-    kbTi - electron energy /temperature in eV
-    kbTe - electron energy /temperature in eV
-    Ai - ion mass in amu
-    """
-    n = Ni.size
-    clog = np.zeros(n)
-    for q in range(1, n):
-        clog[q] = clog_ei(Ni[q], Ne, kbTi[q], kbTe, Ai, q)
-    return clog
+# @numba.jit
+# def clog_ei_vec(Ni, Ne, kbTi, kbTe, Ai):
+#     """
+#     Vector version of clog_ei
+#     Assumes Ni and kbTi are vectors of length Z +1 where the index corresponds to the charge state
+#     Ni - ion density in 1/m^3
+#     Ne - electron density in 1/m^3
+#     kbTi - electron energy /temperature in eV
+#     kbTe - electron energy /temperature in eV
+#     Ai - ion mass in amu
+#     """
+#     n = Ni.size
+#     clog = np.zeros(n)
+#     for q in range(1, n):
+#         clog[q] = clog_ei(Ni[q], Ne, kbTi[q], kbTe, Ai, q)
+#     return clog
 
 @numba.jit
 def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
@@ -79,24 +79,24 @@ def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
         clog = 0
     return clog
 
-@numba.jit
-def clog_ii_mat(Ni, Nj, kbTi, kbTj, Ai, Aj):
-    """
-    Matrix version of clog_ii
-    Assumes Ni and kbTi are vectors of length Z +1 where the index corresponds to the charge state
-    The coulomb logarithm for ion ion collisions
-    Ni/Nj - ion density in 1/m^3
-    kbTi/kbTj - electron energy /temperature in eV
-    Ai/Aj - ion mass in amu
-    qi/qj - ion charge
-    """
-    ni = Ni.size
-    nj = Nj.size
-    clog = np.zeros((ni, nj))
-    for qj in range(1, nj):
-        for qi in range(1, ni):
-            clog[qi, qj] = clog_ii(Ni[qi], Nj[qj], kbTi[qi], kbTj[qj], Ai, Aj, qi, qj)
-    return clog
+# @numba.jit
+# def clog_ii_mat(Ni, Nj, kbTi, kbTj, Ai, Aj):
+#     """
+#     Matrix version of clog_ii
+#     Assumes Ni and kbTi are vectors of length Z +1 where the index corresponds to the charge state
+#     The coulomb logarithm for ion ion collisions
+#     Ni/Nj - ion density in 1/m^3
+#     kbTi/kbTj - electron energy /temperature in eV
+#     Ai/Aj - ion mass in amu
+#     qi/qj - ion charge
+#     """
+#     ni = Ni.size
+#     nj = Nj.size
+#     clog = np.zeros((ni, nj))
+#     for qj in range(1, nj):
+#         for qi in range(1, ni):
+#             clog[qi, qj] = clog_ii(Ni[qi], Nj[qj], kbTi[qi], kbTj[qj], Ai, Aj, qi, qj)
+#     return clog
 
 @numba.jit
 def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
@@ -113,22 +113,38 @@ def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
     clog = clog_ei(Ni, Ne, kbTi, Ee, Ai, qi)
     return 4 * PI * (qi * Q_E * Q_E / (4 * PI * EPS_0 * M_E))**2 * clog / v_e**4
 
-@numba.jit
-def coulomb_xs_vec(Ni, Ne, kbTi, Ee, Ai):
+# @numba.jit
+# def coulomb_xs_vec(Ni, Ne, kbTi, Ee, Ai):
+#     """
+#     Vector version of coulomb_xs
+#     Assumes Ni and kbTi are vectors of length Z +1 where the index corresponds to the charge state
+#     Ni - ion density in 1/m^3
+#     Ne - electron density in 1/m^3
+#     kbTi - electron energy /temperature in eV
+#     Ee - electron kinetic energy in eV
+#     Ai - ion mass in amu
+#     """
+#     n = Ni.size
+#     xs = np.zeros(n)
+#     for q in range(1, n):
+#         xs[q] = coulomb_xs(Ni[q], Ne, kbTi[q], Ee, Ai, q)
+#     return xs
+
+@numba.jit()
+def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     """
-    Vector version of coulomb_xs
-    Assumes Ni and kbTi are vectors of length Z +1 where the index corresponds to the charge state
-    Ni - ion density in 1/m^3
-    Ne - electron density in 1/m^3
-    kbTi - electron energy /temperature in eV
-    Ee - electron kinetic energy in eV
-    Ai - ion mass in amu
+    Collision rate of ions species "i" for target "j"
+    Ni/Nj - ion density in 1/m^3
+    kbTi/kbTj - electron energy /temperature in eV
+    Ai/Aj - ion mass in amu
+    qi/qj - ion charge
     """
-    n = Ni.size
-    xs = np.zeros(n)
-    for q in range(1, n):
-        xs[q] = coulomb_xs(Ni[q], Ne, kbTi[q], Ee, Ai, q)
-    return xs
+    clog = clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj)
+    # print(clog, Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj)
+    kbTi_SI = kbTi * Q_E
+    Mi = Ai * M_P
+    const = 4 / 3 / (4 * PI * EPS_0)**2 * math.sqrt(2 * PI)
+    return const * Nj * (qi * qj * Q_E * Q_E / Mi)**2 * (Mi/kbTi_SI)**1.5 * clog
 
 @numba.jit
 def electron_heating_vec(Ni, Ne, kbTi, Ee, Ai):
@@ -150,24 +166,7 @@ def electron_heating_vec(Ni, Ne, kbTi, Ee, Ai):
 
     # coul_xs = coulomb_xs_vec(Ni, Ne, kbTi, Ee, Ai)
     # heat = Ne * electron_velocity(Ee) * coul_xs * Ni * 2 * M_E / (Ai * M_P) * Ee
-
     return heat
-
-@numba.jit()
-def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
-    """
-    Collision rate of ions species "i" for target "j"
-    Ni/Nj - ion density in 1/m^3
-    kbTi/kbTj - electron energy /temperature in eV
-    Ai/Aj - ion mass in amu
-    qi/qj - ion charge
-    """
-    clog = clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj)
-    # print(clog, Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj)
-    kbTi_SI = kbTi * Q_E
-    Mi = Ai * M_P
-    const = 4 / 3 / (4 * PI * EPS_0)**2 * math.sqrt(2 * PI)
-    return const * Nj * (qi * qj * Q_E * Q_E / Mi)**2 * (Mi/kbTi_SI)**1.5 * clog
 
 @numba.jit
 def energy_transfer_vec(Ni, Nj, kbTi, kbTj, Ai, Aj):
