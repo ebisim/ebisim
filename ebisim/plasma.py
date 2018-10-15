@@ -6,7 +6,8 @@ import math
 import numba
 import numpy as np
 
-from.physconst import M_E, M_P, PI, EPS_0, Q_E, C_L, M_E_EV
+from .physconst import M_E, M_P, PI, EPS_0, Q_E, C_L, M_E_EV
+from .physconst import MINIMAL_DENSITY, MINIMAL_KBT
 
 @numba.jit
 def electron_velocity(e_kin):
@@ -40,7 +41,7 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
     elif kbTe < kbTi * M_E / Mi:
         return 16 - math.log(Ni**0.5 * kbTi**-1.5 * qi * qi / Ai)
     else:
-        print(kbTe, kbTi)
+        print(qi, kbTe, kbTi)
         raise Exception
 
 @numba.jit
@@ -69,9 +70,14 @@ def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     Ai/Aj - ion mass in amu
     qi/qj - ion charge
     """
+    Ni *= 1e-6 # go from 1/m**3 to 1/cm**3
+    Nj *= 1e-6
     A = qi * qj * (Ai + Aj) / (Ai * kbTj + Aj * kbTi)
-    B = Ni * qi *qi / kbTi + Nj * qj * qj /kbTj
-    return 23 - math.log(A * B**0.5)
+    B = Ni * qi * qi / kbTi + Nj * qj * qj / kbTj
+    clog = 23 - math.log(A * B**0.5)
+    if clog < 0:
+        clog = 0
+    return clog
 
 @numba.jit
 def clog_ii_mat(Ni, Nj, kbTi, kbTj, Ai, Aj):
@@ -135,8 +141,52 @@ def electron_heating_vec(Ni, Ne, kbTi, Ee, Ai):
     Ee - electron kinetic energy in eV
     Ai - ion mass in amu
     """
-    ve = electron_velocity(Ee)
-    coul_xs = coulomb_xs_vec(Ni, Ne, kbTi, Ee, Ai)
-    heat = Ne * ve * coul_xs * Ni * 2 * M_E / (Ai * M_P) * Ee
+    n = Ni.size
+    heat = np.zeros(n)
+    const = Ne * electron_velocity(Ee) * 2 * M_E / (Ai * M_P) * Ee
+    for qi in range(n):
+        if Ni[qi] > MINIMAL_DENSITY:
+            heat[qi] = const * Ni[qi] * coulomb_xs(Ni[qi], Ne, kbTi[qi], Ee, Ai, qi)
+
+    # coul_xs = coulomb_xs_vec(Ni, Ne, kbTi, Ee, Ai)
+    # heat = Ne * electron_velocity(Ee) * coul_xs * Ni * 2 * M_E / (Ai * M_P) * Ee
 
     return heat
+
+@numba.jit()
+def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
+    """
+    Collision rate of ions species "i" for target "j"
+    Ni/Nj - ion density in 1/m^3
+    kbTi/kbTj - electron energy /temperature in eV
+    Ai/Aj - ion mass in amu
+    qi/qj - ion charge
+    """
+    clog = clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj)
+    # print(clog, Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj)
+    kbTi_SI = kbTi * Q_E
+    Mi = Ai * M_P
+    const = 4 / 3 / (4 * PI * EPS_0)**2 * math.sqrt(2 * PI)
+    return const * Nj * (qi * qj * Q_E * Q_E / Mi)**2 * (Mi/kbTi_SI)**1.5 * clog
+
+@numba.jit
+def energy_transfer_vec(Ni, Nj, kbTi, kbTj, Ai, Aj):
+    """
+    The energy transfer term for species "i" (with respect to species "j")
+    Ni/Nj - ion density in 1/m^3
+    kbTi/kbTj - electron energy /temperature in eV
+    Ai/Aj - ion mass in amu
+    qi/qj - ion charge
+    """
+    ni = Ni.size
+    nj = Nj.size
+    trans_i = np.zeros(ni)
+    # trans_j = np.zeros(nj)
+    for qi in range(1, ni):
+        if Ni[qi] > MINIMAL_DENSITY:
+            for qj in range(1, nj):
+                if Nj[qj] > MINIMAL_DENSITY:
+                    r_ij = ion_coll_rate(Ni[qi], Nj[qj], kbTi[qi], kbTj[qj], Ai, Aj, qi, qj)
+                    trans_i[qi] += 2 * r_ij * Ni[qi] * Ai/Aj * (kbTj[qj] - kbTi[qi]) / \
+                                (1 + (Ai * kbTj[qj]) / (Aj * kbTi[qi]))**1.5
+    return trans_i

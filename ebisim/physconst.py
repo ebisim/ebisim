@@ -19,3 +19,8 @@ M_P = scipy.constants.proton_mass #: Proton mass
 M_E_EV = M_E * C_L**2 / Q_E #: Electron mass in eV
 RY_EV = scipy.constants.Rydberg * C_L * 2 * PI * HBAR / Q_E #: Rydberg energy (approx. 13.6eV)
 COMPT_E_RED = HBAR / (M_E * C_L) #: Reduced electron compton wavelength
+
+
+##### Numerical Thresholds
+MINIMAL_DENSITY = 1e-10 #m^-3 minimal particle number density
+MINIMAL_KBT = 1e-3 #eV minimal temperature equivalent
