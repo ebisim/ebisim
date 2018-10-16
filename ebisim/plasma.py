@@ -130,7 +130,7 @@ def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
 #         xs[q] = coulomb_xs(Ni[q], Ne, kbTi[q], Ee, Ai, q)
 #     return xs
 
-@numba.jit()
+@numba.jit
 def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     """
     Collision rate of ions species "i" for target "j"
@@ -139,12 +139,31 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     Ai/Aj - ion mass in amu
     qi/qj - ion charge
     """
+    # Artifically clamp collision rate to zero if either density is very small
+    # This is a reasonable assumption and prevents instabilities when calling the coulomb logarithm
+    if Ni < MINIMAL_DENSITY or Nj < MINIMAL_DENSITY:
+        return 0
     clog = clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj)
-    # print(clog, Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj)
     kbTi_SI = kbTi * Q_E
     Mi = Ai * M_P
     const = 4 / 3 / (4 * PI * EPS_0)**2 * math.sqrt(2 * PI)
     return const * Nj * (qi * qj * Q_E * Q_E / Mi)**2 * (Mi/kbTi_SI)**1.5 * clog
+
+@numba.jit
+def ion_coll_rate_mat(Ni, Nj, kbTi, kbTj, Ai, Aj):
+    """
+    Matric of ollision rates of ions species "i" for target "j"
+    Ni/Nj - ion density in 1/m^3
+    kbTi/kbTj - electron energy /temperature in eV
+    Ai/Aj - ion mass in amu
+    """
+    ni = Ni.size
+    nj = Nj.size
+    r_ij = np.zeros((ni, nj))
+    for qi in range(1, ni):
+        for qj in range(1, nj):
+            r_ij[qi, qj] = ion_coll_rate(Ni[qi], Nj[qj], kbTi[qi], kbTj[qj], Ai, Aj, qi, qj)
+    return r_ij
 
 @numba.jit
 def electron_heating_vec(Ni, Ne, kbTi, Ee, Ai):
@@ -163,9 +182,6 @@ def electron_heating_vec(Ni, Ne, kbTi, Ee, Ai):
     for qi in range(n):
         if Ni[qi] > MINIMAL_DENSITY:
             heat[qi] = const * Ni[qi] * coulomb_xs(Ni[qi], Ne, kbTi[qi], Ee, Ai, qi)
-
-    # coul_xs = coulomb_xs_vec(Ni, Ne, kbTi, Ee, Ai)
-    # heat = Ne * electron_velocity(Ee) * coul_xs * Ni * 2 * M_E / (Ai * M_P) * Ee
     return heat
 
 @numba.jit
@@ -180,12 +196,9 @@ def energy_transfer_vec(Ni, Nj, kbTi, kbTj, Ai, Aj):
     ni = Ni.size
     nj = Nj.size
     trans_i = np.zeros(ni)
-    # trans_j = np.zeros(nj)
+    r_ij = ion_coll_rate_mat(Ni, Nj, kbTi, kbTj, Ai, Aj)
     for qi in range(1, ni):
-        if Ni[qi] > MINIMAL_DENSITY:
-            for qj in range(1, nj):
-                if Nj[qj] > MINIMAL_DENSITY:
-                    r_ij = ion_coll_rate(Ni[qi], Nj[qj], kbTi[qi], kbTj[qj], Ai, Aj, qi, qj)
-                    trans_i[qi] += 2 * r_ij * Ni[qi] * Ai/Aj * (kbTj[qj] - kbTi[qi]) / \
+        for qj in range(1, nj):
+            trans_i[qi] += 2 * r_ij[qi, qj] * Ni[qi] * Ai/Aj * (kbTj[qj] - kbTi[qi]) / \
                                 (1 + (Ai * kbTj[qj]) / (Aj * kbTi[qi]))**1.5
     return trans_i
