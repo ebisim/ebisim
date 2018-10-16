@@ -39,7 +39,7 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
     # elif (kbTe > qi*qi*10) and (qi*qi*10 > kbTi * M_E / Mi):
         return 24 - math.log(Ne**0.5 / kbTe)
     elif kbTe < kbTi * M_E / Mi:
-        return 16 - math.log(Ni**0.5 * kbTi**-1.5 * qi * qi / Ai)
+        return 16 - math.log(Ni**0.5 * kbTi**-1.5 * qi * qi * Ai)
     else:
         print(qi, kbTe, kbTi)
         raise Exception
