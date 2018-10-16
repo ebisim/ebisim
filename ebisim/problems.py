@@ -345,7 +345,7 @@ class ComplexEBISProblem:
         """
         The right hand side of the ODE system for the complex EBIS problem
         """
-        del(t) # not currently needed
+        del t # not currently needed
         ### Electron beam stuff
         e_kin = self.e_kin
         ve = plasma.electron_velocity(e_kin)
@@ -371,13 +371,12 @@ class ComplexEBISProblem:
         R_ra = plasma.escape_rate_radial(N, kbT, ri, A, self._Vtrap_ra, self._B_ax, self._r_dt)
 
         ### Energy density rates
-        S_ei = R_ei * kbT #je * E * self._species.eixs.xs_vector(e_kin)
-        S_rr = R_rr * kbT #je * E * self._species.rrxs.xs_vector(e_kin)
-        S_dr = R_dr * kbT #je * E * self._species.drxs.xs_vector(e_kin, self._fwhm)
+        S_ei = R_ei * kbT
+        S_rr = R_rr * kbT
+        S_dr = R_dr * kbT
         S_ax = R_ax * (kbT + q * self._Vtrap_ax)
         S_ra = R_ra * (kbT + q * (self._Vtrap_ra + self._r_dt * self._B_ax * \
                                   np.sqrt(2 * Q_E * np.clip(kbT, 0, None) / (3 * A *M_P))))
-        # S_ra = -
         # Electron heating
         S_eh = plasma.electron_heating_vec(N, Ne, kbT, e_kin, A)
         # Energy transfer between charge states within same "species"
@@ -418,8 +417,6 @@ class ComplexEBISProblem:
         lb[self._element.z + 1:] *= MINIMAL_KBT
         method = kwargs.pop("method", "Radau")
         solution = scipy.integrate.solve_ivp(self._rhs, [0, max_time], y0, method=method, **kwargs)
-        # solution = ivp.solve_ivp(self._rhs, [0, max_time], y0, method=method, **kwargs)
-        #solution.y = solution.y / np.sum(solution.y, axis=0) # Normalise to sum 1 at each time step
         self._solution = solution
         return solution
 
@@ -438,7 +435,7 @@ class ComplexEBISProblem:
                 %(self._species.element.latex_isotope(), self._e_kin, self._fwhm)
         t = self.solution.t
         N = self.solution.y[:self._element.z + 1, :]
-        ylim = (0, N.max()*1.05)
+        ylim = (0, N.sum(axis=0).max()*1.05)
         ylabel = ("Density (m$^{-3}$)")
         fig = plotting.plot_generic_evolution(t, N, xlim=xlim, ylim=ylim, ylabel=ylabel,
                                               title=title, yscale="linear", plot_sum=True)
@@ -459,7 +456,9 @@ class ComplexEBISProblem:
                 %(self._species.element.latex_isotope(), self._e_kin, self._fwhm)
         t = self.solution.t
         E = self.solution.y[self._element.z + 1:, :] * self.solution.y[:self._element.z + 1, :]
-        ylim = (1, E.max()*1.05)
+        ymin = 10**(np.floor(np.log10(E[:, 0].sum(axis=0)) - 1))
+        ymax = 10**(np.ceil(np.log10(E.sum(axis=0).max()) + 1))
+        ylim = (ymin, ymax)
         ylabel = ("Energy density (eV / m$^{-3}$)")
         fig = plotting.plot_generic_evolution(t, E, xlim=xlim, ylim=ylim, ylabel=ylabel,
                                               title=title, plot_sum=True)
@@ -480,7 +479,9 @@ class ComplexEBISProblem:
                 %(self._species.element.latex_isotope(), self._e_kin, self._fwhm)
         t = self.solution.t
         T = self.solution.y[self._element.z + 1:, :]
-        ylim = (MINIMAL_KBT, T.max()*1.05)
+        ymin = 0.01
+        ymax = 10**(np.ceil(np.log10(T.max()) + 1))
+        ylim = (ymin, ymax)
         ylabel = ("Temperature (eV)")
         fig = plotting.plot_generic_evolution(t, T, xlim=xlim, ylim=ylim, ylabel=ylabel,
                                               title=title)
