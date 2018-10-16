@@ -11,7 +11,7 @@ from . import xs
 from . import elements
 from . import plasma
 # from . import ivp
-from .physconst import Q_E, M_P
+from .physconst import Q_E, M_P, PI
 from .physconst import MINIMAL_DENSITY, MINIMAL_KBT
 
 class SimpleEBISProblem:
@@ -317,6 +317,8 @@ class ComplexEBISProblem:
         self._Vtrap_ra = 50
         self._B_ax = 2
         self._r_dt = 5e-3
+        self._bg_N0 = 1e-7 / (0.025 * Q_E) # 10e-10mbar at 300K
+        self._bg_IP = 21.56 # eV
         #Default initial condition for solving the EBIS ODE System (all atoms in 1+ charge state)
         self._default_initial = np.ones(2*(self._element.z + 1))
         self._default_initial[:self._element.z + 1] *= MINIMAL_DENSITY
@@ -367,6 +369,8 @@ class ComplexEBISProblem:
         R_ei = je * N * self._species.eixs.xs_vector(e_kin)
         R_rr = je * N * self._species.rrxs.xs_vector(e_kin)
         R_dr = je * N * self._species.drxs.xs_vector(e_kin, self._fwhm)
+        sigcx = 1.43e-16 * q**1.17 * self._bg_IP**-2.76
+        R_cx = N * self._bg_N0 * np.sqrt(8 * Q_E * np.clip(kbT, 0, None)/(PI * A * M_P)) * sigcx
         R_ax = plasma.escape_rate_axial(N, kbT, ri, self._Vtrap_ax)
         R_ra = plasma.escape_rate_radial(N, kbT, ri, A, self._Vtrap_ra, self._B_ax, self._r_dt)
 
@@ -374,6 +378,7 @@ class ComplexEBISProblem:
         S_ei = R_ei * kbT
         S_rr = R_rr * kbT
         S_dr = R_dr * kbT
+        S_cx = R_cx * kbT
         S_ax = R_ax * (kbT + q * self._Vtrap_ax)
         S_ra = R_ra * (kbT + q * (self._Vtrap_ra + self._r_dt * self._B_ax * \
                                   np.sqrt(2 * Q_E * np.clip(kbT, 0, None) / (3 * A *M_P))))
@@ -383,14 +388,14 @@ class ComplexEBISProblem:
         S_tr = plasma.energy_transfer_vec(N, N, kbT, kbT, A, A, rij)
 
         ### Construct rhs for N (density)
-        R_tot = -(R_ei + R_rr + R_dr) - (R_ax + R_ra)
+        R_tot = -(R_ei + R_rr + R_dr + R_cx) - (R_ax + R_ra)
         R_tot[1:] += R_ei[:-1]
-        R_tot[:-1] += R_rr[1:] + R_dr[1:]
+        R_tot[:-1] += R_rr[1:] + R_dr[1:] + R_cx[1:]
 
         ### Construct rates for energy density flow
-        S_tot = -(S_ei + S_rr + S_dr) + S_eh + S_tr - (S_ax + S_ra)
+        S_tot = -(S_ei + S_rr + S_dr + S_cx) + S_eh + S_tr - (S_ax + S_ra)
         S_tot[1:] += S_ei[:-1]
-        S_tot[:-1] += S_rr[1:] + S_dr[1:]
+        S_tot[:-1] += S_rr[1:] + S_dr[1:] + S_cx[1:]
 
         ### Deduce temperature flow -> Integrating temperature instead of energy has proven more
         ### numerically stable
