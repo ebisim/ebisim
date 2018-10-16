@@ -118,7 +118,8 @@ def plot_cs_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
     return fig
 
 def plot_generic_evolution(t, y, xlim=(1e-4, 1e3), ylim=None, ylabel="", title="",
-                           xscale="log", yscale="log", legend=False, label_lines=True):
+                           xscale="log", yscale="log", legend=False, label_lines=True,
+                           plot_sum=False):
     """
     Method that plots the evolution of a quantity of an EBIS charge breeding simulation
     returns figure handle
@@ -141,7 +142,8 @@ def plot_generic_evolution(t, y, xlim=(1e-4, 1e3), ylim=None, ylabel="", title="
             plt.loglog([], [], figure=fig) # Ghost draw for purely zero cases
         else:
             plt.loglog(t, y[cs, :], figure=fig, label=str(cs) + "+")
-
+    if plot_sum:
+        plt.plot(t, np.sum(y, axis=0), c="k", ls="--",figure=fig, label="sum")
     ax.set_xscale(xscale)
     ax.set_yscale(yscale)
 
@@ -181,7 +183,7 @@ def _plot_xs(xs_df, fig=None, xscale="log", yscale="log",
         if np.array_equal(xsec.unique(), np.array([0])):
             plt.plot([], []) # If all xs are zero, do a ghost plot to advance color cycle
         else:
-            plt.plot(ekin, 1e4*xsec, figure=fig, ls=ls, lw=1, label=str(cs)+"+") # otherwise plot data
+            plt.plot(ekin, 1e4*xsec, figure=fig, ls=ls, label=str(cs)+"+") # otherwise plot data
 
     ax.set_xscale(xscale)
     ax.set_yscale(yscale)
@@ -302,7 +304,10 @@ def plot_combined_xs(element, fwhm, xlim=None, ylim=(1e-24, 1e-16),
 ########################
 
 def _set_line_prop_cycle(ax, n_lines):
-    ax.set_prop_cycle(color=[COLORMAP(i) for i in np.linspace(0, 1, n_lines)])
+    color = [COLORMAP(i) for i in np.linspace(0, 1, n_lines)]
+    # color = [COLORMAP((i%10)/10) for i in range(n_lines)]
+    lw = [.75 if (i % 5 != 0) else 1.5 for i in range(n_lines)]
+    ax.set_prop_cycle(color=color, linewidth=lw)
 
 
 def _decorate_axes(ax, title=None, xlabel=None, ylabel=None, xlim=None, ylim=None, grid=True,
@@ -315,7 +320,7 @@ def _decorate_axes(ax, title=None, xlabel=None, ylabel=None, xlim=None, ylim=Non
     if ylabel: ax.set_ylabel(ylabel)
     if xlim: ax.set_xlim(xlim)
     if ylim: ax.set_ylim(ylim)
-    if grid: ax.grid(which="both", alpha=0.5)
+    if grid: ax.grid(which="both", alpha=0.5, lw=0.5)
     if legend: ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     # Label lines should be called at the end of the plot generation since it relies on axlim
     if label_lines:
