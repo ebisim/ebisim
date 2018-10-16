@@ -187,23 +187,96 @@ def electron_heating_vec(Ni, Ne, kbTi, Ee, Ai):
     return heat
 
 @numba.jit
-def energy_transfer_vec(Ni, Nj, kbTi, kbTj, Ai, Aj):
+def energy_transfer_vec(Ni, Nj, kbTi, kbTj, Ai, Aj, rij):
     """
     The energy transfer term for species "i" (with respect to species "j")
     Ni/Nj - ion density in 1/m^3
     kbTi/kbTj - electron energy /temperature in eV
     Ai/Aj - ion mass in amu
     qi/qj - ion charge
+    rij - ion ion collision rates in 1/s
     """
     ni = Ni.size
     nj = Nj.size
     trans_i = np.zeros(ni)
-    r_ij = ion_coll_rate_mat(Ni, Nj, kbTi, kbTj, Ai, Aj)
     for qi in range(1, ni):
         for qj in range(1, nj):
             if kbTi[qi] < 0 or kbTj[qj] < 0:
                 trans_i[qi] += 0
             else:
-                trans_i[qi] += 2 * r_ij[qi, qj] * Ni[qi] * Ai/Aj * (kbTj[qj] - kbTi[qi]) / \
+                trans_i[qi] += 2 * rij[qi, qj] * Ni[qi] * Ai/Aj * (kbTj[qj] - kbTi[qi]) / \
                                (1 + (Ai * kbTj[qj]) / (Aj * kbTi[qi]))**1.5
     return trans_i
+
+@numba.jit
+def loss_frequency_axial(kbTi, V):
+    """
+    Axial ion loss frequency
+    kbTi - electron energy /temperature in eV
+    V - Trap depth in V
+    """
+    valid = kbTi > 0
+    q = np.arange(kbTi.size, dtype=float)
+    w = q * V
+    w[valid] = w[valid] / kbTi[valid]
+    w[np.logical_not(valid)] = np.inf
+    w[0] = np.inf # fake value for neutrals -> essentially infinite trap
+    return w
+
+@numba.jit
+def loss_frequency_radial(kbTi, Ai, V, B, r_dt):
+    """
+    Radial ion loss frequency
+    kbTi - electron energy /temperature in eV
+    Ai - ion mass in amu
+    V - Trap depth in V
+    B - Axial magnetic field in T
+    r_dt - drift tube in m
+    """
+    valid = kbTi > 0
+    q = np.arange(kbTi.size, dtype=float)
+    w = q
+    w[valid] = w[valid] * (V + B * r_dt * np.sqrt(2 * kbTi[valid] * Q_E /(3*M_P*Ai))) / kbTi[valid]
+    w[np.logical_not(valid)] = np.inf
+    w[0] = np.inf # fake value for neutrals -> essentially infinite trap
+    return w
+
+@numba.jit
+def escape_rate_axial(Ni, kbTi, ri, V):
+    """
+    Axial escape rate
+    Ni - ion density in 1/m^3
+    kbTi - electron energy /temperature in eV
+    ri - cumulated ion ion collision rates in 1/s
+    V - Trap depth in V
+    """
+    w = loss_frequency_axial(kbTi, V)
+    return escape_rate(Ni, ri, w)
+
+@numba.jit
+def escape_rate_radial(Ni, kbTi, ri, Ai, V, B, r_dt):
+    """
+    Radial escape rate
+    Ni - ion density in 1/m^3
+    kbTi - electron energy /temperature in eV
+    ri - cumulated ion ion collision rates in 1/s
+    Ai - ion mass in amu
+    V - Trap depth in V
+    B - Axial magnetic field in T
+    r_dt - drift tube in m
+    """
+    w = loss_frequency_radial(kbTi, Ai, V, B, r_dt)
+    return escape_rate(Ni, ri, w)
+
+@numba.jit
+def escape_rate(Ni, ri, w):
+    """
+    Generic escape rate - to be called by axial and radial escape
+    Ni - ion density in 1/m^3
+    ri - cumulated ion ion collision rates in 1/s
+    w - loss frequency in 1/s
+    """
+    esc = 3 / math.sqrt(2) * Ni * ri * np.exp(-w) / w
+    esc[esc < 0] = 0 # this cleans neutrals and any other faulty stuff
+    esc[Ni < MINIMAL_DENSITY] = 0
+    return esc

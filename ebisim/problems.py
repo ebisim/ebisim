@@ -11,7 +11,7 @@ from . import xs
 from . import elements
 from . import plasma
 # from . import ivp
-from .physconst import Q_E
+from .physconst import Q_E, M_P
 from .physconst import MINIMAL_DENSITY, MINIMAL_KBT
 
 class SimpleEBISProblem:
@@ -313,6 +313,10 @@ class ComplexEBISProblem:
         self._j = j * 1e4 # convert to A/m**2
         self._e_kin = e_kin
         self._solution = None
+        self._Vtrap_ax = 300
+        self._Vtrap_ra = 50
+        self._B_ax = 2
+        self._r_dt = 5e-3
         #Default initial condition for solving the EBIS ODE System (all atoms in 1+ charge state)
         self._default_initial = np.ones(2*(self._element.z + 1))
         self._default_initial[:self._element.z + 1] *= MINIMAL_DENSITY
@@ -343,36 +347,49 @@ class ComplexEBISProblem:
         """
         del(t) # not currently needed
         ### Electron beam stuff
-        ve = plasma.electron_velocity(self._e_kin)
+        e_kin = self.e_kin
+        ve = plasma.electron_velocity(e_kin)
         je = self._j / Q_E
         Ne = je / ve
+        q = np.arange(self._element.z + 1)
+        A = self._element.a
 
         ### Split y vector into density and temperature
         N = y[:self._element.z + 1]
         kbT = y[self._element.z + 1:]
         # E = N * kbT # Not currently needed
 
+        # precompute collision rates
+        rij = plasma.ion_coll_rate_mat(N, N, kbT, kbT, A, A)
+        ri = np.sum(rij, axis=1)
+
         ### Particle density rates
-        R_ei = je * N * self._species.eixs.xs_vector(self.e_kin)
-        R_rr = je * N * self._species.rrxs.xs_vector(self.e_kin)
-        R_dr = je * N * self._species.drxs.xs_vector(self.e_kin, self._fwhm)
+        R_ei = je * N * self._species.eixs.xs_vector(e_kin)
+        R_rr = je * N * self._species.rrxs.xs_vector(e_kin)
+        R_dr = je * N * self._species.drxs.xs_vector(e_kin, self._fwhm)
+        R_ax = plasma.escape_rate_axial(N, kbT, ri, self._Vtrap_ax)
+        R_ra = plasma.escape_rate_radial(N, kbT, ri, A, self._Vtrap_ra, self._B_ax, self._r_dt)
 
         ### Energy density rates
-        S_ei = kbT * R_ei #je * E * self._species.eixs.xs_vector(self.e_kin)
-        S_rr = kbT * R_rr #je * E * self._species.rrxs.xs_vector(self.e_kin)
-        S_dr = kbT * R_dr #je * E * self._species.drxs.xs_vector(self.e_kin, self._fwhm)
+        S_ei = R_ei * kbT #je * E * self._species.eixs.xs_vector(e_kin)
+        S_rr = R_rr * kbT #je * E * self._species.rrxs.xs_vector(e_kin)
+        S_dr = R_dr * kbT #je * E * self._species.drxs.xs_vector(e_kin, self._fwhm)
+        S_ax = R_ax * (kbT + q * self._Vtrap_ax)
+        S_ra = R_ra * (kbT + q * (self._Vtrap_ra + self._r_dt * self._B_ax * \
+                                  np.sqrt(2 * Q_E * np.clip(kbT, 0, None) / (3 * A *M_P))))
+        # S_ra = -
         # Electron heating
-        S_eh = plasma.electron_heating_vec(N, Ne, kbT, self._e_kin, self._element.a)
+        S_eh = plasma.electron_heating_vec(N, Ne, kbT, e_kin, A)
         # Energy transfer between charge states within same "species"
-        S_tr = plasma.energy_transfer_vec(N, N, kbT, kbT, self._element.a, self._element.a)
+        S_tr = plasma.energy_transfer_vec(N, N, kbT, kbT, A, A, rij)
 
         ### Construct rhs for N (density)
-        R_tot = -(R_ei + R_rr + R_dr)
+        R_tot = -(R_ei + R_rr + R_dr) - (R_ax + R_ra)
         R_tot[1:] += R_ei[:-1]
         R_tot[:-1] += R_rr[1:] + R_dr[1:]
 
         ### Construct rates for energy density flow
-        S_tot = -(S_ei + S_rr + S_dr) + S_eh + S_tr
+        S_tot = -(S_ei + S_rr + S_dr) + S_eh + S_tr - (S_ax + S_ra)
         S_tot[1:] += S_ei[:-1]
         S_tot[:-1] += S_rr[1:] + S_dr[1:]
 
