@@ -33,16 +33,16 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
     Ni *= 1e-6 # go from 1/m**3 to 1/cm**3
     Ne *= 1e-6
     Mi = Ai * M_P
-    if (qi*qi*10 > kbTe) and (kbTe > kbTi * M_E / Mi):
+    if   qi*qi*10 >= kbTe >= kbTi * M_E / Mi:
         return 23 - math.log(Ne**0.5 * qi * kbTe**-1.5)
-    elif (kbTe > kbTi * M_E / Mi):
-    # elif (kbTe > qi*qi*10) and (qi*qi*10 > kbTi * M_E / Mi):
+    elif kbTe >= qi*qi*10 >= kbTi * M_E / Mi:
         return 24 - math.log(Ne**0.5 / kbTe)
-    elif kbTe < kbTi * M_E / Mi:
+    elif kbTe <= kbTi * M_E / Mi:
         return 16 - math.log(Ni**0.5 * kbTi**-1.5 * qi * qi * Ai)
-    else:
-        print(qi, kbTe, kbTi)
-        raise Exception
+    # The next case should not usually arise in any realistic situation but the solver may probe it
+    # Hence it is purely a rough guess
+    elif qi*qi*10 <= kbTi * M_E / Mi <= kbTe:
+        return 24 - math.log(Ne**0.5 / kbTe)
 
 # @numba.jit
 # def clog_ei_vec(Ni, Ne, kbTi, kbTe, Ai):
@@ -109,6 +109,8 @@ def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
     Ai - ion mass in amu
     qi - ion charge
     """
+    if qi == 0:
+        return 0
     v_e = electron_velocity(Ee)
     clog = clog_ei(Ni, Ne, kbTi, Ee, Ai, qi)
     return 4 * PI * (qi * Q_E * Q_E / (4 * PI * EPS_0 * M_E))**2 * clog / v_e**4
@@ -141,7 +143,7 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     """
     # Artifically clamp collision rate to zero if either density is very small
     # This is a reasonable assumption and prevents instabilities when calling the coulomb logarithm
-    if Ni < MINIMAL_DENSITY or Nj < MINIMAL_DENSITY:
+    if Ni < MINIMAL_DENSITY or Nj < MINIMAL_DENSITY or kbTi < 0 or kbTj < 0:
         return 0
     clog = clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj)
     kbTi_SI = kbTi * Q_E
@@ -179,7 +181,7 @@ def electron_heating_vec(Ni, Ne, kbTi, Ee, Ai):
     n = Ni.size
     heat = np.zeros(n)
     const = Ne * electron_velocity(Ee) * 2 * M_E / (Ai * M_P) * Ee
-    for qi in range(n):
+    for qi in range(1, n):
         if Ni[qi] > MINIMAL_DENSITY:
             heat[qi] = const * Ni[qi] * coulomb_xs(Ni[qi], Ne, kbTi[qi], Ee, Ai, qi)
     return heat
@@ -199,6 +201,9 @@ def energy_transfer_vec(Ni, Nj, kbTi, kbTj, Ai, Aj):
     r_ij = ion_coll_rate_mat(Ni, Nj, kbTi, kbTj, Ai, Aj)
     for qi in range(1, ni):
         for qj in range(1, nj):
-            trans_i[qi] += 2 * r_ij[qi, qj] * Ni[qi] * Ai/Aj * (kbTj[qj] - kbTi[qi]) / \
-                                (1 + (Ai * kbTj[qj]) / (Aj * kbTi[qi]))**1.5
+            if kbTi[qi] < 0 or kbTj[qj] < 0:
+                trans_i[qi] += 0
+            else:
+                trans_i[qi] += 2 * r_ij[qi, qj] * Ni[qi] * Ai/Aj * (kbTj[qj] - kbTi[qi]) / \
+                               (1 + (Ai * kbTj[qj]) / (Aj * kbTi[qi]))**1.5
     return trans_i
