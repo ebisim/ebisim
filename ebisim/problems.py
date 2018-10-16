@@ -424,7 +424,7 @@ class ComplexEBISProblem:
         ylim = (0, N.max()*1.05)
         ylabel = ("Density (m$^{-3}$)")
         fig = plotting.plot_generic_evolution(t, N, xlim=xlim, ylim=ylim, ylabel=ylabel,
-                                              title=title, yscale="linear")
+                                              title=title, yscale="linear", plot_sum=True)
         return fig
 
     def plot_energy_evo(self):
@@ -445,7 +445,7 @@ class ComplexEBISProblem:
         ylim = (1, E.max()*1.05)
         ylabel = ("Energy density (eV / m$^{-3}$)")
         fig = plotting.plot_generic_evolution(t, E, xlim=xlim, ylim=ylim, ylabel=ylabel,
-                                              title=title)
+                                              title=title, plot_sum=True)
         return fig
 
     def plot_temperature_evo(self):
