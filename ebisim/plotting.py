@@ -178,7 +178,7 @@ def _plot_xs(xs_df, fig=None, xscale="log", yscale="log",
     ekin = xs_df.ekin
     xs_df = xs_df.drop("ekin", axis=1)
     ax.set_prop_cycle(None) # Reset property (color) cycle, needed when plotting on existing fig
-    _set_line_prop_cycle(ax, xs_df.shape[1] - 1)
+    _set_line_prop_cycle(ax, xs_df.shape[1])
     for (cs, xsec) in xs_df.iteritems():
         if np.array_equal(xsec.unique(), np.array([0])):
             plt.plot([], []) # If all xs are zero, do a ghost plot to advance color cycle
