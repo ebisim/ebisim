@@ -186,7 +186,7 @@ class EnergyScan:
         """
         return self._solution
 
-    def solve(self, y0=None, show_progress=True):
+    def solve(self, y0=None, show_progress=True, **kwargs):
         """
         Trigger the computation of the energy scan that has previously been set up
         This can be fairly time consuming!
@@ -198,7 +198,7 @@ class EnergyScan:
         prog = 0
         for e_kin in self._energies:
             self._problem.e_kin = e_kin
-            solution = self._problem.solve(max_time, y0=y0, t_eval=self._eval_times)
+            solution = self._problem.solve(max_time, y0=y0, t_eval=self._eval_times, **kwargs)
             sol_df = pd.DataFrame(solution.y.T)
             sol_df["t"] = solution.t
             sol_df["e_kin"] = e_kin
