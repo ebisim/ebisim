@@ -14,6 +14,12 @@ from . import elements
 
 COLORMAP = plt.cm.gist_rainbow
 
+
+########################
+#### E scan Plotting ###
+########################
+
+
 def plot_energy_scan(data, cs, ylim=None, title=None, invert_hor=False, x2fun=None, x2label=""):
     """
     Plots the charge state abundance vs the energy
@@ -53,12 +59,6 @@ def plot_energy_scan(data, cs, ylim=None, title=None, invert_hor=False, x2fun=No
     plt.tight_layout()
 
     return fig
-
-
-########################
-#### E scan Plotting ###
-########################
-
 
 def plot_energy_time_scan(data, cs, xlim=None, ylim=None, title=None):
     """
