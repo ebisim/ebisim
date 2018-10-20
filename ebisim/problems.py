@@ -199,7 +199,11 @@ class EnergyScan:
         for e_kin in self._energies:
             self._problem.e_kin = e_kin
             solution = self._problem.solve(max_time, y0=y0, t_eval=self._eval_times, **kwargs)
-            sol_df = pd.DataFrame(solution.y.T)
+            y = solution.y.T
+            if isinstance(self._problem, ComplexEBISProblem):
+                y = y[:, :int(y.shape[1]/2)] # Cut off temperatures
+                y = y / np.sum(y, axis=1)[:, np.newaxis] # Normalise
+            sol_df = pd.DataFrame(y)
             sol_df["t"] = solution.t
             sol_df["e_kin"] = e_kin
             scan_solutions = scan_solutions.append(sol_df, ignore_index=True)
