@@ -117,9 +117,11 @@ class SimpleEBISProblem:
             print("Error! Need to solve problem before plotting")
         tmax = self.solution.t.max()
         xlim = (1e-4, tmax)
-        title = "%s charge state evolution ($E_{e} = %0.1f$ eV, FWHM = %0.1f eV)"\
+        title = "%s charge state evolution ($j = %0.1f$ A/cm$^2$, $E_{e} = %0.1f$ eV, $FWHM = %0.1f$ eV)"\
                 %(self._species.element.latex_isotope(),
-                  self._e_kin, self._fwhm)
+                  self._j / 1e4,
+                  self._e_kin,
+                  self._fwhm)
         return plotting.plot_cs_evolution(self.solution, xlim=xlim, title=title)
 
 
