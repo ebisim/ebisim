@@ -117,7 +117,7 @@ class SimpleEBISProblem:
             print("Error! Need to solve problem before plotting")
         tmax = self.solution.t.max()
         xlim = (1e-4, tmax)
-        title = "%s charge state evolution ($E_{kin} = %0.1f$ eV, FWHM = %0.1f eV)"\
+        title = "%s charge state evolution ($E_{e} = %0.1f$ eV, FWHM = %0.1f eV)"\
                 %(self._species.element.latex_isotope(),
                   self._e_kin, self._fwhm)
         return plotting.plot_cs_evolution(self.solution, xlim=xlim, title=title)
@@ -440,7 +440,7 @@ class ComplexEBISProblem:
             print("Error! Need to solve problem before plotting")
         tmax = self.solution.t.max()
         xlim = (1e-5, tmax)
-        title = "%s charge state evolution ($E_{kin} = %0.1f$ eV, FWHM = %0.1f eV)"\
+        title = "%s charge state evolution ($E_{e} = %0.1f$ eV, FWHM = %0.1f eV)"\
                 %(self._species.element.latex_isotope(), self._e_kin, self._fwhm)
         t = self.solution.t
         N = self.solution.y[:self._element.z + 1, :]
@@ -461,7 +461,7 @@ class ComplexEBISProblem:
             print("Error! Need to solve problem before plotting")
         tmax = self.solution.t.max()
         xlim = (1e-5, tmax)
-        title = "%s energy density evolution ($E_{kin} = %0.1f$ eV, FWHM = %0.1f eV)"\
+        title = "%s energy density evolution ($E_{e} = %0.1f$ eV, FWHM = %0.1f eV)"\
                 %(self._species.element.latex_isotope(), self._e_kin, self._fwhm)
         t = self.solution.t
         E = self.solution.y[self._element.z + 1:, :] * self.solution.y[:self._element.z + 1, :]
@@ -484,7 +484,7 @@ class ComplexEBISProblem:
             print("Error! Need to solve problem before plotting")
         tmax = self.solution.t.max()
         xlim = (1e-5, tmax)
-        title = "%s energy density evolution ($E_{kin} = %0.1f$ eV, FWHM = %0.1f eV)"\
+        title = "%s energy density evolution ($E_{e} = %0.1f$ eV, FWHM = %0.1f eV)"\
                 %(self._species.element.latex_isotope(), self._e_kin, self._fwhm)
         t = self.solution.t
         T = self.solution.y[self._element.z + 1:, :]
