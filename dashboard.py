@@ -62,6 +62,7 @@ _CONTROLS = html.Div(className="container", children=[
 
 
 app = dash.Dash(__name__, external_stylesheets=[_BOOTSTRAP_CDN])
+server = app.server
 
 app.layout = html.Div(className="container", children=[
     _HEADER,
@@ -103,4 +104,4 @@ def update_csevo(z, j, e_kin, fwhm, tmax):
     return {"data":data, "layout":layout}
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run_server(debug=True, host="0.0.0.0")
