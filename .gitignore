@@ -5,3 +5,4 @@ __pycache__
 .cache
 temp.py
 _playground/*
+s2i.exe

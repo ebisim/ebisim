@@ -61,7 +61,7 @@ _CONTROLS = html.Div(className="container", children=[
 ])
 
 
-app = dash.Dash(__name__, external_stylesheets=[_BOOTSTRAP_CDN])
+app = dash.Dash(__name__, external_stylesheets=[_BOOTSTRAP_CDN], url_base_pathname="ebisim/")
 
 app.layout = html.Div(className="container", children=[
     _HEADER,
