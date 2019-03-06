@@ -18,16 +18,17 @@ _ELEMENTS = [{"label":ebisim.elements.element_name(z), "value":z} for z in range
 
 _HEADER = html.Section(className="text-center", children=[
     html.H1("ebisim dash.", className="mb-3"),
-    html.P("\nA dashboard for simple ebisim tasks.\n", className="lead text-muted")
+    html.P("\nA dashboard for simple ebisim tasks.\n", className="lead text-muted"),
+    html.Hr()
 ])
 
 _FOOTER = html.Section(className="text-justify", children=[
-    html.H4('DISCLAIMER', className="mb-3"),
-    html.P(_DISCLAIMER, className="lead text-muted")
+    html.Hr(),
+    html.H4('DISCLAIMER', className="text-muted mb-3"),
+    html.P(_DISCLAIMER, className="text-muted")
 ])
 
 _CONTROLS = html.Div(className="container", children=[
-    html.H4("Controls", className="mb-3"),
     html.P("Confirm entries by pressing enter or switching focus."),
     html.Div(className="row", children=[
         html.Div(className="col-md mb-3", children=[
@@ -65,7 +66,7 @@ app = dash.Dash(__name__, external_stylesheets=[_BOOTSTRAP_CDN])
 app.layout = html.Div(className="container", children=[
     _HEADER,
     _CONTROLS,
-    dcc.Graph(id='plot_csevo'),
+    dcc.Graph(id='plot_csevo', style={'height': 700},),
     _FOOTER
 ])
 
