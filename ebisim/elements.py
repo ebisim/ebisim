@@ -6,7 +6,8 @@ May be extended for more functionality (element properties) in the future
 import collections
 from . import utils
 
-(_ELEM_Z, _ELEM_ES, _ELEM_NAME, _ELEM_A) = utils.load_element_info()
+_ELEM_Z, _ELEM_ES, _ELEM_NAME, _ELEM_A = utils.load_element_info()
+_ELECTRON_INFO = utils.load_electron_info()
 
 ##### Helper functions for translating chemical symbols
 
@@ -81,10 +82,37 @@ class ChemicalElement(collections.namedtuple("ChemicalElement", ["z", "symbol", 
         """
         return "$^{%d}_{%d}$%s"%(self.a, self.z, self.symbol)
 
-# class Element(collections.namedtuple(
-#     "Element", ["z", "symbol", "name", "a"]
-#     )):
-#     pass
+class Element(collections.namedtuple("Element", ["z", "symbol", "name", "a", "cfg", "ebind"])):
+    """
+    Named tuple holding some essential information about a chemical element
+    """
+    # https://docs.python.org/3.6/library/collections.html#collections.namedtuple
+    # contains documentation for named tuples
+    __slots__ = () # This is a trick to suppress unnecessary dict() for this kind of class
+    def __new__(cls, element_id, a=None):
+        """
+        Provides a convenient constructor accepting the atomic number, symbol, or name
+        If a is provided is interpreted as the mass number, otherwise a resonable value is assigned
+        """
+        # Info on __new__ for subclasses of namedtuple
+        if isinstance(element_id, int):
+            z = element_id
+        else:
+            z = element_z(element_id)
+        symbol = element_symbol(z)
+        name = element_name(z)
+        if a is None:
+            idx = _ELEM_Z.index(z)
+            a = _ELEM_A[idx]
+        cfg = _ELECTRON_INFO[z]["cfg"]
+        ebind = _ELECTRON_INFO[z]["ebind"]
+        return super(Element, cls).__new__(cls, z, symbol, name, a, cfg, ebind)
+
+    def latex_isotope(self):
+        """
+        returns a latex formatted string describing the isotope
+        """
+        return f"$^{self.a}_{self.z}${self.symbol}"
 
 ### Old version of Chemical Element, saved as a fail safe or to extend in the future
 # class ChemicalElement:
