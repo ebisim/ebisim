@@ -105,7 +105,7 @@ def main():
     for z in range(1, 106):
         data = {}
         data["ebind"] = load_energies(z)
-        data["conf"] = load_conf(z)
+        data["cfg"] = load_conf(z)
         out[str(z)] = data # json keys are always strings
 
     # Write file
