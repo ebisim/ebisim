@@ -3,6 +3,7 @@ This module contains convenience functions not directly related to the Simulatio
 e.g. resource management
 """
 import os
+import json
 
 ##### Logic for robust file imports
 _MODULEDIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,3 +25,13 @@ def open_resource(fn):
     fn - filename
     """
     return open(_get_res_path(fn))
+
+def load_element_info():
+    """
+    Loads the chemical element info from json resource
+
+    Returns tuples of Z, Symbol, Name, A
+    """
+    with open_resource("ElementInfo.json") as f:
+        data = json.load(f)
+    return tuple(map(tuple, [data["z"], data["es"], data["name"], data["a"]]))

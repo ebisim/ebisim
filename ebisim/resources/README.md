@@ -1,8 +1,16 @@
-# Credit for the resource Data
+# Resources
+
+## Info
+
+The resources in this directory are partially generated with the scripts found in the
+[dev directory](../../dev/) and optimised for simple and efficient import. The dev directory
+contains the data and scripts in a more human friendly form.
+
+## Credit for the resource Data
 
 Some of the data used within the ebisim package has been provided by 3rd parties.
 
-## Binding Energies
+### Binding Energies
 
 The tables for the binding energies and the electron configuration of ions in different charge
 states have been created with the help of the flexible-atomic-code

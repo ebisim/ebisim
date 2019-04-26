@@ -6,26 +6,7 @@ May be extended for more functionality (element properties) in the future
 import collections
 from . import utils
 
-# Load relevant data from resource folder when module is loaded
-def _load_chemical_elements():
-    """
-    Reads atomic number Z, symbol, and name information from external file
-    """
-    _z = [] # Atomic Number
-    _a = [] # Mass Number
-    _es = [] # Element Symbol
-    _name = [] # Element Name
-    with utils.open_resource("ChemicalElements.csv") as f:
-        f.readline() # skip header line
-        for line in f:
-            data = line.split(",")
-            _z.append(int(data[0].strip()))
-            _es.append(data[1].strip())
-            _name.append(data[2].strip())
-            _a.append(int(data[3].strip()))
-    return (_z, _es, _name, _a)
-
-(_ELEM_Z, _ELEM_ES, _ELEM_NAME, _ELEM_A) = _load_chemical_elements()
+(_ELEM_Z, _ELEM_ES, _ELEM_NAME, _ELEM_A) = utils.load_element_info()
 
 ##### Helper functions for translating chemical symbols
 
@@ -99,6 +80,11 @@ class ChemicalElement(collections.namedtuple("ChemicalElement", ["z", "symbol", 
         returns a latex formatted string describing the isotope
         """
         return "$^{%d}_{%d}$%s"%(self.a, self.z, self.symbol)
+
+# class Element(collections.namedtuple(
+#     "Element", ["z", "symbol", "name", "a"]
+#     )):
+#     pass
 
 ### Old version of Chemical Element, saved as a fail safe or to extend in the future
 # class ChemicalElement:
