@@ -76,12 +76,10 @@ def load_conf(z):
     # list of lists where each sublist hold the configuration for on charge state
     # cfg[n] describes charge state n+
     cfg = []
-    n_cfg_max = 0
     with open(f"./resources/BindingEnergies/{z}conf.txt") as fobj:
         for line in fobj:
             line = line.split()
             line = reorder([int(elem.strip()) for elem in line])
-            n_cfg_max = max(n_cfg_max, len(line))
             cfg.append(line)
     return cfg
 
