@@ -55,23 +55,25 @@ def load_electron_info():
         data = json.load(f)
 
     new_data = {}
-    for key, val in data.items():
+    for key, data in data.items():
         new_key = int(key) #Cast String type key to int (this is Z of the element)
-
-        new_cfg = []
-        for cfg in val["cfg"]:
-            cfg = np.array(cfg)
-            cfg.setflags(write=False) # This should be read only data
-            new_cfg.append(cfg)
-        new_cfg = tuple(new_cfg)
-
-        new_ebind = []
-        for ebind in val["ebind"]:
-            ebind = np.array(ebind)
-            ebind.setflags(write=False) # This should be read only data
-            new_ebind.append(ebind)
-        new_ebind = tuple(new_ebind)
+        new_cfg = _nparray_from_jagged_list(data["cfg"])
+        new_cfg.setflags(write=False)
+        new_ebind = _nparray_from_jagged_list(data["ebind"])
+        new_ebind.setflags(write=False)
 
         new_data[new_key] = dict(cfg=new_cfg, ebind=new_ebind)
 
     return new_data
+
+def _nparray_from_jagged_list(list_of_lists):
+    """
+    Takes a list of lists with varying length and turns them into a numpy array,
+    treatin each list as a left-aligned row and padding the right side with zeros
+    """
+    nrows = len(list_of_lists)
+    ncols = max(map(len, list_of_lists))
+    out = np.zeros((nrows, ncols))
+    for irow, data in enumerate(list_of_lists):
+        out[irow, :len(data)] = np.array(data)
+    return out
