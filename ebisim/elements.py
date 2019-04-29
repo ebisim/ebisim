@@ -114,6 +114,14 @@ class Element(collections.namedtuple("Element", ["z", "symbol", "name", "a", "cf
         """
         return f"$^{self.a}_{self.z}${self.symbol}"
 
+Element.z.__doc__ = "Atomic number"
+Element.symbol.__doc__ = "Element symbol e.g. H, He, Li"
+Element.name.__doc__ = "Element name"
+Element.a.__doc__ = "Mass number"
+Element.cfg.__doc__ = "Numpy array of electron configuration in different charge states"
+Element.ebind.__doc__ = "Numpy array of binding energies associated with electron subshells"
+
+
 ### Old version of Chemical Element, saved as a fail safe or to extend in the future
 # class ChemicalElement:
 #     """
