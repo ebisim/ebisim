@@ -54,7 +54,7 @@ def load_electron_info():
     with open_resource("BindingEnergies.json") as f:
         data = json.load(f)
 
-    shellorder = data[0]
+    shellorder = tuple(data[0])
     data = data[1]
 
     new_data = {}

@@ -5,9 +5,13 @@ May be extended for more functionality (element properties) in the future
 
 import collections
 from . import utils
+import numpy as np
 
 _ELEM_Z, _ELEM_ES, _ELEM_NAME, _ELEM_A = utils.load_element_info()
 _ELECTRON_INFO, _SHELLORDER = utils.load_electron_info()
+_SHELL_N = np.array(list(map(int, [s[0] for s in _SHELLORDER])))
+# _SHELLORDER is a tuple containing the names of all shells in order
+# _SHELL_N is an array of the main quantum number of each shell in order
 
 ##### Helper functions for translating chemical symbols
 
@@ -118,5 +122,9 @@ Element.z.__doc__ = "Atomic number"
 Element.symbol.__doc__ = "Element symbol e.g. H, He, Li"
 Element.name.__doc__ = "Element name"
 Element.a.__doc__ = "Mass number"
-Element.cfg.__doc__ = "Numpy array of electron configuration in different charge states"
-Element.ebind.__doc__ = "Numpy array of binding energies associated with electron subshells"
+Element.cfg.__doc__ = f"""Numpy array of electron configuration in different charge states
+The index of each row corresponds to the charge state
+The columns are the subshells sorted as in {_SHELLORDER}"""
+Element.ebind.__doc__ = f"""Numpy array of binding energies associated with electron subshells
+The index of each row corresponds to the charge state
+The columns are the subshells sorted as in {_SHELLORDER}"""
