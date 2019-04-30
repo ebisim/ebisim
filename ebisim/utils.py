@@ -45,7 +45,9 @@ def load_electron_info():
     Loads the electron configurations and subshell binding energies for all elements into a
     convenient data structure
 
-    dict with keys Z (proton number)
+    -List of subshell names
+    
+    -dict with keys Z (proton number)
       dicts with keys
         cfg: tuple of write protected numpy arrays with shell occupation numbers
         ebind: tuple of write protected numpy arrays with shell binding energies
