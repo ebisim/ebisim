@@ -23,6 +23,8 @@ import time
 # 29
 # This somewhat arbitrary order should be rearranged
 
+SHELLS_IN = ('1s', '2s', '2p-', '2p+', '3s', '3p-', '3p+', '3d-', '3d+', '4s', '4p-', '4p+', '4d-', '4d+', '5s', '5p-', '5p+', '4f-', '4f+', '5d-', '5d+', '6s', '6p-', '6p+', '5f-', '5f+', '6d-', '6d+', '7s', '7p-')
+
 REDICT = {
     0 : 0,
     1 : 1,
@@ -62,8 +64,8 @@ def reorder(l):
     the shells being sorted by n, then by the angular momentum and then by the coupling - < +
 
     E.g.
-    >>> reorder(['1s', '2s', '2p-', '2p+', '3s', '3p-', '3p+', '3d-', '3d+', '4s', '4p-', '4p+', '4d-', '4d+', '5s', '5p-', '5p+', '4f-', '4f+', '5d-', '5d+', '6s', '6p-', '6p+', '5f-', '5f+', '6d-', '6d+', '7s'])
-    ['1s', '2s', '2p-', '2p+', '3s', '3p-', '3p+', '3d-', '3d+', '4s', '4p-', '4p+', '4d-', '4d+', '4f-', '4f+', '5s', '5p-', '5p+', '5d-', '5d+', '5f-', '5f+', '6s', '6p-', '6p+', '6d-', '6d+', '7s']
+    >>> reorder(['1s', '2s', '2p-', '2p+', '3s', '3p-', '3p+', '3d-', '3d+', '4s', '4p-', '4p+', '4d-', '4d+', '5s', '5p-', '5p+', '4f-', '4f+', '5d-', '5d+', '6s', '6p-', '6p+', '5f-', '5f+', '6d-', '6d+', '7s', '7p-'])
+    ['1s', '2s', '2p-', '2p+', '3s', '3p-', '3p+', '3d-', '3d+', '4s', '4p-', '4p+', '4d-', '4d+', '4f-', '4f+', '5s', '5p-', '5p+', '5d-', '5d+', '5f-', '5f+', '6s', '6p-', '6p+', '6d-', '6d+', '7s', '7p-']
     """
     maxind = max(map(REDICT.get, range(len(l))))
     out = [0 for _ in range(maxind+1)]
@@ -100,6 +102,7 @@ def load_energies(z):
 
 def main():
     print("binding_energies.py running...")
+    SHELLS_OUT = reorder(SHELLS_IN)
 
     out = {}
     for z in range(1, 106):
@@ -108,6 +111,7 @@ def main():
         data["cfg"] = load_conf(z)
         out[str(z)] = data # json keys are always strings
 
+    out = (SHELLS_OUT, out)
     # Write file
     with open("../ebisim/resources/BindingEnergies.json", "w") as f:
         json.dump(out, f)
@@ -115,23 +119,11 @@ def main():
     # Check if json load correctly restores the output
     start = time.time()
     with open("../ebisim/resources/BindingEnergies.json", "r") as f:
-        val = json.load(f)
+        val = json.load(f)[1]
     print(f"Loading took {time.time() - start} s.")
 
-    print("json.load() valid" if out == val else "json.load() invalid")
+    print("json.load() valid" if out[1] == val else "json.load() invalid")
     print("binding_energies.py done.")
 
 if __name__ == "__main__":
     main()
-
-
-        # # This block could be useful in the future for parallelising cross section computations
-        # e_bind_mat = np.zeros((n_cfg_max, self.element.z+1))
-        # cfg_mat = np.zeros((n_cfg_max, self.element.z+1))
-        # for cs, data in enumerate(e_bind):
-        #     e_bind_mat[:len(data), cs] = data
-        # for cs, data in enumerate(cfg):
-        #     cfg_mat[:len(data), cs] = data
-
-        # e_bind_min = e_bind[0][-1]
-        # e_bind_max = e_bind[-1][0]

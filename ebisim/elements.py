@@ -7,7 +7,7 @@ import collections
 from . import utils
 
 _ELEM_Z, _ELEM_ES, _ELEM_NAME, _ELEM_A = utils.load_element_info()
-_ELECTRON_INFO = utils.load_electron_info()
+_ELECTRON_INFO, _SHELLORDER = utils.load_electron_info()
 
 ##### Helper functions for translating chemical symbols
 

@@ -54,6 +54,9 @@ def load_electron_info():
     with open_resource("BindingEnergies.json") as f:
         data = json.load(f)
 
+    shellorder = data[0]
+    data = data[1]
+
     new_data = {}
     for key, data in data.items():
         new_key = int(key) #Cast String type key to int (this is Z of the element)
@@ -64,7 +67,7 @@ def load_electron_info():
 
         new_data[new_key] = dict(cfg=new_cfg, ebind=new_ebind)
 
-    return new_data
+    return new_data, shellorder
 
 def _nparray_from_jagged_list(list_of_lists):
     """
