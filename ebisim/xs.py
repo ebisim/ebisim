@@ -41,6 +41,22 @@ def _eixs_xs_vector(e_kin, e_bind_mat, cfg_mat):
     xs_vec *= 4.5e-18
     return xs_vec
 
+@numba.njit
+def _eix_xs_vector_2(element, e_kin):
+    css = element.ebind.shape[0]
+    shells = element.ebind.shape[1]
+    xs_vec = np.zeros(css + 1)
+    for cs in range(css):
+        xs = 0
+        for shell in range(shells):
+            e = element.ebind[cs, shell]
+            n = element.cfg[cs, shell]
+            if e_kin > e and n > 0:
+                xs += n * math.log(e_kin / e) / (e_kin * e)
+        xs_vec[cs] = xs
+    xs_vec *= 4.5e-18
+    return xs_vec
+
 @numba.jit
 def _drxs_xs(e_kin, fwhm, recomb_strengths, resonance_energies):
     """
