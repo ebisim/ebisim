@@ -115,6 +115,8 @@ class Element(collections.namedtuple(
         cfg = _ELECTRON_INFO[z]["cfg"]
         ebind = _ELECTRON_INFO[z]["ebind"]
         z_eff, n_0_eff = xs.precompute_rr_quantities(cfg, _SHELL_N)
+        z_eff.setflags(write=False)
+        n_0_eff.setflags(write=False)
         return super(Element, cls).__new__(cls, z, symbol, name, a, cfg, ebind, z_eff, n_0_eff)
 
     def latex_isotope(self):
