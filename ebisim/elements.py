@@ -14,6 +14,7 @@ _ELECTRON_INFO, _SHELLORDER = utils.load_electron_info()
 _SHELL_N = np.array(list(map(int, [s[0] for s in _SHELLORDER])))
 # _SHELLORDER is a tuple containing the names of all shells in order
 # _SHELL_N is an array of the main quantum number of each shell in order
+_DR_DATA = utils.load_dr_data()
 
 ##### Helper functions for translating chemical symbols
 
@@ -90,7 +91,8 @@ class ChemicalElement(collections.namedtuple("ChemicalElement", ["z", "symbol", 
 
 
 class Element(collections.namedtuple(
-        "Element", ["z", "symbol", "name", "a", "cfg", "ebind", "z_eff", "n_0_eff"])):
+        "Element", ["z", "symbol", "name", "a", "cfg", "ebind", "z_eff", "n_0_eff",
+                    "dr_cs", "dr_e_res", "dr_strength"])):
     """
     Named tuple holding some essential information about a chemical element
     """
@@ -117,7 +119,11 @@ class Element(collections.namedtuple(
         z_eff, n_0_eff = xs.precompute_rr_quantities(cfg, _SHELL_N)
         z_eff.setflags(write=False)
         n_0_eff.setflags(write=False)
-        return super(Element, cls).__new__(cls, z, symbol, name, a, cfg, ebind, z_eff, n_0_eff)
+        dr_cs = _DR_DATA[z]["dr_cs"]
+        dr_e_res = _DR_DATA[z]["dr_e_res"]
+        dr_strength = _DR_DATA[z]["dr_strength"]
+        return super(Element, cls).__new__(cls, z, symbol, name, a, cfg, ebind, z_eff, n_0_eff,
+                                           dr_cs, dr_e_res, dr_strength)
 
     def latex_isotope(self):
         """
@@ -142,3 +148,8 @@ The columns are the subshells sorted as in {_SHELLORDER}"""
 Element.ebind.__doc__ = f"""Numpy array of binding energies associated with electron subshells
 The index of each row corresponds to the charge state
 The columns are the subshells sorted as in {_SHELLORDER}"""
+Element.z_eff.__doc__ = "Numpy array of effective nuclear charges for RR cross sections"
+Element.n_0_eff.__doc__ = "Numpy array of effective valence shell numbers for RR cross sections"
+Element.dr_cs.__doc__ = "Numpy array of charge states for DR cross sections"
+Element.dr_e_res.__doc__ = "Numpy array of resonance energies for DR cross sections"
+Element.dr_strength.__doc__ = "Numpy array of transition strengths for DR cross sections"

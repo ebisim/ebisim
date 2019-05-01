@@ -71,6 +71,54 @@ def load_electron_info():
 
     return new_data, shellorder
 
+
+def load_dr_data():
+    """
+    Loads the avaliable dr data
+
+    dict with keys Z (proton number)
+      dicts with keys
+        cfg: tuple of write protected numpy arrays with shell occupation numbers
+        ebind: tuple of write protected numpy arrays with shell binding energies
+        each tuple has one entry per charge state where the tuple index is equal to the charge state
+    """
+    out = {}
+    empt = np.array([])
+    empt.setflags(write=False)
+    for z in range(1, 106):
+        try:
+            with open_resource(f"drdata/DR_{z}.csv") as fobj:
+                dat = _parse_dr_file(fobj)
+        except FileNotFoundError:
+            dat = dict(dr_e_res=empt.copy(), dr_strength=empt.copy(), dr_cs=empt.copy())
+        out[z] = dat
+    return out
+
+
+def _parse_dr_file(fobj):
+    """
+    Parses the content of a DR data file into a dict with three numpy arrays for the
+    relevant columns
+    """
+    fobj.seek(0)
+    fobj.readline()
+    e_res = []
+    stren = []
+    cs = []
+    for line in fobj:
+        data = line.strip().split(",")
+        e_res.append(float(data[0]))
+        stren.append(float(data[1]))
+        cs.append(int(data[4]))
+    e_res = np.array(e_res)
+    e_res.setflags(write=False)
+    stren = np.array(stren)
+    stren.setflags(write=False)
+    cs = np.array(cs)
+    cs.setflags(write=False)
+    return dict(dr_e_res=e_res, dr_strength=stren, dr_cs=cs)
+
+
 def _nparray_from_jagged_list(list_of_lists):
     """
     Takes a list of lists with varying length and turns them into a numpy array,
@@ -82,3 +130,24 @@ def _nparray_from_jagged_list(list_of_lists):
     for irow, data in enumerate(list_of_lists):
         out[irow, :len(data)] = np.array(data)
     return out
+
+
+def _parse_dr_file(fobj):
+    fobj.seek(0)
+    fobj.readline()
+    e_res = []
+    stren = []
+    cs = []
+    for line in fobj:
+        data = line.strip().split(",")
+        e_res.append(float(data[0]))
+        stren.append(float(data[1]))
+        cs.append(int(data[4]))
+    e_res = np.array(e_res)
+    e_res.setflags(write=False)
+    stren = np.array(stren)
+    stren.setflags(write=False)
+    cs = np.array(cs)
+    cs.setflags(write=False)
+    return dict(dr_e_res=e_res, dr_strength=stren, dr_cs=cs)
+    
