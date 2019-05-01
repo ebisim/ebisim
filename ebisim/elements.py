@@ -4,8 +4,10 @@ May be extended for more functionality (element properties) in the future
 """
 
 import collections
-from . import utils
 import numpy as np
+
+from . import utils
+from . import xs
 
 _ELEM_Z, _ELEM_ES, _ELEM_NAME, _ELEM_A = utils.load_element_info()
 _ELECTRON_INFO, _SHELLORDER = utils.load_electron_info()
@@ -86,7 +88,9 @@ class ChemicalElement(collections.namedtuple("ChemicalElement", ["z", "symbol", 
         """
         return "$^{%d}_{%d}$%s"%(self.a, self.z, self.symbol)
 
-class Element(collections.namedtuple("Element", ["z", "symbol", "name", "a", "cfg", "ebind"])):
+
+class Element(collections.namedtuple(
+    "Element", ["z", "symbol", "name", "a", "cfg", "ebind", "z_eff", "n_0_eff"])):
     """
     Named tuple holding some essential information about a chemical element
     """
@@ -110,7 +114,8 @@ class Element(collections.namedtuple("Element", ["z", "symbol", "name", "a", "cf
             a = _ELEM_A[idx]
         cfg = _ELECTRON_INFO[z]["cfg"]
         ebind = _ELECTRON_INFO[z]["ebind"]
-        return super(Element, cls).__new__(cls, z, symbol, name, a, cfg, ebind)
+        z_eff, n_0_eff = xs._precompute_rr_quantities(cfg, _SHELL_N)
+        return super(Element, cls).__new__(cls, z, symbol, name, a, cfg, ebind, z_eff, n_0_eff)
 
     def latex_isotope(self):
         """

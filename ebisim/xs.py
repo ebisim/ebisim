@@ -65,6 +65,35 @@ def _drxs_xs(e_kin, fwhm, recomb_strengths, resonance_energies):
     sig = fwhm/2.35482 # 2.35482approx.(2*np.sqrt(2*np.log(2)))
     return np.sum(recomb_strengths * _normpdf(e_kin, resonance_energies, sig))*1e-24
 
+@numba.njit
+def precompute_rr_quantities(cfg, shell_n):
+    """
+    Precomputes the effective valence shell and nuclear charge for all charge states,
+    needed for radiative recombinations cross sections
+    """
+    z = cfg.shape[0]
+    shell_n = shell_n[:cfg.shape[1]] # Crop shell_n to the shells described in cfg
+
+    n_0 = np.zeros(z + 1)
+    occup = np.zeros(z + 1)
+    
+    # Determine, for each charge state, the valence shell (n_0),
+    # and the number of electrons in it (occup)
+    # Fully ionised
+    n_0[z] = 1
+    occup[z] = 0
+    # All other charge states
+    for cs in range(z):
+        conf = cfg[cs, :]
+        n_0[cs] = np.max(np.extract(np.nonzero(conf), shell_n))
+        occup[z] = np.sum(np.extract((shell_n == n_0[cs]), conf))
+
+    w_n0 = (2 * n_0**2 - occup) / (2 * n_0**2)
+    n_0_eff = n_0 + (1 - w_n0) - 0.3
+    z_eff = (z + np.arange(z + 1)) / 2
+
+    return z_eff, n_0_eff
+
 ### Here start the class definitions for the different cross section classes
 class EIXS:
     """
