@@ -131,8 +131,6 @@ class Element(collections.namedtuple(
     def __str__(self):
         return f"Element: {self.name} ({self.symbol}, Z = {self.z}, A = {self.a})"
 
-    def __eq__(self, other):
-        return self.z == other.z and self.a == other.a
 
 Element.z.__doc__ = "Atomic number"
 Element.symbol.__doc__ = "Element symbol e.g. H, He, Li"
