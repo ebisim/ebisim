@@ -3,7 +3,7 @@ This module contains classes and functions helping to simulate charge breeding i
 including effects of dielectronic recombination
 """
 
-from .xs import EBISSpecies, _eix_xs_vector_2, EIXS
+from .xs import EBISSpecies, _eixs_vector_2, EIXS, RRXS, _rrxs_vector_2
 from .problems import SimpleEBISProblem, ContinuousNeutralInjectionEBISProblem, EnergyScan
 from .physconst import *
 from .elements import ChemicalElement, Element
