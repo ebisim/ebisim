@@ -42,7 +42,7 @@ def _eixs_xs_vector(e_kin, e_bind_mat, cfg_mat):
     return xs_vec
 
 @numba.njit
-def _eix_xs_vector_2(element, e_kin):
+def _eixs_vector_2(element, e_kin):
     css = element.ebind.shape[0]
     shells = element.ebind.shape[1]
     xs_vec = np.zeros(css + 1)
@@ -57,6 +57,14 @@ def _eix_xs_vector_2(element, e_kin):
     xs_vec *= 4.5e-18
     return xs_vec
 
+@numba.njit
+def _rrxs_vector_2(element, e_kin):
+    chi = 2 * element.z_eff**2 * RY_EV / e_kin
+    xs = 8 * PI * ALPHA / (3 * np.sqrt(3)) * COMPT_E_RED**2 * \
+            chi * np.log(1 + chi/(2 * element.n_0_eff**2))
+    xs[0] = 0
+    return xs
+
 @numba.jit
 def _drxs_xs(e_kin, fwhm, recomb_strengths, resonance_energies):
     """
@@ -65,7 +73,7 @@ def _drxs_xs(e_kin, fwhm, recomb_strengths, resonance_energies):
     sig = fwhm/2.35482 # 2.35482approx.(2*np.sqrt(2*np.log(2)))
     return np.sum(recomb_strengths * _normpdf(e_kin, resonance_energies, sig))*1e-24
 
-@numba.njit
+# @numba.jit
 def precompute_rr_quantities(cfg, shell_n):
     """
     Precomputes the effective valence shell and nuclear charge for all charge states,
@@ -85,8 +93,8 @@ def precompute_rr_quantities(cfg, shell_n):
     # All other charge states
     for cs in range(z):
         conf = cfg[cs, :]
-        n_0[cs] = np.max(np.extract(np.nonzero(conf), shell_n))
-        occup[z] = np.sum(np.extract((shell_n == n_0[cs]), conf))
+        n_0[cs] = np.max(shell_n[np.nonzero(conf)])
+        occup[cs] = np.sum(np.extract((shell_n == n_0[cs]), conf))
 
     w_n0 = (2 * n_0**2 - occup) / (2 * n_0**2)
     n_0_eff = n_0 + (1 - w_n0) - 0.3
@@ -240,7 +248,7 @@ class RRXS(EIXS):
                 # 1s 2s 2p- 2p+ 3s 3p- 3p+ 3d- 3d+ 4s 4p- 4p+ 4d- 4d+ ...
                 # 5s 5p- 5p+ 4f- 4f+ 5d- 5d+ 6s 6p- 6p+ 5f- 5f+ 6d- 6d+ 7s
                 SHELL_KEY = [1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
-                             5, 5, 5, 4, 4, 5, 5, 6, 6, 6, 5, 5, 6, 6, 7] #n of each orbit in order
+                             5, 5, 5, 4, 4, 5, 5, 6, 6, 6, 5, 5, 6, 6, 7, 7] #n of each orbit in order
                 temp_shell = SHELL_KEY[:len(cfg)]
                 n_0_temp = max(temp_shell[k] if cfg[k] != 0 else 0 for k in range(len(cfg)))
                 n_0.append(n_0_temp)
