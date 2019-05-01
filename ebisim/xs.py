@@ -65,6 +65,17 @@ def _rrxs_vector_2(element, e_kin):
     xs[0] = 0
     return xs
 
+@numba.njit
+def _drxs_vector_2(element, e_kin, fwhm):
+    xs_vec = np.zeros(element.z + 1)
+    if element.dr_cs.size > 0:
+        sig = fwhm/2.35482 # 2.35482approx.(2*np.sqrt(2*np.log(2)))
+        tmp = element.dr_strength * _normpdf(e_kin, element.dr_e_res, sig)*1e-24
+        for k in range(element.dr_cs.size):
+            cs = int(element.dr_cs[k])
+            xs_vec[cs] = xs_vec[cs] + tmp[k]
+    return xs_vec
+
 @numba.jit
 def _drxs_xs(e_kin, fwhm, recomb_strengths, resonance_energies):
     """
