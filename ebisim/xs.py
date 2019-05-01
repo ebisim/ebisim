@@ -73,7 +73,7 @@ def _drxs_xs(e_kin, fwhm, recomb_strengths, resonance_energies):
     sig = fwhm/2.35482 # 2.35482approx.(2*np.sqrt(2*np.log(2)))
     return np.sum(recomb_strengths * _normpdf(e_kin, resonance_energies, sig))*1e-24
 
-# @numba.jit
+@numba.njit
 def precompute_rr_quantities(cfg, shell_n):
     """
     Precomputes the effective valence shell and nuclear charge for all charge states,
@@ -84,7 +84,7 @@ def precompute_rr_quantities(cfg, shell_n):
 
     n_0 = np.zeros(z + 1)
     occup = np.zeros(z + 1)
-    
+
     # Determine, for each charge state, the valence shell (n_0),
     # and the number of electrons in it (occup)
     # Fully ionised
