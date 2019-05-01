@@ -90,7 +90,7 @@ class ChemicalElement(collections.namedtuple("ChemicalElement", ["z", "symbol", 
 
 
 class Element(collections.namedtuple(
-    "Element", ["z", "symbol", "name", "a", "cfg", "ebind", "z_eff", "n_0_eff"])):
+        "Element", ["z", "symbol", "name", "a", "cfg", "ebind", "z_eff", "n_0_eff"])):
     """
     Named tuple holding some essential information about a chemical element
     """

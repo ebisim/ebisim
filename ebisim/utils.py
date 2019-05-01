@@ -46,7 +46,7 @@ def load_electron_info():
     convenient data structure
 
     -List of subshell names
-    
+
     -dict with keys Z (proton number)
       dicts with keys
         cfg: tuple of write protected numpy arrays with shell occupation numbers

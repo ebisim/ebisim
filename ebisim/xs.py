@@ -248,7 +248,7 @@ class RRXS(EIXS):
                 # 1s 2s 2p- 2p+ 3s 3p- 3p+ 3d- 3d+ 4s 4p- 4p+ 4d- 4d+ ...
                 # 5s 5p- 5p+ 4f- 4f+ 5d- 5d+ 6s 6p- 6p+ 5f- 5f+ 6d- 6d+ 7s
                 SHELL_KEY = [1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
-                             5, 5, 5, 4, 4, 5, 5, 6, 6, 6, 5, 5, 6, 6, 7, 7] #n of each orbit in order
+                             5, 5, 5, 4, 4, 5, 5, 6, 6, 6, 5, 5, 6, 6, 7, 7] #n of each orbit
                 temp_shell = SHELL_KEY[:len(cfg)]
                 n_0_temp = max(temp_shell[k] if cfg[k] != 0 else 0 for k in range(len(cfg)))
                 n_0.append(n_0_temp)

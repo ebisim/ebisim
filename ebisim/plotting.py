@@ -54,8 +54,10 @@ def plot_energy_scan(data, cs, ylim=None, title=None, invert_hor=False, x2fun=No
         ax2.set_xticks(new_tick_locations)
         ax2.set_xticklabels(tick_function(new_tick_locations))
         ax2.set_xlabel(x2label)
-        if title: title += "\n\n"
-    if title: ax1.set_title(title)
+        if title:
+            title += "\n\n"
+    if title:
+        ax1.set_title(title)
     plt.tight_layout()
 
     return fig
@@ -143,7 +145,7 @@ def plot_generic_evolution(t, y, xlim=(1e-4, 1e3), ylim=None, ylabel="", title="
         else:
             plt.loglog(t, y[cs, :], figure=fig, label=str(cs) + "+")
     if plot_sum:
-        plt.plot(t, np.sum(y, axis=0), c="k", ls="--",figure=fig, label="sum")
+        plt.plot(t, np.sum(y, axis=0), c="k", ls="--", figure=fig, label="sum")
     ax.set_xscale(xscale)
     ax.set_yscale(yscale)
 
@@ -172,7 +174,8 @@ def _plot_xs(xs_df, fig=None, xscale="log", yscale="log",
     line_labels - annotate lines?
     ls - linestyle
     """
-    if not fig: fig = plt.figure(figsize=(8, 6), dpi=150)
+    if not fig:
+        fig = plt.figure(figsize=(8, 6), dpi=150)
     ax = fig.gca()
 
     ekin = xs_df.ekin
@@ -315,16 +318,23 @@ def _decorate_axes(ax, title=None, xlabel=None, ylabel=None, xlim=None, ylim=Non
     """
     helper functions for common axes decorations
     """
-    if title: ax.set_title(title)
-    if xlabel: ax.set_xlabel(xlabel)
-    if ylabel: ax.set_ylabel(ylabel)
-    if xlim: ax.set_xlim(xlim)
-    if ylim: ax.set_ylim(ylim)
-    if grid: ax.grid(which="both", alpha=0.5, lw=0.5)
-    if legend: ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    if title:
+        ax.set_title(title)
+    if xlabel:
+        ax.set_xlabel(xlabel)
+    if ylabel:
+        ax.set_ylabel(ylabel)
+    if xlim:
+        ax.set_xlim(xlim)
+    if ylim:
+        ax.set_ylim(ylim)
+    if grid:
+        ax.grid(which="both", alpha=0.5, lw=0.5)
+    if legend:
+        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     # Label lines should be called at the end of the plot generation since it relies on axlim
     if label_lines:
-        lines = [l for l in ax.get_lines() if len(l._x) > 0]
+        lines = [l for l in ax.get_lines() if l.xdata]
         step = int(np.ceil(len(lines)/10))
         lines = lines [::step]
         labelLines(lines, size=7, bbox={"pad":0.1, "fc":"w", "ec":"none"})
@@ -351,8 +361,8 @@ def labelLine(line, x, label=None, align=True, **kwargs):
 
     # Find corresponding y co-ordinate and angle of the
     ip = 1
-    for i in range(len(xdata)):
-        if x < xdata[i]:
+    for i, xd in enumerate(xdata):
+        if x < xd:
             ip = i
             break
 
@@ -417,7 +427,7 @@ def labelLines(lines, align=True, xvals=None, **kwargs):
 
     if xvals is None:
         xvals = ax.get_xlim() # set axis limits as annotation limits, xvals now a tuple
-    if type(xvals) == tuple:
+    if isinstance(xvals, tuple):
         xmin, xmax = xvals
         xscale = ax.get_xscale()
         if xscale == "log":
