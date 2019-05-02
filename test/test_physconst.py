@@ -29,6 +29,9 @@ def test_fine_structure_constant():
 def test_reduced_planck_constant():
     assert ebisim.physconst.HBAR == pytest.approx(1.054571800e-34)
 
+def test_proton_mass():
+    assert ebisim.physconst.M_P == pytest.approx(1.6726219e-27)
+
 def test_electron_mass_electronvolts():
     assert ebisim.physconst.M_E_EV == pytest.approx(510998.9461)
 
