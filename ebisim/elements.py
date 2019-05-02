@@ -3,7 +3,7 @@ Module holding functions and classes for convenient handling of elements in the 
 May be extended for more functionality (element properties) in the future
 """
 
-import collections
+from collections import namedtuple
 import numpy as np
 
 from . import utils
@@ -59,7 +59,7 @@ def cast_to_ChemicalElement(element):
     return ChemicalElement(element)
 
 
-class ChemicalElement(collections.namedtuple("ChemicalElement", ["z", "symbol", "name", "a"])):
+class ChemicalElement(namedtuple("ChemicalElement", ["z", "symbol", "name", "a"])):
     """
     Named tuple holding some essential information about a chemical element
     """
@@ -90,9 +90,23 @@ class ChemicalElement(collections.namedtuple("ChemicalElement", ["z", "symbol", 
         return "$^{%d}_{%d}$%s"%(self.a, self.z, self.symbol)
 
 
-class Element(collections.namedtuple(
-        "Element", ["z", "symbol", "name", "a", "cfg", "ebind", "z_eff", "n_0_eff",
-                    "dr_cs", "dr_e_res", "dr_strength"])):
+_ElementSpec = namedtuple(
+    "Element", [
+        "z",
+        "symbol",
+        "name",
+        "a",
+        "cfg",
+        "ebind",
+        "z_eff",
+        "n_0_eff",
+        "dr_cs",
+        "dr_e_res",
+        "dr_strength"
+    ]
+)
+
+class Element(_ElementSpec):
     """
     Named tuple holding some essential information about a chemical element
     """
@@ -104,26 +118,53 @@ class Element(collections.namedtuple(
         Provides a convenient constructor accepting the atomic number, symbol, or name
         If a is provided is interpreted as the mass number, otherwise a resonable value is assigned
         """
-        # Info on __new__ for subclasses of namedtuple
-        if isinstance(element_id, int):
-            z = element_id
-        else:
-            z = element_z(element_id)
-        symbol = element_symbol(z)
-        name = element_name(z)
+        # Basic element info
+        try:
+            if isinstance(element_id, int):
+                z = element_id
+            else:
+                z = element_z(element_id)
+            symbol = element_symbol(z)
+            name = element_name(z)
+        except ValueError:
+            raise ValueError(f"Unable to interpret element_id = {element_id}, " \
+                "ebisim only supports elements up to Z = 105.")
+
+        # Mass number
         if a is None:
             idx = _ELEM_Z.index(z)
             a = _ELEM_A[idx]
+        if a <= 0:
+            raise ValueError("Mass number 'a' cannot be smaller than 1")
+
+        # Electron configuration and shell binding energies
         cfg = _ELECTRON_INFO[z]["cfg"]
         ebind = _ELECTRON_INFO[z]["ebind"]
+
+        # Precomputations for radiative recombination
         z_eff, n_0_eff = xs.precompute_rr_quantities(cfg, _SHELL_N)
         z_eff.setflags(write=False)
         n_0_eff.setflags(write=False)
+
+        # Data for computations of dielectronic recombination cross sections
         dr_cs = _DR_DATA[z]["dr_cs"]
         dr_e_res = _DR_DATA[z]["dr_e_res"]
         dr_strength = _DR_DATA[z]["dr_strength"]
-        return super(Element, cls).__new__(cls, z, symbol, name, a, cfg, ebind, z_eff, n_0_eff,
-                                           dr_cs, dr_e_res, dr_strength)
+
+        return super(Element, cls).__new__(
+            cls,
+            z,
+            symbol,
+            name,
+            a,
+            cfg,
+            ebind,
+            z_eff,
+            n_0_eff,
+            dr_cs,
+            dr_e_res,
+            dr_strength
+        )
 
     def latex_isotope(self):
         """
@@ -137,19 +178,19 @@ class Element(collections.namedtuple(
     def __str__(self):
         return f"Element: {self.name} ({self.symbol}, Z = {self.z}, A = {self.a})"
 
-
+# Monkeypatching docstrings for all the fields of Element
 Element.z.__doc__ = "Atomic number"
 Element.symbol.__doc__ = "Element symbol e.g. H, He, Li"
 Element.name.__doc__ = "Element name"
 Element.a.__doc__ = "Mass number"
-Element.cfg.__doc__ = f"""Numpy array of electron configuration in different charge states
-The index of each row corresponds to the charge state
-The columns are the subshells sorted as in {_SHELLORDER}"""
-Element.ebind.__doc__ = f"""Numpy array of binding energies associated with electron subshells
-The index of each row corresponds to the charge state
-The columns are the subshells sorted as in {_SHELLORDER}"""
-Element.z_eff.__doc__ = "Numpy array of effective nuclear charges for RR cross sections"
-Element.n_0_eff.__doc__ = "Numpy array of effective valence shell numbers for RR cross sections"
-Element.dr_cs.__doc__ = "Numpy array of charge states for DR cross sections"
-Element.dr_e_res.__doc__ = "Numpy array of resonance energies for DR cross sections"
-Element.dr_strength.__doc__ = "Numpy array of transition strengths for DR cross sections"
+Element.cfg.__doc__ = f"""Numpy array of electron configuration in different charge states.
+The index of each row corresponds to the charge state.
+The columns are the subshells sorted as in {_SHELLORDER}."""
+Element.ebind.__doc__ = f"""Numpy array of binding energies associated with electron subshells.
+The index of each row corresponds to the charge state.
+The columns are the subshells sorted as in {_SHELLORDER}."""
+Element.z_eff.__doc__ = "Numpy array of effective nuclear charges for RR cross sections."
+Element.n_0_eff.__doc__ = "Numpy array of effective valence shell numbers for RR cross sections."
+Element.dr_cs.__doc__ = "Numpy array of charge states for DR cross sections."
+Element.dr_e_res.__doc__ = "Numpy array of resonance energies for DR cross sections."
+Element.dr_strength.__doc__ = "Numpy array of transition strengths for DR cross sections."
