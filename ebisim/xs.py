@@ -72,8 +72,8 @@ def _drxs_vector_2(element, e_kin, fwhm):
         sig = fwhm/2.35482 # 2.35482approx.(2*np.sqrt(2*np.log(2)))
         tmp = element.dr_strength * _normpdf(e_kin, element.dr_e_res, sig)*1e-24
         for k in range(element.dr_cs.size):
-            cs = int(element.dr_cs[k])
-            xs_vec[cs] = xs_vec[cs] + tmp[k]
+            # cs = int(element.dr_cs[k])
+            xs_vec[element.dr_cs[k]] = xs_vec[element.dr_cs[k]] + tmp[k]
     return xs_vec
 
 @numba.jit

@@ -91,6 +91,7 @@ def load_dr_data():
                 dat = _parse_dr_file(fobj)
         except FileNotFoundError:
             dat = dict(dr_e_res=empt.copy(), dr_strength=empt.copy(), dr_cs=empt.copy())
+        dat["dr_cs"] = dat["dr_cs"].astype(int) # Need to assure int for indexing purposes
         out[z] = dat
     return out
 
