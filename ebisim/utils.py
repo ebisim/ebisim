@@ -131,24 +131,3 @@ def _nparray_from_jagged_list(list_of_lists):
     for irow, data in enumerate(list_of_lists):
         out[irow, :len(data)] = np.array(data)
     return out
-
-
-def _parse_dr_file(fobj):
-    fobj.seek(0)
-    fobj.readline()
-    e_res = []
-    stren = []
-    cs = []
-    for line in fobj:
-        data = line.strip().split(",")
-        e_res.append(float(data[0]))
-        stren.append(float(data[1]))
-        cs.append(int(data[4]))
-    e_res = np.array(e_res)
-    e_res.setflags(write=False)
-    stren = np.array(stren)
-    stren.setflags(write=False)
-    cs = np.array(cs)
-    cs.setflags(write=False)
-    return dict(dr_e_res=e_res, dr_strength=stren, dr_cs=cs)
-    
