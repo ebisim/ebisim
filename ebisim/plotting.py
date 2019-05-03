@@ -54,8 +54,10 @@ def plot_energy_scan(data, cs, ylim=None, title=None, invert_hor=False, x2fun=No
         ax2.set_xticks(new_tick_locations)
         ax2.set_xticklabels(tick_function(new_tick_locations))
         ax2.set_xlabel(x2label)
-        if title: title += "\n\n"
-    if title: ax1.set_title(title)
+        if title:
+            title += "\n\n"
+    if title:
+        ax1.set_title(title)
     plt.tight_layout()
 
     return fig
@@ -143,7 +145,7 @@ def plot_generic_evolution(t, y, xlim=(1e-4, 1e3), ylim=None, ylabel="", title="
         else:
             plt.loglog(t, y[cs, :], figure=fig, label=str(cs) + "+")
     if plot_sum:
-        plt.plot(t, np.sum(y, axis=0), c="k", ls="--",figure=fig, label="sum")
+        plt.plot(t, np.sum(y, axis=0), c="k", ls="--", figure=fig, label="sum")
     ax.set_xscale(xscale)
     ax.set_yscale(yscale)
 
@@ -172,7 +174,8 @@ def _plot_xs(xs_df, fig=None, xscale="log", yscale="log",
     line_labels - annotate lines?
     ls - linestyle
     """
-    if not fig: fig = plt.figure(figsize=(8, 6), dpi=150)
+    if not fig:
+        fig = plt.figure(figsize=(8, 6), dpi=150)
     ax = fig.gca()
 
     ekin = xs_df.ekin
@@ -192,18 +195,18 @@ def _plot_xs(xs_df, fig=None, xscale="log", yscale="log",
                    xlim=xlim, ylim=ylim, grid=True, legend=legend, label_lines=label_lines)
     return fig
 
-def _plot_eirrxs(element, xstype, **kwargs):
+def _plot_eirrxs(element, xsvecfun, **kwargs):
     """
     Helper function for RR and EI cross section plots
 
     Input Parameters
     **kwargs - passed on to _plot_xs, check arguments thereof
     """
-    # Create cross section object
-    xsobj = xstype(element)
+    if not isinstance(element, elements.Element):
+        element = elements.Element(element)
     # Find some energy intervals and such
-    e_min = xsobj.e_bind_min / 10
-    e_max = 10 * xsobj.e_bind_max
+    e_min = element.e_bind[np.nonzero(element.e_bind)].min() / 10
+    e_max = 10 * element.e_bind.max()
     e_max = 10**np.ceil(np.log10(e_max))
     if kwargs.get("xlim") is not None:
         e_min = np.min([e_min, kwargs["xlim"][0]])
@@ -214,16 +217,16 @@ def _plot_eirrxs(element, xstype, **kwargs):
     # Generate data
     rows = []
     for ek in energies:
-        xsec = xsobj.xs_vector(ek)
+        xsec = xsvecfun(element, ek)
         rows.append(np.hstack([ek, xsec]))
-    colnames = ["ekin"] + [str(cs) for cs in range(xsobj.element.z+1)]
+    colnames = ["ekin"] + [str(cs) for cs in range(element.z+1)]
     xs_df = pd.DataFrame(rows, columns=colnames)
     # call _plot_xs with correct title and data
     if kwargs.get("title") is None:
-        if isinstance(xsobj, xs.EIXS):
-            kwargs["title"] = "EI cross sections of %s"%xsobj.element.latex_isotope()
-        if isinstance(xsobj, xs.RRXS):
-            kwargs["title"] = "RR cross sections of %s"%xsobj.element.latex_isotope()
+        if xsvecfun is xs.eixs_vec:
+            kwargs["title"] = f"EI cross sections of {element.latex_isotope()}"
+        if xsvecfun is xs.rrxs_vec:
+            kwargs["title"] = f"RR cross sections of {element.latex_isotope()}"
     fig = _plot_xs(xs_df, **kwargs)
     # Return figure handle
     return fig
@@ -235,7 +238,7 @@ def plot_ei_xs(element, **kwargs):
     Input Parameters
     **kwargs - passed on to _plot_xs, check arguments thereof
     """
-    return _plot_eirrxs(element, xs.EIXS, **kwargs)
+    return _plot_eirrxs(element, xs.eixs_vec, **kwargs)
 
 def plot_rr_xs(element, **kwargs):
     """
@@ -244,7 +247,7 @@ def plot_rr_xs(element, **kwargs):
     Input Parameters
     **kwargs - passed on to _plot_xs, check arguments thereof
     """
-    return _plot_eirrxs(element, xs.RRXS, **kwargs)
+    return _plot_eirrxs(element, xs.rrxs_vec, **kwargs)
 
 def plot_dr_xs(element, fwhm, **kwargs):
     """
@@ -253,11 +256,11 @@ def plot_dr_xs(element, fwhm, **kwargs):
     Input Parameters
     **kwargs - passed on to _plot_xs, check arguments thereof
     """
-    # Create cross section object
-    xsobj = xs.DRXS(element)
+    if not isinstance(element, elements.Element):
+        element = elements.Element(element)
     # Find some energy intervals and such
-    e_min = xsobj.e_res_min - 3 * fwhm
-    e_max = xsobj.e_res_max + 3 * fwhm
+    e_min = element.dr_e_res.min() - 3 * fwhm
+    e_max = element.dr_e_res.max() + 3 * fwhm
     if kwargs.get("xlim") is not None:
         e_min = np.min([e_min, kwargs["xlim"][0]])
         e_max = np.max([e_max, kwargs["xlim"][1]])
@@ -267,9 +270,9 @@ def plot_dr_xs(element, fwhm, **kwargs):
     # Generate data
     rows = []
     for ek in energies:
-        xsec = xsobj.xs_vector(ek, fwhm)
+        xsec = xs.drxs_vec(element, ek, fwhm)
         rows.append(np.hstack([ek, xsec]))
-    colnames = ["ekin"] + [str(cs) for cs in range(xsobj.element.z+1)]
+    colnames = ["ekin"] + [str(cs) for cs in range(element.z+1)]
     xs_df = pd.DataFrame(rows, columns=colnames)
     # Set some kwargs if they are not given by caller
     kwargs["xscale"] = kwargs.get("xscale", "linear")
@@ -278,8 +281,8 @@ def plot_dr_xs(element, fwhm, **kwargs):
     kwargs["label_lines"] = kwargs.get("label_lines", False)
     # call _plot_xs with correct title and data
     if kwargs.get("title") is None:
-        kwargs["title"] = "DR cross sections of %s (Electron beam FWHM = %0.1f eV)"\
-                %(xsobj.element.latex_isotope(), fwhm)
+        kwargs["title"] = f"DR cross sections of {element.latex_isotope()} " \
+                          f"(Electron beam FWHM = {fwhm:0.1f} eV)"
     fig = _plot_xs(xs_df, **kwargs)
     # Return figure handle
     return fig
@@ -289,9 +292,10 @@ def plot_combined_xs(element, fwhm, xlim=None, ylim=(1e-24, 1e-16),
     """
     Combo Plot of EI RR DR for element with fwhm for DR resonances
     """
-    element = elements.cast_to_ChemicalElement(element)
-    title = "Combined cross sections of %s (Electron beam FWHM = %0.1f eV)"\
-            %(element.latex_isotope(), fwhm)
+    if not isinstance(element, elements.Element):
+        element = elements.Element(element)
+    title = f"Combined cross sections of {element.latex_isotope()} " \
+            f"(Electron beam FWHM = {fwhm:0.1f} eV)"
     common_kwargs = dict(xlim=xlim, ylim=ylim, xscale=xscale, yscale=yscale)
     fig = plot_ei_xs(element, label_lines=False, legend=legend, ls="--", **common_kwargs)
     fig = plot_rr_xs(element, fig=fig, ls="-.", **common_kwargs)
@@ -315,16 +319,23 @@ def _decorate_axes(ax, title=None, xlabel=None, ylabel=None, xlim=None, ylim=Non
     """
     helper functions for common axes decorations
     """
-    if title: ax.set_title(title)
-    if xlabel: ax.set_xlabel(xlabel)
-    if ylabel: ax.set_ylabel(ylabel)
-    if xlim: ax.set_xlim(xlim)
-    if ylim: ax.set_ylim(ylim)
-    if grid: ax.grid(which="both", alpha=0.5, lw=0.5)
-    if legend: ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    if title:
+        ax.set_title(title)
+    if xlabel:
+        ax.set_xlabel(xlabel)
+    if ylabel:
+        ax.set_ylabel(ylabel)
+    if xlim:
+        ax.set_xlim(xlim)
+    if ylim:
+        ax.set_ylim(ylim)
+    if grid:
+        ax.grid(which="both", alpha=0.5, lw=0.5)
+    if legend:
+        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     # Label lines should be called at the end of the plot generation since it relies on axlim
     if label_lines:
-        lines = [l for l in ax.get_lines() if len(l._x) > 0]
+        lines = [l for l in ax.get_lines() if any(l._x)]
         step = int(np.ceil(len(lines)/10))
         lines = lines [::step]
         labelLines(lines, size=7, bbox={"pad":0.1, "fc":"w", "ec":"none"})
@@ -351,8 +362,8 @@ def labelLine(line, x, label=None, align=True, **kwargs):
 
     # Find corresponding y co-ordinate and angle of the
     ip = 1
-    for i in range(len(xdata)):
-        if x < xdata[i]:
+    for i, xd in enumerate(xdata):
+        if x < xd:
             ip = i
             break
 
@@ -417,7 +428,7 @@ def labelLines(lines, align=True, xvals=None, **kwargs):
 
     if xvals is None:
         xvals = ax.get_xlim() # set axis limits as annotation limits, xvals now a tuple
-    if type(xvals) == tuple:
+    if isinstance(xvals, tuple):
         xmin, xmax = xvals
         xscale = ax.get_xscale()
         if xscale == "log":

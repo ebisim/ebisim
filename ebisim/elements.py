@@ -3,29 +3,19 @@ Module holding functions and classes for convenient handling of elements in the 
 May be extended for more functionality (element properties) in the future
 """
 
-import collections
+from collections import namedtuple
+import numpy as np
+
 from . import utils
+from . import xs
 
-# Load relevant data from resource folder when module is loaded
-def _load_chemical_elements():
-    """
-    Reads atomic number Z, symbol, and name information from external file
-    """
-    _z = [] # Atomic Number
-    _a = [] # Mass Number
-    _es = [] # Element Symbol
-    _name = [] # Element Name
-    with utils.open_resource("ChemicalElements.csv") as f:
-        f.readline() # skip header line
-        for line in f:
-            data = line.split(",")
-            _z.append(int(data[0].strip()))
-            _es.append(data[1].strip())
-            _name.append(data[2].strip())
-            _a.append(int(data[3].strip()))
-    return (_z, _es, _name, _a)
+_ELEM_Z, _ELEM_ES, _ELEM_NAME, _ELEM_A = utils.load_element_info()
+_ELECTRON_INFO, _SHELLORDER = utils.load_electron_info()
+_SHELL_N = np.array(list(map(int, [s[0] for s in _SHELLORDER])))
+# _SHELLORDER is a tuple containing the names of all shells in order
+# _SHELL_N is an array of the main quantum number of each shell in order
+_DR_DATA = utils.load_dr_data()
 
-(_ELEM_Z, _ELEM_ES, _ELEM_NAME, _ELEM_A) = _load_chemical_elements()
 
 ##### Helper functions for translating chemical symbols
 
@@ -39,6 +29,7 @@ def element_z(element):
         idx = _ELEM_NAME.index(element)
     return _ELEM_Z[idx]
 
+
 def element_symbol(element):
     """
     Returns the Symbol of the Element, for given name or Atomic Number
@@ -48,6 +39,7 @@ def element_symbol(element):
     else:
         idx = _ELEM_NAME.index(element)
     return _ELEM_ES[idx]
+
 
 def element_name(element):
     """
@@ -59,18 +51,24 @@ def element_name(element):
         idx = _ELEM_ES.index(element)
     return _ELEM_NAME[idx]
 
-def cast_to_ChemicalElement(element):
-    """
-    Checks if element is of type ChemicalElement
-    If yes the element is returned unchanged
-    If no a ChemicalElement object is created based on element and returned
-    """
-    if isinstance(element, ChemicalElement):
-        return element
-    return ChemicalElement(element)
 
+_ElementSpec = namedtuple(
+    "Element", [
+        "z",
+        "symbol",
+        "name",
+        "a",
+        "cfg",
+        "e_bind",
+        "z_eff",
+        "n_0_eff",
+        "dr_cs",
+        "dr_e_res",
+        "dr_strength"
+    ]
+)
 
-class ChemicalElement(collections.namedtuple("ChemicalElement", ["z", "symbol", "name", "a"])):
+class Element(_ElementSpec):
     """
     Named tuple holding some essential information about a chemical element
     """
@@ -82,59 +80,77 @@ class ChemicalElement(collections.namedtuple("ChemicalElement", ["z", "symbol", 
         Provides a convenient constructor accepting the atomic number, symbol, or name
         If a is provided is interpreted as the mass number, otherwise a resonable value is assigned
         """
-        # Info on __new__ for subclasses of namedtuple
-        if isinstance(element_id, int):
-            z = element_id
-        else:
-            z = element_z(element_id)
-        symbol = element_symbol(z)
-        name = element_name(z)
+        # Basic element info
+        try:
+            if isinstance(element_id, int):
+                z = element_id
+            else:
+                z = element_z(element_id)
+            symbol = element_symbol(z)
+            name = element_name(z)
+        except ValueError:
+            raise ValueError(f"Unable to interpret element_id = {element_id}, " \
+                "ebisim only supports elements up to Z = 105.")
+
+        # Mass number
         if a is None:
             idx = _ELEM_Z.index(z)
             a = _ELEM_A[idx]
-        return super(ChemicalElement, cls).__new__(cls, z, symbol, name, a)
+        if a <= 0:
+            raise ValueError("Mass number 'a' cannot be smaller than 1")
+
+        # Electron configuration and shell binding energies
+        cfg = _ELECTRON_INFO[z]["cfg"]
+        e_bind = _ELECTRON_INFO[z]["ebind"]
+
+        # Precomputations for radiative recombination
+        z_eff, n_0_eff = xs.precompute_rr_quantities(cfg, _SHELL_N)
+
+        # Data for computations of dielectronic recombination cross sections
+        dr_cs = _DR_DATA[z]["dr_cs"]
+        dr_e_res = _DR_DATA[z]["dr_e_res"]
+        dr_strength = _DR_DATA[z]["dr_strength"]
+
+        return super(Element, cls).__new__(
+            cls,
+            z,
+            symbol,
+            name,
+            a,
+            cfg,
+            e_bind,
+            z_eff,
+            n_0_eff,
+            dr_cs,
+            dr_e_res,
+            dr_strength
+        )
 
     def latex_isotope(self):
         """
         returns a latex formatted string describing the isotope
         """
-        return "$^{%d}_{%d}$%s"%(self.a, self.z, self.symbol)
+        return f"$^{{{self.a}}}_{{{self.z}}}${self.symbol}"
 
-### Old version of Chemical Element, saved as a fail safe or to extend in the future
-# class ChemicalElement:
-#     """
-#     Simple class holding some essential information about a chemical element
-#     """
-#     def __init__(self, element_id):
-#         """
-#         Initiates the object translating the input parameter and finding the other quantities
+    def __repr__(self):
+        return f"Element('{self.symbol}', a={self.a})"
 
-#         Input Parameters
-#         element_id - Atomic Number or Element Symbol or name
-#         """
-#         if isinstance(element_id, int):
-#             self._z = element_id
-#         else:
-#             self._z = element_z(element_id)
-#         self._es = element_symbol(self._z)
-#         self._name = element_name(self._z)
+    def __str__(self):
+        return f"Element: {self.name} ({self.symbol}, Z = {self.z}, A = {self.a})"
 
-#     @property
-#     def atomic_number(self):
-#         """Returns the atomic number"""
-#         return self._z
-
-#     @property
-#     def z(self):
-#         """Returns the atomic number"""
-#         return self._z
-
-#     @property
-#     def name(self):
-#         """Returns the name"""
-#         return self._name
-
-#     @property
-#     def symbol(self):
-#         """Returns the chemical symbol"""
-#         return(self)._es
+# Monkeypatching docstrings for all the fields of Element
+Element.z.__doc__ = "Atomic number"
+Element.symbol.__doc__ = "Element symbol e.g. H, He, Li"
+Element.name.__doc__ = "Element name"
+Element.a.__doc__ = "Mass number"
+Element.cfg.__doc__ = f"""Numpy array of electron configuration in different charge states.
+The index of each row corresponds to the charge state.
+The columns are the subshells sorted as in {_SHELLORDER}."""
+Element.e_bind.__doc__ = f"""Numpy array of binding energies associated with electron subshells.
+The index of each row corresponds to the charge state.
+The columns are the subshells sorted as in {_SHELLORDER}."""
+Element.z_eff.__doc__ = "Numpy array of effective nuclear charges for RR cross sections."
+Element.n_0_eff.__doc__ = "Numpy array of effective valence shell numbers for RR cross sections."
+Element.dr_cs.__doc__ = "Numpy array of charge states for DR cross sections."
+Element.dr_e_res.__doc__ = "Numpy array of resonance energies for DR cross sections."
+Element.dr_strength.__doc__ = "Numpy array of transition strengths for DR cross sections."
