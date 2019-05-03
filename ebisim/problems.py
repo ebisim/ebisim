@@ -118,11 +118,9 @@ class SimpleEBISProblem:
             print("Error! Need to solve problem before plotting")
         tmax = self.solution.t.max()
         xlim = (1e-4, tmax)
-        title = "%s charge state evolution ($j = %0.1f$ A/cm$^2$, $E_{e} = %0.1f$ eV, $FWHM = %0.1f$ eV)"\
-                %(self._element.latex_isotope(),
-                  self._j / 1e4,
-                  self._e_kin,
-                  self._fwhm)
+        title = f"{self._element.latex_isotope()} charge state evolution " \
+                f"($j = {self._j/1.e4:0.1f}$ A/cm$^2$, $E_{{e}} = {self._e_kin:0.1f}$ eV, " \
+                f"$FWHM = {self._fwhm:0.1f}$ eV)"
         return plotting.plot_cs_evolution(self.solution, xlim=xlim, title=title)
 
 
@@ -213,7 +211,7 @@ class EnergyScan:
             scan_solutions = scan_solutions.append(sol_df, ignore_index=True)
             prog += 1
             if show_progress:
-                sys.stdout.write("\rProgress:  {:>4.1f}%".format(100 * prog / len(self._energies)))
+                sys.stdout.write(f"\rProgress:  {100 * prog / len(self._energies):>4.1f}%")
         self._solution = scan_solutions
         if show_progress:
             sys.stdout.writelines([])
@@ -239,12 +237,11 @@ class EnergyScan:
         if normalise:
             for c in range(self._element.z+1):
                 data[c] = data[c]/data[c].mean()
-            title = ("Normalised abundance of %s at $T=%.1f$ ms"
-                     %(self._element.latex_isotope(), 1000*t))
+            title = f"Normalised abundance of {self._element.latex_isotope()} " \
+                    f"at $T={1000*t:.1f}$ ms"
             ylim = None
         else:
-            title = ("Relative abundance of %s at $T=%.1f$ ms"
-                     %(self._element.latex_isotope(), 1000*t))
+            title = f"Relative abundance of {self._element.latex_isotope()} at $T={1000*t:.1f}$ ms"
             ylim = (0.01, 1)
 
         fig = plotting.plot_energy_scan(data, cs, ylim=ylim, title=title, invert_hor=invert_hor,
@@ -260,7 +257,7 @@ class EnergyScan:
         cs - charge state to plot
         xlim/ylim - axes limits
         """
-        title = "Abundance of %s$^{%d +}$"%(self._element.latex_isotope(), cs)
+        title = f"Abundance of {self._element.latex_isotope()}$^{{{cs}+}}$"
         fig = plotting.plot_energy_time_scan(self.solution, cs, xlim=xlim, ylim=ylim, title=title)
         return fig
 
@@ -415,8 +412,8 @@ class ComplexEBISProblem:
             print("Error! Need to solve problem before plotting")
         tmax = self.solution.t.max()
         xlim = (1e-5, tmax)
-        title = "%s charge state evolution ($E_{e} = %0.1f$ eV, FWHM = %0.1f eV)"\
-                %(self._element.latex_isotope(), self._e_kin, self._fwhm)
+        title = f"{self._element.latex_isotope()} charge state evolution " \
+                f"($E_{{e}} = {self._e_kin:0.1f}$ eV, FWHM = {self._fwhm:0.1f} eV)"
         t = self.solution.t
         N = self.solution.y[:self._element.z + 1, :]
         ylim = (0, N.sum(axis=0).max()*1.05)
@@ -436,8 +433,8 @@ class ComplexEBISProblem:
             print("Error! Need to solve problem before plotting")
         tmax = self.solution.t.max()
         xlim = (1e-5, tmax)
-        title = "%s energy density evolution ($E_{e} = %0.1f$ eV, FWHM = %0.1f eV)"\
-                %(self._element.latex_isotope(), self._e_kin, self._fwhm)
+        title = f"{self._element.latex_isotope()} energy density evolution " \
+                f"($E_{{e}} = {self._e_kin:0.1f}$ eV, FWHM = {self._fwhm:0.1f} eV)"
         t = self.solution.t
         E = self.solution.y[self._element.z + 1:, :] * self.solution.y[:self._element.z + 1, :]
         ymin = 10**(np.floor(np.log10(E[:, 0].sum(axis=0)) - 1))
@@ -459,8 +456,8 @@ class ComplexEBISProblem:
             print("Error! Need to solve problem before plotting")
         tmax = self.solution.t.max()
         xlim = (1e-5, tmax)
-        title = "%s energy density evolution ($E_{e} = %0.1f$ eV, FWHM = %0.1f eV)"\
-                %(self._element.latex_isotope(), self._e_kin, self._fwhm)
+        title = f"{self._element.latex_isotope()} temperature evolution " \
+                f"($E_{{e}} = {self._e_kin:0.1f}$ eV, FWHM = {self._fwhm:0.1f} eV)"
         t = self.solution.t
         T = self.solution.y[self._element.z + 1:, :]
         ymin = 0.01

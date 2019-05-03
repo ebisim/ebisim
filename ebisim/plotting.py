@@ -224,9 +224,9 @@ def _plot_eirrxs(element, xsvecfun, **kwargs):
     # call _plot_xs with correct title and data
     if kwargs.get("title") is None:
         if xsvecfun is xs.eixs_vec:
-            kwargs["title"] = "EI cross sections of %s"%element.latex_isotope()
+            kwargs["title"] = f"EI cross sections of {element.latex_isotope()}"
         if xsvecfun is xs.rrxs_vec:
-            kwargs["title"] = "RR cross sections of %s"%element.latex_isotope()
+            kwargs["title"] = f"RR cross sections of {element.latex_isotope()}"
     fig = _plot_xs(xs_df, **kwargs)
     # Return figure handle
     return fig
@@ -281,8 +281,8 @@ def plot_dr_xs(element, fwhm, **kwargs):
     kwargs["label_lines"] = kwargs.get("label_lines", False)
     # call _plot_xs with correct title and data
     if kwargs.get("title") is None:
-        kwargs["title"] = "DR cross sections of %s (Electron beam FWHM = %0.1f eV)"\
-                %(element.latex_isotope(), fwhm)
+        kwargs["title"] = f"DR cross sections of {element.latex_isotope()} " \
+                          f"(Electron beam FWHM = {fwhm:0.1f} eV)"
     fig = _plot_xs(xs_df, **kwargs)
     # Return figure handle
     return fig
@@ -294,8 +294,8 @@ def plot_combined_xs(element, fwhm, xlim=None, ylim=(1e-24, 1e-16),
     """
     if not isinstance(element, elements.Element):
         element = elements.Element(element)
-    title = "Combined cross sections of %s (Electron beam FWHM = %0.1f eV)"\
-            %(element.latex_isotope(), fwhm)
+    title = f"Combined cross sections of {element.latex_isotope()} " \
+            f"(Electron beam FWHM = {fwhm:0.1f} eV)"
     common_kwargs = dict(xlim=xlim, ylim=ylim, xscale=xscale, yscale=yscale)
     fig = plot_ei_xs(element, label_lines=False, legend=legend, ls="--", **common_kwargs)
     fig = plot_rr_xs(element, fig=fig, ls="-.", **common_kwargs)
