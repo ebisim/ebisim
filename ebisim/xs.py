@@ -84,7 +84,7 @@ def _drxs_xs(e_kin, fwhm, recomb_strengths, resonance_energies):
     sig = fwhm/2.35482 # 2.35482approx.(2*np.sqrt(2*np.log(2)))
     return np.sum(recomb_strengths * _normpdf(e_kin, resonance_energies, sig))*1e-24
 
-@numba.njit
+@numba.jit
 def precompute_rr_quantities(cfg, shell_n):
     """
     Precomputes the effective valence shell and nuclear charge for all charge states,
@@ -110,7 +110,9 @@ def precompute_rr_quantities(cfg, shell_n):
     w_n0 = (2 * n_0**2 - occup) / (2 * n_0**2)
     n_0_eff = n_0 + (1 - w_n0) - 0.3
     z_eff = (z + np.arange(z + 1)) / 2
-
+    
+    n_0_eff.setflags(write=False)
+    z_eff.setflags(write=False)
     return z_eff, n_0_eff
 
 ### Here start the class definitions for the different cross section classes

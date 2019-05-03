@@ -143,8 +143,6 @@ class Element(_ElementSpec):
 
         # Precomputations for radiative recombination
         z_eff, n_0_eff = xs.precompute_rr_quantities(cfg, _SHELL_N)
-        z_eff.setflags(write=False)
-        n_0_eff.setflags(write=False)
 
         # Data for computations of dielectronic recombination cross sections
         dr_cs = _DR_DATA[z]["dr_cs"]
