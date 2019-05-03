@@ -33,14 +33,15 @@ class SimpleEBISProblem:
         e_kin - electron energy
         fwhm - electron energy spread (for DR width)
         """
-        #species - the Species object containing the physical information about cross section etc
-        self._species = xs.EBISSpecies(element)
+        if not isinstance(element, elements.Element):
+            element = elements.Element(element)
+        self._element = element
         self._fwhm = fwhm
         self._j = j * 1e4 # convert to A/m**2
         self._e_kin = e_kin
         self._solution = None
         #Default initial condition for solving the EBIS ODE System (all atoms in 1+ charge state)
-        self._default_initial = np.zeros(self._species.element.z + 1)
+        self._default_initial = np.zeros(self._element.z + 1)
         self._default_initial[1] = 1
 
     @property
@@ -65,9 +66,9 @@ class SimpleEBISProblem:
         The jacobian of the RHS of the ODE (I think this is the Hessian of y)
         """
         j = self._j / Q_E
-        xs_mat = self._species.eixs.xs_matrix(self._e_kin) \
-                 + self._species.rrxs.xs_matrix(self._e_kin) \
-                 + self._species.drxs.xs_matrix(self._e_kin, self._fwhm)
+        xs_mat = xs.eixs_mat(self._element, self._e_kin)\
+                 + xs.rrxs_mat(self._element, self._e_kin) \
+                 + xs.drxs_mat(self._element, self._e_kin, self._fwhm)
         jac = j * xs_mat
         return jac
 
@@ -118,7 +119,7 @@ class SimpleEBISProblem:
         tmax = self.solution.t.max()
         xlim = (1e-4, tmax)
         title = "%s charge state evolution ($j = %0.1f$ A/cm$^2$, $E_{e} = %0.1f$ eV, $FWHM = %0.1f$ eV)"\
-                %(self._species.element.latex_isotope(),
+                %(self._element.latex_isotope(),
                   self._j / 1e4,
                   self._e_kin,
                   self._fwhm)
@@ -142,7 +143,7 @@ class ContinuousNeutralInjectionEBISProblem(SimpleEBISProblem):
         """
         super().__init__(element, j, e_kin, fwhm)
         #Default initial condition for solving the EBIS ODE System (all atoms in neutral state)
-        self._default_initial = np.zeros(self._species.element.z + 1)
+        self._default_initial = np.zeros(self._element.z + 1)
         self._default_initial[0] = 1e-12
 
     def _generate_ode_func(self):
@@ -150,7 +151,7 @@ class ContinuousNeutralInjectionEBISProblem(SimpleEBISProblem):
         Generates a callable function for the RHS of the ode system describing the charge breeding
         """
         jac = self._jacobian() # Cache jac (it is time indpendent) to save calls
-        feed = np.zeros(self._species.element.z + 1)
+        feed = np.zeros(self._element.z + 1)
         feed[0] = 1
         ode = lambda t, y: jac.dot(y) + feed # time independent problem
         return ode
@@ -173,9 +174,10 @@ class EnergyScan:
         energies - list of the energies to scan
         eval_times - list of the times to evaluate
         """
-        # species - the Species object containing the physical information about cross section etc
         self._problem = problemtype(element, j, 0, fwhm)
-        self._element = elements.cast_to_ChemicalElement(element)
+        if not isinstance(element, elements.Element):
+            element = elements.Element(element)
+        self._element = element
         self._j = j
         self._energies = np.array(energies)
         self._eval_times = np.array(eval_times)
@@ -262,36 +264,6 @@ class EnergyScan:
         fig = plotting.plot_energy_time_scan(self.solution, cs, xlim=xlim, ylim=ylim, title=title)
         return fig
 
-    ###### The parallel solving is not working yet
-    # def solve_parallel(self, processes=2):
-    #     """
-    #     Trigger the computation of the energy scan that has previously been set up
-    #     This uses parallel computing
-    #     This can be fairly time consuming!
-
-    #     Input Parameters
-    #     workers - number of processes to launch, should be about the number of cores of the PC
-    #     """
-    #     # Integration time
-    #     max_time = np.max(self._eval_times)
-
-    #     def workertask(e_kin):
-    #         problem = self._problemtype(self._species, self._j, e_kin, self._fwhm)
-    #         solution = problem.solve(max_time, t_eval=self._eval_times)
-    #         sol_df = pd.DataFrame(solution.y.T)
-    #         sol_df["t"] = solution.t
-    #         sol_df["e_kin"] = e_kin
-    #         return sol_df
-
-    #     # Solve ODES in parallel
-    #     pool = mp.Pool(processes=processes)
-    #     sol_dfs = pool.map(workertask, self._energies)
-
-    #     scan_solutions = pd.DataFrame()
-    #     for sol_df in sol_dfs:
-    #         scan_solutions = scan_solutions.append(sol_df, ignore_index=True)
-    #     self._solution = scan_solutions
-
 
 class ComplexEBISProblem:
     """
@@ -312,9 +284,9 @@ class ComplexEBISProblem:
         e_kin - electron energy
         fwhm - electron energy spread (for DR width)
         """
-        #species - the Species object containing the physical information about cross section etc
-        self._species = xs.EBISSpecies(element)
-        self._element = self._species.element
+        if not isinstance(element, elements.Element):
+            element = elements.Element(element)
+        self._element = element
         self._fwhm = fwhm
         self._j = j * 1e4 # convert to A/m**2
         self._e_kin = e_kin
@@ -372,9 +344,10 @@ class ComplexEBISProblem:
         ri = np.sum(rij, axis=1)
 
         ### Particle density rates
-        R_ei = je * N * self._species.eixs.xs_vector(e_kin)
-        R_rr = je * N * self._species.rrxs.xs_vector(e_kin)
-        R_dr = je * N * self._species.drxs.xs_vector(e_kin, self._fwhm)
+        R_ei = je * N * xs.eixs_mat(self._element, e_kin)
+        R_rr = je * N * xs.rrxs_mat(self._element, e_kin)
+        R_dr = je * N * xs.drxs_mat(self._element, e_kin, self._fwhm)
+
         sigcx = 1.43e-16 * q**1.17 * self._bg_IP**-2.76
         R_cx = N * self._bg_N0 * np.sqrt(8 * Q_E * np.clip(kbT, 0, None)/(PI * A * M_P)) * sigcx
         R_ax = plasma.escape_rate_axial(N, kbT, ri, self._Vtrap_ax)
@@ -443,7 +416,7 @@ class ComplexEBISProblem:
         tmax = self.solution.t.max()
         xlim = (1e-5, tmax)
         title = "%s charge state evolution ($E_{e} = %0.1f$ eV, FWHM = %0.1f eV)"\
-                %(self._species.element.latex_isotope(), self._e_kin, self._fwhm)
+                %(self._element.latex_isotope(), self._e_kin, self._fwhm)
         t = self.solution.t
         N = self.solution.y[:self._element.z + 1, :]
         ylim = (0, N.sum(axis=0).max()*1.05)
@@ -464,7 +437,7 @@ class ComplexEBISProblem:
         tmax = self.solution.t.max()
         xlim = (1e-5, tmax)
         title = "%s energy density evolution ($E_{e} = %0.1f$ eV, FWHM = %0.1f eV)"\
-                %(self._species.element.latex_isotope(), self._e_kin, self._fwhm)
+                %(self._element.latex_isotope(), self._e_kin, self._fwhm)
         t = self.solution.t
         E = self.solution.y[self._element.z + 1:, :] * self.solution.y[:self._element.z + 1, :]
         ymin = 10**(np.floor(np.log10(E[:, 0].sum(axis=0)) - 1))
@@ -487,7 +460,7 @@ class ComplexEBISProblem:
         tmax = self.solution.t.max()
         xlim = (1e-5, tmax)
         title = "%s energy density evolution ($E_{e} = %0.1f$ eV, FWHM = %0.1f eV)"\
-                %(self._species.element.latex_isotope(), self._e_kin, self._fwhm)
+                %(self._element.latex_isotope(), self._e_kin, self._fwhm)
         t = self.solution.t
         T = self.solution.y[self._element.z + 1:, :]
         ymin = 0.01

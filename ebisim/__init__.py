@@ -3,9 +3,22 @@ This module contains classes and functions helping to simulate charge breeding i
 including effects of dielectronic recombination
 """
 
-from .xs import EBISSpecies, _eixs_vector_2, EIXS, RRXS, _rrxs_vector_2, DRXS, _drxs_vector_2
+from .xs import eixs_vec, eixs_mat, rrxs_vec, rrxs_mat, drxs_vec, drxs_mat
 from .problems import SimpleEBISProblem, ContinuousNeutralInjectionEBISProblem, EnergyScan
-from .physconst import *
-from .elements import ChemicalElement, Element
+from .physconst import (
+    Q_E,
+    M_E,
+    PI,
+    EPS_0,
+    K_B,
+    C_L,
+    ALPHA,
+    HBAR,
+    M_P,
+    M_E_EV,
+    RY_EV,
+    COMPT_E_RED,
+)
+from .elements import Element
 from .plotting import plot_ei_xs, plot_rr_xs, plot_dr_xs, plot_combined_xs
 from . import beams

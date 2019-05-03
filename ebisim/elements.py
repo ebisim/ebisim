@@ -16,6 +16,7 @@ _SHELL_N = np.array(list(map(int, [s[0] for s in _SHELLORDER])))
 # _SHELL_N is an array of the main quantum number of each shell in order
 _DR_DATA = utils.load_dr_data()
 
+
 ##### Helper functions for translating chemical symbols
 
 def element_z(element):
@@ -28,6 +29,7 @@ def element_z(element):
         idx = _ELEM_NAME.index(element)
     return _ELEM_Z[idx]
 
+
 def element_symbol(element):
     """
     Returns the Symbol of the Element, for given name or Atomic Number
@@ -37,6 +39,7 @@ def element_symbol(element):
     else:
         idx = _ELEM_NAME.index(element)
     return _ELEM_ES[idx]
+
 
 def element_name(element):
     """
@@ -48,47 +51,6 @@ def element_name(element):
         idx = _ELEM_ES.index(element)
     return _ELEM_NAME[idx]
 
-def cast_to_ChemicalElement(element):
-    """
-    Checks if element is of type ChemicalElement
-    If yes the element is returned unchanged
-    If no a ChemicalElement object is created based on element and returned
-    """
-    if isinstance(element, ChemicalElement):
-        return element
-    return ChemicalElement(element)
-
-
-class ChemicalElement(namedtuple("ChemicalElement", ["z", "symbol", "name", "a"])):
-    """
-    Named tuple holding some essential information about a chemical element
-    """
-    # https://docs.python.org/3.6/library/collections.html#collections.namedtuple
-    # contains documentation for named tuples
-    __slots__ = () # This is a trick to suppress unnecessary dict() for this kind of class
-    def __new__(cls, element_id, a=None):
-        """
-        Provides a convenient constructor accepting the atomic number, symbol, or name
-        If a is provided is interpreted as the mass number, otherwise a resonable value is assigned
-        """
-        # Info on __new__ for subclasses of namedtuple
-        if isinstance(element_id, int):
-            z = element_id
-        else:
-            z = element_z(element_id)
-        symbol = element_symbol(z)
-        name = element_name(z)
-        if a is None:
-            idx = _ELEM_Z.index(z)
-            a = _ELEM_A[idx]
-        return super(ChemicalElement, cls).__new__(cls, z, symbol, name, a)
-
-    def latex_isotope(self):
-        """
-        returns a latex formatted string describing the isotope
-        """
-        return "$^{%d}_{%d}$%s"%(self.a, self.z, self.symbol)
-
 
 _ElementSpec = namedtuple(
     "Element", [
@@ -97,7 +59,7 @@ _ElementSpec = namedtuple(
         "name",
         "a",
         "cfg",
-        "ebind",
+        "e_bind",
         "z_eff",
         "n_0_eff",
         "dr_cs",
@@ -139,7 +101,7 @@ class Element(_ElementSpec):
 
         # Electron configuration and shell binding energies
         cfg = _ELECTRON_INFO[z]["cfg"]
-        ebind = _ELECTRON_INFO[z]["ebind"]
+        e_bind = _ELECTRON_INFO[z]["ebind"]
 
         # Precomputations for radiative recombination
         z_eff, n_0_eff = xs.precompute_rr_quantities(cfg, _SHELL_N)
@@ -156,7 +118,7 @@ class Element(_ElementSpec):
             name,
             a,
             cfg,
-            ebind,
+            e_bind,
             z_eff,
             n_0_eff,
             dr_cs,
@@ -168,7 +130,7 @@ class Element(_ElementSpec):
         """
         returns a latex formatted string describing the isotope
         """
-        return f"$^{self.a}_{self.z}${self.symbol}"
+        return f"$^{{{self.a}}}_{{{self.z}}}${self.symbol}"
 
     def __repr__(self):
         return f"Element('{self.symbol}', a={self.a})"
@@ -184,7 +146,7 @@ Element.a.__doc__ = "Mass number"
 Element.cfg.__doc__ = f"""Numpy array of electron configuration in different charge states.
 The index of each row corresponds to the charge state.
 The columns are the subshells sorted as in {_SHELLORDER}."""
-Element.ebind.__doc__ = f"""Numpy array of binding energies associated with electron subshells.
+Element.e_bind.__doc__ = f"""Numpy array of binding energies associated with electron subshells.
 The index of each row corresponds to the charge state.
 The columns are the subshells sorted as in {_SHELLORDER}."""
 Element.z_eff.__doc__ = "Numpy array of effective nuclear charges for RR cross sections."

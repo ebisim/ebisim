@@ -7,7 +7,6 @@ from ebisim.elements import (
     element_symbol,
     element_z,
     Element,
-    ChemicalElement
 )
 
 def test_element_z():
@@ -33,18 +32,6 @@ def test_element_name():
     assert element_name("Cs") == "Caesium"
     assert element_name(92) == "Uranium"
     assert element_name("U") == "Uranium"
-
-def test_ChemicalElement():
-    k = [19, "K", "Potassium", 39]
-    cs = [55, "Cs", "Caesium", 133]
-    u = [92, "U", "Uranium", 238]
-    for elem in [k, cs, u]:
-        for idx in elem[:-1]:
-            ce = ChemicalElement(idx)
-            assert ce.z == elem[0]
-            assert ce.symbol == elem[1]
-            assert ce.name == elem[2]
-            assert ce.a == elem[3]
 
 def test_Element_basic_info():
     # Test some elements

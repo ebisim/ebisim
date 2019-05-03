@@ -195,18 +195,18 @@ def _plot_xs(xs_df, fig=None, xscale="log", yscale="log",
                    xlim=xlim, ylim=ylim, grid=True, legend=legend, label_lines=label_lines)
     return fig
 
-def _plot_eirrxs(element, xstype, **kwargs):
+def _plot_eirrxs(element, xsvecfun, **kwargs):
     """
     Helper function for RR and EI cross section plots
 
     Input Parameters
     **kwargs - passed on to _plot_xs, check arguments thereof
     """
-    # Create cross section object
-    xsobj = xstype(element)
+    if not isinstance(element, elements.Element):
+        element = elements.Element(element)
     # Find some energy intervals and such
-    e_min = xsobj.e_bind_min / 10
-    e_max = 10 * xsobj.e_bind_max
+    e_min = element.e_bind[np.nonzero(element.e_bind)].min() / 10
+    e_max = 10 * element.e_bind.max()
     e_max = 10**np.ceil(np.log10(e_max))
     if kwargs.get("xlim") is not None:
         e_min = np.min([e_min, kwargs["xlim"][0]])
@@ -217,16 +217,16 @@ def _plot_eirrxs(element, xstype, **kwargs):
     # Generate data
     rows = []
     for ek in energies:
-        xsec = xsobj.xs_vector(ek)
+        xsec = xsvecfun(element, ek)
         rows.append(np.hstack([ek, xsec]))
-    colnames = ["ekin"] + [str(cs) for cs in range(xsobj.element.z+1)]
+    colnames = ["ekin"] + [str(cs) for cs in range(element.z+1)]
     xs_df = pd.DataFrame(rows, columns=colnames)
     # call _plot_xs with correct title and data
     if kwargs.get("title") is None:
-        if isinstance(xsobj, xs.EIXS):
-            kwargs["title"] = "EI cross sections of %s"%xsobj.element.latex_isotope()
-        if isinstance(xsobj, xs.RRXS):
-            kwargs["title"] = "RR cross sections of %s"%xsobj.element.latex_isotope()
+        if xsvecfun is xs.eixs_vec:
+            kwargs["title"] = "EI cross sections of %s"%element.latex_isotope()
+        if xsvecfun is xs.rrxs_vec:
+            kwargs["title"] = "RR cross sections of %s"%element.latex_isotope()
     fig = _plot_xs(xs_df, **kwargs)
     # Return figure handle
     return fig
@@ -238,7 +238,7 @@ def plot_ei_xs(element, **kwargs):
     Input Parameters
     **kwargs - passed on to _plot_xs, check arguments thereof
     """
-    return _plot_eirrxs(element, xs.EIXS, **kwargs)
+    return _plot_eirrxs(element, xs.eixs_vec, **kwargs)
 
 def plot_rr_xs(element, **kwargs):
     """
@@ -247,7 +247,7 @@ def plot_rr_xs(element, **kwargs):
     Input Parameters
     **kwargs - passed on to _plot_xs, check arguments thereof
     """
-    return _plot_eirrxs(element, xs.RRXS, **kwargs)
+    return _plot_eirrxs(element, xs.rrxs_vec, **kwargs)
 
 def plot_dr_xs(element, fwhm, **kwargs):
     """
@@ -256,11 +256,11 @@ def plot_dr_xs(element, fwhm, **kwargs):
     Input Parameters
     **kwargs - passed on to _plot_xs, check arguments thereof
     """
-    # Create cross section object
-    xsobj = xs.DRXS(element)
+    if not isinstance(element, elements.Element):
+        element = elements.Element(element)
     # Find some energy intervals and such
-    e_min = xsobj.e_res_min - 3 * fwhm
-    e_max = xsobj.e_res_max + 3 * fwhm
+    e_min = element.dr_e_res.min() - 3 * fwhm
+    e_max = element.dr_e_res.max() + 3 * fwhm
     if kwargs.get("xlim") is not None:
         e_min = np.min([e_min, kwargs["xlim"][0]])
         e_max = np.max([e_max, kwargs["xlim"][1]])
@@ -270,9 +270,9 @@ def plot_dr_xs(element, fwhm, **kwargs):
     # Generate data
     rows = []
     for ek in energies:
-        xsec = xsobj.xs_vector(ek, fwhm)
+        xsec = xs.drxs_vec(element, ek, fwhm)
         rows.append(np.hstack([ek, xsec]))
-    colnames = ["ekin"] + [str(cs) for cs in range(xsobj.element.z+1)]
+    colnames = ["ekin"] + [str(cs) for cs in range(element.z+1)]
     xs_df = pd.DataFrame(rows, columns=colnames)
     # Set some kwargs if they are not given by caller
     kwargs["xscale"] = kwargs.get("xscale", "linear")
@@ -282,7 +282,7 @@ def plot_dr_xs(element, fwhm, **kwargs):
     # call _plot_xs with correct title and data
     if kwargs.get("title") is None:
         kwargs["title"] = "DR cross sections of %s (Electron beam FWHM = %0.1f eV)"\
-                %(xsobj.element.latex_isotope(), fwhm)
+                %(element.latex_isotope(), fwhm)
     fig = _plot_xs(xs_df, **kwargs)
     # Return figure handle
     return fig
@@ -292,7 +292,8 @@ def plot_combined_xs(element, fwhm, xlim=None, ylim=(1e-24, 1e-16),
     """
     Combo Plot of EI RR DR for element with fwhm for DR resonances
     """
-    element = elements.cast_to_ChemicalElement(element)
+    if not isinstance(element, elements.Element):
+        element = elements.Element(element)
     title = "Combined cross sections of %s (Electron beam FWHM = %0.1f eV)"\
             %(element.latex_isotope(), fwhm)
     common_kwargs = dict(xlim=xlim, ylim=ylim, xscale=xscale, yscale=yscale)
@@ -334,7 +335,7 @@ def _decorate_axes(ax, title=None, xlabel=None, ylabel=None, xlim=None, ylim=Non
         ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     # Label lines should be called at the end of the plot generation since it relies on axlim
     if label_lines:
-        lines = [l for l in ax.get_lines() if l.xdata]
+        lines = [l for l in ax.get_lines() if any(l._x)]
         step = int(np.ceil(len(lines)/10))
         lines = lines [::step]
         labelLines(lines, size=7, bbox={"pad":0.1, "fc":"w", "ec":"none"})
