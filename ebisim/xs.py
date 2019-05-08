@@ -12,7 +12,7 @@ from .physconst import RY_EV, ALPHA, PI, COMPT_E_RED
 
 # XS_CACHE_MAXSIZE = 1024 # The max number of cached cross section results per function
 
-@numba.njit
+@numba.njit(cache=True)
 def _normpdf(x, mu, sigma):
     """
     The pdf of the normal distribution f_mu,sigma(x).
@@ -35,7 +35,7 @@ def _normpdf(x, mu, sigma):
     return np.exp(-(x - mu)**2 / (2 * sigma**2)) / (2 * PI * sigma**2)**0.5
 
 
-@numba.njit
+@numba.njit(cache=True)
 def eixs_vec(element, e_kin):
     """
     Electron ionisation cross section according to a simplified version of the models given in [1]_.
@@ -82,7 +82,8 @@ def eixs_vec(element, e_kin):
     xs_vec *= 4.5e-18
     return xs_vec
 
-@numba.njit
+
+@numba.njit(cache=True)
 def eixs_mat(element, e_kin):
     """
     Electron ionisation cross section according to a simplified version of the models given in [1]_.
@@ -121,7 +122,7 @@ def eixs_mat(element, e_kin):
     return np.diag(xs[:-1], -1) - np.diag(xs)
 
 
-@numba.njit
+@numba.njit(cache=True)
 def rrxs_vec(element, e_kin):
     """
     Radiative recombination cross section according to [1]_.
@@ -162,7 +163,7 @@ def rrxs_vec(element, e_kin):
     return xs
 
 
-@numba.njit
+@numba.njit(cache=True)
 def rrxs_mat(element, e_kin):
     """
     Radiative recombination cross section according to [1]_.
@@ -202,7 +203,7 @@ def rrxs_mat(element, e_kin):
     return np.diag(xs[1:], 1) - np.diag(xs)
 
 
-@numba.njit
+@numba.njit(cache=True)
 def drxs_vec(element, e_kin, fwhm):
     """
     Dielectronic recombination cross section.
@@ -246,7 +247,7 @@ def drxs_vec(element, e_kin, fwhm):
     return xs_vec
 
 
-@numba.njit
+@numba.njit(cache=True)
 def drxs_mat(element, e_kin, fwhm):
     """
     Dielectronic recombination cross section.
@@ -285,7 +286,7 @@ def drxs_mat(element, e_kin, fwhm):
     return np.diag(xs[1:], 1) - np.diag(xs)
 
 
-@numba.jit
+@numba.jit(cache=True)
 def precompute_rr_quantities(cfg, shell_n):
     """
     Precomputes the effective valence shell and nuclear charge for all charge states,
@@ -347,3 +348,55 @@ def precompute_rr_quantities(cfg, shell_n):
     n_0_eff.setflags(write=False)
     z_eff.setflags(write=False)
     return z_eff, n_0_eff
+
+
+@numba.njit(cache=True)
+def eixs_energyscan(element, e_kin=None, n=1000):
+    e_samp = _eirr_e_samp(element, e_kin, n)
+    xs = np.zeros((element.z + 1, len(e_samp)))
+    for ind, ek in enumerate(e_samp):
+        xs[:, ind] = eixs_vec(element, ek)
+    return e_samp, xs
+
+
+@numba.njit(cache=True)
+def rrxs_energyscan(element, e_kin=None, n=1000):
+    e_samp = _eirr_e_samp(element, e_kin, n)
+    xs = np.zeros((element.z + 1, len(e_samp)))
+    for ind, ek in enumerate(e_samp):
+        xs[:, ind] = rrxs_vec(element, ek)
+    return e_samp, xs
+
+
+@numba.njit(cache=True)
+def _eirr_e_samp(element, e_kin, n):
+    if e_kin is None:
+        e_min = element.e_bind[np.nonzero(element.e_bind)].min() # Expecting (1 < e_min < 100)
+        e_min = 1.0 if (e_min < 10.0) else 10.0 # Go to next smaller magnitude
+        e_max = 10 * element.e_bind.max()
+        e_max = 10**np.ceil(np.log10(e_max))
+        e_samp = np.logspace(np.log10(e_min), np.log10(e_max), n)
+    elif len(e_kin) == 2:
+        e_min = e_kin[0]
+        e_max = e_kin[1]
+        e_samp = np.logspace(np.log10(e_min), np.log10(e_max), n)
+    else:
+        e_samp = e_kin
+    return e_samp
+
+
+@numba.njit(cache=True)
+def drxs_energyscan(element, e_kin, fwhm, n=1000):
+    if e_kin is None:
+        e_min = element.dr_e_res.min() - 3 * fwhm
+        e_max = element.dr_e_res.max() + 3 * fwhm
+    elif len(e_kin) == 2:
+        e_min = e_kin[0]
+        e_max = e_kin[1]
+        e_samp = np.logspace(np.log10(e_min), np.log10(e_max), n)
+    else:
+        e_samp = e_kin
+    xs = np.zeros((element.z + 1, len(e_samp)))
+    for ind, ek in enumerate(e_samp):
+        xs[:, ind] = drxs_vec(element, ek, fwhm)
+    return e_samp, xs
