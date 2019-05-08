@@ -350,26 +350,117 @@ def precompute_rr_quantities(cfg, shell_n):
     return z_eff, n_0_eff
 
 
-@numba.njit(cache=True)
+@numba.jit(cache=True)
 def eixs_energyscan(element, e_kin=None, n=1000):
+    """
+    Creates an array of EI cross sections for varying electron energies.
+
+    Parameters
+    ----------
+    element : ebisim.Element
+        An ebisim.Element object that holds the required physical information for cross section
+        calculations.
+    e_kin : None or numpy.ndarray, optional
+        <Unit: eV>
+        If e_kin is None, the range of sampling energies is chosen based on the binding enrgies of
+        the element and energies are sampled on a logscale. If e_kin is an array with 2 elements,
+        they are interpreted as the minimum and maximum sampling energy.
+        If e_kin is an array with more than two values, the energies are taken as the sampling
+        energies directly, by default None.
+    n : int, optional
+        The number of energy sampling points, if the sampling locations are not supplied by the
+        user, by default 1000.
+
+    Returns
+    -------
+    e_samp : numpy.ndarray
+        Array holding the sampling energies
+    xs_scan : numpy.ndarray
+        Array holding the cross sections, where the row index corresponds to the charge state
+        and the columns correspond to the different sampling energies
+
+    See Also
+    --------
+    ebisim.rrxs_energyscan
+    ebisim.drxs_energyscan
+
+    """
     e_samp = _eirr_e_samp(element, e_kin, n)
-    xs = np.zeros((element.z + 1, len(e_samp)))
+    xs_scan = np.zeros((element.z + 1, len(e_samp)))
     for ind, ek in enumerate(e_samp):
-        xs[:, ind] = eixs_vec(element, ek)
-    return e_samp, xs
+        xs_scan[:, ind] = eixs_vec(element, ek)
+    return e_samp, xs_scan
 
 
-@numba.njit(cache=True)
+@numba.jit(cache=True)
 def rrxs_energyscan(element, e_kin=None, n=1000):
+    """
+    Creates an array of RR cross sections for varying electron energies.
+
+    Parameters
+    ----------
+    element : ebisim.Element
+        An ebisim.Element object that holds the required physical information for cross section
+        calculations.
+    e_kin : None or numpy.ndarray, optional
+        <Unit: eV>
+        If e_kin is None, the range of sampling energies is chosen based on the binding enrgies of
+        the element and energies are sampled on a logscale. If e_kin is an array with 2 elements,
+        they are interpreted as the minimum and maximum sampling energy.
+        If e_kin is an array with more than two values, the energies are taken as the sampling
+        energies directly, by default None.
+    n : int, optional
+        The number of energy sampling points, if the sampling locations are not supplied by the
+        user, by default 1000.
+
+    Returns
+    -------
+    e_samp : numpy.ndarray
+        Array holding the sampling energies
+    xs_scan : numpy.ndarray
+        Array holding the cross sections, where the row index corresponds to the charge state
+        and the columns correspond to the different sampling energies
+
+    See Also
+    --------
+    ebisim.eixs_energyscan
+    ebisim.drxs_energyscan
+
+    """
     e_samp = _eirr_e_samp(element, e_kin, n)
-    xs = np.zeros((element.z + 1, len(e_samp)))
+    xs_scan = np.zeros((element.z + 1, len(e_samp)))
     for ind, ek in enumerate(e_samp):
-        xs[:, ind] = rrxs_vec(element, ek)
-    return e_samp, xs
+        xs_scan[:, ind] = rrxs_vec(element, ek)
+    return e_samp, xs_scan
 
 
-@numba.njit(cache=True)
+@numba.jit(cache=True)
 def _eirr_e_samp(element, e_kin, n):
+    """
+    Generates a resonable energy interval for EI and RR cross section scans based on user input
+    and element binding energies
+
+    Parameters
+    ----------
+    element : ebisim.Element
+        An ebisim.Element object that holds the required physical information for cross section
+        calculations.
+    e_kin : None or numpy.ndarray
+        <Unit: eV>
+        If e_kin is None, the range of sampling energies is chosen based on the binding enrgies of
+        the element and energies are sampled on a logscale. If e_kin is an array with 2 elements,
+        they are interpreted as the minimum and maximum sampling energy.
+        If e_kin is an array with more than two values, the energies are taken as the sampling
+        energies directly.
+    n : int
+        The number of energy sampling points, if the sampling locations are not supplied by the
+        user.
+
+    Returns
+    -------
+    e_samp : numpy.ndarray
+        Array with sampling energies
+    """
     if e_kin is None:
         e_min = element.e_bind[np.nonzero(element.e_bind)].min() # Expecting (1 < e_min < 100)
         e_min = 1.0 if (e_min < 10.0) else 10.0 # Go to next smaller magnitude
@@ -385,18 +476,56 @@ def _eirr_e_samp(element, e_kin, n):
     return e_samp
 
 
-@numba.njit(cache=True)
-def drxs_energyscan(element, e_kin, fwhm, n=1000):
+@numba.jit(cache=True)
+def drxs_energyscan(element, fwhm, e_kin=None, n=1000):
+    """
+    Creates an array of DR cross sections for varying electron energies.
+
+    Parameters
+    ----------
+    element : ebisim.Element
+        An ebisim.Element object that holds the required physical information for cross section
+        calculations.
+    fwhm : float
+        <Unit: eV>
+        Energy spread to apply for the resonance smearing, expressed in terms of
+        full width at half maximum.
+    e_kin : None or numpy.ndarray, optional
+        <Unit: eV>
+        If e_kin is None, the range of sampling energies is chosen based on the binding enrgies of
+        the element and energies are sampled on a logscale. If e_kin is an array with 2 elements,
+        they are interpreted as the minimum and maximum sampling energy.
+        If e_kin is an array with more than two values, the energies are taken as the sampling
+        energies directly, by default None.
+    n : int, optional
+        The number of energy sampling points, if the sampling locations are not supplied by the
+        user, by default 1000.
+
+    Returns
+    -------
+    e_samp : numpy.ndarray
+        Array holding the sampling energies
+    xs_scan : numpy.ndarray
+        Array holding the cross sections, where the row index corresponds to the charge state
+        and the columns correspond to the different sampling energies
+
+    See Also
+    --------
+    ebisim.eixs_energyscan
+    ebisim.rrxs_energyscan
+
+    """
     if e_kin is None:
         e_min = element.dr_e_res.min() - 3 * fwhm
         e_max = element.dr_e_res.max() + 3 * fwhm
+        e_samp = np.logspace(np.log10(e_min), np.log10(e_max), n)
     elif len(e_kin) == 2:
         e_min = e_kin[0]
         e_max = e_kin[1]
         e_samp = np.logspace(np.log10(e_min), np.log10(e_max), n)
     else:
         e_samp = e_kin
-    xs = np.zeros((element.z + 1, len(e_samp)))
+    xs_scan = np.zeros((element.z + 1, len(e_samp)))
     for ind, ek in enumerate(e_samp):
-        xs[:, ind] = drxs_vec(element, ek, fwhm)
-    return e_samp, xs
+        xs_scan[:, ind] = drxs_vec(element, ek, fwhm)
+    return e_samp, xs_scan
