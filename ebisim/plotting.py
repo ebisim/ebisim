@@ -4,7 +4,6 @@ Module containing logic for plotting
 from datetime import datetime
 from math import atan2, degrees
 import numpy as np
-import pandas as pd
 
 import matplotlib.pyplot as plt
 from matplotlib.dates import date2num
@@ -157,7 +156,7 @@ def plot_generic_evolution(t, y, xlim=(1e-4, 1e3), ylim=None, ylabel="", title="
 #### XS Plotting #######
 ########################
 
-def _plot_xs(xs_df, fig=None, xscale="log", yscale="log",
+def _plot_xs(e_samp, xs_scan, fig=None, xscale="log", yscale="log",
              title=None, xlim=None, ylim=None, legend=False, label_lines=True,
              ls="-"):
     """
@@ -174,62 +173,31 @@ def _plot_xs(xs_df, fig=None, xscale="log", yscale="log",
     line_labels - annotate lines?
     ls - linestyle
     """
+    n_cs = xs_scan.shape[0]
+
     if not fig:
         fig = plt.figure(figsize=(8, 6), dpi=150)
     ax = fig.gca()
 
-    ekin = xs_df.ekin
-    xs_df = xs_df.drop("ekin", axis=1)
     ax.set_prop_cycle(None) # Reset property (color) cycle, needed when plotting on existing fig
-    _set_line_prop_cycle(ax, xs_df.shape[1])
-    for (cs, xsec) in xs_df.iteritems():
-        if np.array_equal(xsec.unique(), np.array([0])):
+    _set_line_prop_cycle(ax, n_cs)
+
+    for cs in range(n_cs):
+        xs_cs = xs_scan[cs, :]
+        if np.array_equal(np.unique(xs_cs), np.array([0])):
             plt.plot([], []) # If all xs are zero, do a ghost plot to advance color cycle
         else:
-            plt.plot(ekin, 1e4*xsec, figure=fig, ls=ls, label=str(cs)+"+") # otherwise plot data
+            plt.plot(e_samp, 1e4*xs_cs, figure=fig, ls=ls, label=str(cs)+"+") # otherwise plot data
 
     ax.set_xscale(xscale)
     ax.set_yscale(yscale)
+    if not xlim:
+        xlim = (e_samp[0], e_samp[-1])
     _decorate_axes(ax, title=title,
                    xlabel="Electron kinetic energy (eV)", ylabel="Cross section (cm$^2$)",
                    xlim=xlim, ylim=ylim, grid=True, legend=legend, label_lines=label_lines)
     return fig
 
-def _plot_eirrxs(element, xsvecfun, **kwargs):
-    """
-    Helper function for RR and EI cross section plots
-
-    Input Parameters
-    **kwargs - passed on to _plot_xs, check arguments thereof
-    """
-    if not isinstance(element, elements.Element):
-        element = elements.Element(element)
-    # Find some energy intervals and such
-    e_min = element.e_bind[np.nonzero(element.e_bind)].min() / 10
-    e_max = 10 * element.e_bind.max()
-    e_max = 10**np.ceil(np.log10(e_max))
-    if kwargs.get("xlim") is not None:
-        e_min = np.min([e_min, kwargs["xlim"][0]])
-        e_max = np.max([e_max, kwargs["xlim"][1]])
-    else:
-        kwargs["xlim"] = (10, e_max)
-    energies = np.logspace(np.log10(e_min), np.log10(e_max), 5000)
-    # Generate data
-    rows = []
-    for ek in energies:
-        xsec = xsvecfun(element, ek)
-        rows.append(np.hstack([ek, xsec]))
-    colnames = ["ekin"] + [str(cs) for cs in range(element.z+1)]
-    xs_df = pd.DataFrame(rows, columns=colnames)
-    # call _plot_xs with correct title and data
-    if kwargs.get("title") is None:
-        if xsvecfun is xs.eixs_vec:
-            kwargs["title"] = f"EI cross sections of {element.latex_isotope()}"
-        if xsvecfun is xs.rrxs_vec:
-            kwargs["title"] = f"RR cross sections of {element.latex_isotope()}"
-    fig = _plot_xs(xs_df, **kwargs)
-    # Return figure handle
-    return fig
 
 def plot_ei_xs(element, **kwargs):
     """
@@ -238,7 +206,16 @@ def plot_ei_xs(element, **kwargs):
     Input Parameters
     **kwargs - passed on to _plot_xs, check arguments thereof
     """
-    return _plot_eirrxs(element, xs.eixs_vec, **kwargs)
+    if not isinstance(element, elements.Element):
+        element = elements.Element(element)
+
+    e_samp, xs_scan = xs.eixs_energyscan(element)
+
+    if kwargs.get("title") is None:
+        kwargs["title"] = f"EI cross sections of {element.latex_isotope()}"
+
+    return _plot_xs(e_samp, xs_scan, **kwargs)
+
 
 def plot_rr_xs(element, **kwargs):
     """
@@ -247,7 +224,16 @@ def plot_rr_xs(element, **kwargs):
     Input Parameters
     **kwargs - passed on to _plot_xs, check arguments thereof
     """
-    return _plot_eirrxs(element, xs.rrxs_vec, **kwargs)
+    if not isinstance(element, elements.Element):
+        element = elements.Element(element)
+
+    e_samp, xs_scan = xs.rrxs_energyscan(element)
+
+    if kwargs.get("title") is None:
+        kwargs["title"] = f"RR cross sections of {element.latex_isotope()}"
+
+    return _plot_xs(e_samp, xs_scan, **kwargs)
+
 
 def plot_dr_xs(element, fwhm, **kwargs):
     """
@@ -258,22 +244,7 @@ def plot_dr_xs(element, fwhm, **kwargs):
     """
     if not isinstance(element, elements.Element):
         element = elements.Element(element)
-    # Find some energy intervals and such
-    e_min = element.dr_e_res.min() - 3 * fwhm
-    e_max = element.dr_e_res.max() + 3 * fwhm
-    if kwargs.get("xlim") is not None:
-        e_min = np.min([e_min, kwargs["xlim"][0]])
-        e_max = np.max([e_max, kwargs["xlim"][1]])
-    else:
-        kwargs["xlim"] = (e_min, e_max)
-    energies = np.arange(e_min, e_max)
-    # Generate data
-    rows = []
-    for ek in energies:
-        xsec = xs.drxs_vec(element, ek, fwhm)
-        rows.append(np.hstack([ek, xsec]))
-    colnames = ["ekin"] + [str(cs) for cs in range(element.z+1)]
-    xs_df = pd.DataFrame(rows, columns=colnames)
+    e_samp, xs_scan = xs.drxs_energyscan(element, fwhm)
     # Set some kwargs if they are not given by caller
     kwargs["xscale"] = kwargs.get("xscale", "linear")
     kwargs["yscale"] = kwargs.get("yscale", "linear")
@@ -283,7 +254,7 @@ def plot_dr_xs(element, fwhm, **kwargs):
     if kwargs.get("title") is None:
         kwargs["title"] = f"DR cross sections of {element.latex_isotope()} " \
                           f"(Electron beam FWHM = {fwhm:0.1f} eV)"
-    fig = _plot_xs(xs_df, **kwargs)
+    fig = _plot_xs(e_samp, xs_scan, **kwargs)
     # Return figure handle
     return fig
 
