@@ -1,6 +1,6 @@
 """
-Module containing the classes providing access to the relevant cross section for ionisation and
-recombination
+This module contains functions to compute the cross sections for various ionisation and
+recombination processes
 """
 
 # from functools import lru_cache
@@ -293,6 +293,8 @@ def precompute_rr_quantities(cfg, shell_n):
     as required for the computation of radiative recombinations cross sections.
     According to the procedure described in [1]_.
 
+    This function is primarily meant for internal use inside the ebisim.Element class.
+
     Parameters
     ----------
     cfg : numpy.ndarray
@@ -374,8 +376,10 @@ def eixs_energyscan(element, e_kin=None, n=1000):
     Returns
     -------
     e_samp : numpy.ndarray
+        <Unit: eV>
         Array holding the sampling energies
     xs_scan : numpy.ndarray
+        <Unit: m^2>
         Array holding the cross sections, where the row index corresponds to the charge state
         and the columns correspond to the different sampling energies
 
@@ -416,8 +420,10 @@ def rrxs_energyscan(element, e_kin=None, n=1000):
     Returns
     -------
     e_samp : numpy.ndarray
+        <Unit: eV>
         Array holding the sampling energies
     xs_scan : numpy.ndarray
+        <Unit: m^2>
         Array holding the cross sections, where the row index corresponds to the charge state
         and the columns correspond to the different sampling energies
 
@@ -459,6 +465,7 @@ def _eirr_e_samp(element, e_kin, n):
     Returns
     -------
     e_samp : numpy.ndarray
+        <Unit: eV>
         Array with sampling energies
     """
     if e_kin is None:
@@ -504,8 +511,10 @@ def drxs_energyscan(element, fwhm, e_kin=None, n=1000):
     Returns
     -------
     e_samp : numpy.ndarray
+        <Unit: eV>
         Array holding the sampling energies
     xs_scan : numpy.ndarray
+        <Unit: m^2>
         Array holding the cross sections, where the row index corresponds to the charge state
         and the columns correspond to the different sampling energies
 
