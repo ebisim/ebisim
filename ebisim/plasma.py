@@ -1,5 +1,5 @@
 """
-This module contains functions for calculating collission rates and related plasma parameters
+This module contains functions for computing collission rates and related plasma parameters
 """
 
 import math
@@ -9,26 +9,60 @@ import numpy as np
 from .physconst import M_E, M_P, PI, EPS_0, Q_E, C_L, M_E_EV
 from .physconst import MINIMAL_DENSITY
 
+
 @numba.jit
 def electron_velocity(e_kin):
     """
-    Returns the electron velocity corresponding to a kin. energy in m/s
+    Computes the electron velocity corresponding to a kinetic energy.
 
     Input Parameters
     e_kin - electron energy in eV
+
+    Parameters
+    ----------
+    e_kin : float or int or numpy.ndarray
+        <Unit: eV>
+        Kinetic energy of the electron.
+
+    Returns
+    -------
+    float or numpy.ndarray
+        <Unit: m/s>
+        Speed of the electron.
+
     """
     return C_L * np.sqrt(1 - (M_E_EV / (M_E_EV + e_kin))**2)
+
 
 @numba.jit
 def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
     """
-    The coulomb logarithm for ion electron collisions
-    Ni - ion density in 1/m^3
-    Ne - electron density in 1/m^3
-    kbTi - electron energy /temperature in eV
-    kbTe - electron energy /temperature in eV
-    Ai - ion mass in amu
-    qi - ion charge
+    The coulomb logarithm for ion electron collisions.
+
+    Parameters
+    ----------
+    Ni : float
+        <Unit: 1/m^3>
+        Ion density.
+    Ne : float
+        <Unit: 1/m^3>
+        Electron density.
+    kbTi : float
+        <Unit: eV>
+        Ion temperature.
+    kbTe : float
+        <Unit: eV>
+        Electron temperature.
+    Ai : float or int
+        Ion mass number.
+    qi : float or int
+        Ion charge state.
+
+    Returns
+    -------
+    float
+        Ion electron coulomb logarithm.
+
     """
     Ni *= 1e-6 # go from 1/m**3 to 1/cm**3
     Ne *= 1e-6
@@ -44,31 +78,40 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
     elif qi*qi*10 <= kbTi * M_E / Mi <= kbTe:
         return 24 - math.log(Ne**0.5 / kbTe)
 
-# @numba.jit
-# def clog_ei_vec(Ni, Ne, kbTi, kbTe, Ai):
-#     """
-#     Vector version of clog_ei
-#     Assumes Ni and kbTi are vectors of length Z +1 where the index corresponds to the charge state
-#     Ni - ion density in 1/m^3
-#     Ne - electron density in 1/m^3
-#     kbTi - electron energy /temperature in eV
-#     kbTe - electron energy /temperature in eV
-#     Ai - ion mass in amu
-#     """
-#     n = Ni.size
-#     clog = np.zeros(n)
-#     for q in range(1, n):
-#         clog[q] = clog_ei(Ni[q], Ne, kbTi[q], kbTe, Ai, q)
-#     return clog
 
 @numba.jit
 def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     """
-    The coulomb logarithm for ion ion collisions
-    Ni/Nj - ion density in 1/m^3
-    kbTi/kbTj - electron energy /temperature in eV
-    Ai/Aj - ion mass in amu
-    qi/qj - ion charge
+    The coulomb logarithm for ion ion collisions.
+
+    Parameters
+    ----------
+    Ni : float
+        <Unit: 1/m^3>
+        Ion species "i" density.
+    Nj : float
+        <Unit: 1/m^3>
+        Ion species "j" density.
+    kbTi : float
+        <Unit: eV>
+        Ion species "i" temperature.
+    kbTj : float
+        <Unit: eV>
+        Ion species "j" temperature.
+    Ai : float or int
+        Ion species "i" mass number.
+    Aj : float or int
+        Ion species "j" mass number.
+    qi : float or int
+        Ion species "i" charge state.
+    qj : float or int
+        Ion species "j" charge state.
+
+    Returns
+    -------
+    float
+        Ion ion coulomb logarithm.
+
     """
     Ni *= 1e-6 # go from 1/m**3 to 1/cm**3
     Nj *= 1e-6
@@ -79,35 +122,37 @@ def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
         clog = 0
     return clog
 
-# @numba.jit
-# def clog_ii_mat(Ni, Nj, kbTi, kbTj, Ai, Aj):
-#     """
-#     Matrix version of clog_ii
-#     Assumes Ni and kbTi are vectors of length Z +1 where the index corresponds to the charge state
-#     The coulomb logarithm for ion ion collisions
-#     Ni/Nj - ion density in 1/m^3
-#     kbTi/kbTj - electron energy /temperature in eV
-#     Ai/Aj - ion mass in amu
-#     qi/qj - ion charge
-#     """
-#     ni = Ni.size
-#     nj = Nj.size
-#     clog = np.zeros((ni, nj))
-#     for qj in range(1, nj):
-#         for qi in range(1, ni):
-#             clog[qi, qj] = clog_ii(Ni[qi], Nj[qj], kbTi[qi], kbTj[qj], Ai, Aj, qi, qj)
-#     return clog
 
 @numba.jit
 def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
     """
-    Computes the coulomb cross section for electron ion elastic collisions
-    Ni - ion density in 1/m^3
-    Ne - electron density in 1/m^3
-    kbTi - electron energy /temperature in eV
-    Ee - electron kinetic energy in eV
-    Ai - ion mass in amu
-    qi - ion charge
+    Computes the Coulomb cross section for elastic electron ion collisions
+
+    Parameters
+    ----------
+    Ni : float
+        <Unit: 1/m^3>
+        Ion density.
+    Ne : float
+        <Unit: 1/m^3>
+        Electron density.
+    kbTi : float
+        <Unit: eV>
+        Ion temperature.
+    Ee : float or int
+        <Unit: eV>
+        Electron kinetic energy.
+    Ai : float or int
+        Ion mass number.
+    qi : float or int
+        Ion charge state.
+
+    Returns
+    -------
+    float
+        <Unit: m^2>
+        Coulomb cross section.
+
     """
     if qi == 0:
         return 0
@@ -115,31 +160,45 @@ def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
     clog = clog_ei(Ni, Ne, kbTi, Ee, Ai, qi)
     return 4 * PI * (qi * Q_E * Q_E / (4 * PI * EPS_0 * M_E))**2 * clog / v_e**4
 
-# @numba.jit
-# def coulomb_xs_vec(Ni, Ne, kbTi, Ee, Ai):
-#     """
-#     Vector version of coulomb_xs
-#     Assumes Ni and kbTi are vectors of length Z +1 where the index corresponds to the charge state
-#     Ni - ion density in 1/m^3
-#     Ne - electron density in 1/m^3
-#     kbTi - electron energy /temperature in eV
-#     Ee - electron kinetic energy in eV
-#     Ai - ion mass in amu
-#     """
-#     n = Ni.size
-#     xs = np.zeros(n)
-#     for q in range(1, n):
-#         xs[q] = coulomb_xs(Ni[q], Ne, kbTi[q], Ee, Ai, q)
-#     return xs
 
 @numba.jit
 def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     """
-    Collision rate of ions species "i" for target "j"
-    Ni/Nj - ion density in 1/m^3
-    kbTi/kbTj - electron energy /temperature in eV
-    Ai/Aj - ion mass in amu
-    qi/qj - ion charge
+    Collision rates for ions species "i" and target species "j"
+
+    Parameters
+    ----------
+    Ni : float
+        <Unit: 1/m^3>
+        Ion species "i" density.
+    Nj : float
+        <Unit: 1/m^3>
+        Ion species "j" density.
+    kbTi : float
+        <Unit: eV>
+        Ion species "i" temperature.
+    kbTj : float
+        <Unit: eV>
+        Ion species "j" temperature.
+    Ai : float or int
+        Ion species "i" mass number.
+    Aj : float or int
+        Ion species "j" mass number.
+    qi : float or int
+        Ion species "i" charge state.
+    qj : float or int
+        Ion species "j" charge state.
+
+    Returns
+    -------
+    float
+        <Unit: 1/s>
+        Ion ion collision rate.
+
+    See Also
+    --------
+    ebisim.ion_coll_rate_mat : Similar method for all charge states.
+
     """
     # Artifically clamp collision rate to zero if either density is very small
     # This is a reasonable assumption and prevents instabilities when calling the coulomb logarithm
@@ -151,13 +210,42 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     const = 4 / 3 / (4 * PI * EPS_0)**2 * math.sqrt(2 * PI)
     return const * Nj * (qi * qj * Q_E * Q_E / Mi)**2 * (Mi/kbTi_SI)**1.5 * clog
 
+
 @numba.jit
 def ion_coll_rate_mat(Ni, Nj, kbTi, kbTj, Ai, Aj):
     """
-    Matric of ollision rates of ions species "i" for target "j"
-    Ni/Nj - ion density in 1/m^3
-    kbTi/kbTj - electron energy /temperature in eV
-    Ai/Aj - ion mass in amu
+    Matrix holding collision rates for ions species "i" and target species "j"
+
+    Parameters
+    ----------
+    Ni : numpy.ndarray
+        <Unit: 1/m^3>
+        Vector of ion species "i" densities.
+    Nj : numpy.ndarray
+        <Unit: 1/m^3>
+        Vector of ion species "j" densities.
+    kbTi : numpy.ndarray
+        <Unit: eV>
+        Vector of ion species "i" temperatures.
+    kbTj : numpy.ndarray
+        <Unit: eV>
+        Vector of ion species "j" temperatures.
+    Ai : float or int
+        Ion species "i" mass number.
+    Aj : float or int
+        Ion species "j" mass number.
+
+    Returns
+    -------
+    numpy.ndarray
+        <Unit: 1/s>
+        Ion ion collision rates stored in a 2D array, where
+        r_ij[qi, qj] = ion_coll_rate(Ni[qi], Nj[qj], kbTi[qi], kbTj[qj], Ai, Aj, qi, qj)
+
+    See Also
+    --------
+    ebisim.ion_coll_rate : Similar method for two single charge states.
+
     """
     ni = Ni.size
     nj = Nj.size
@@ -167,16 +255,35 @@ def ion_coll_rate_mat(Ni, Nj, kbTi, kbTj, Ai, Aj):
             r_ij[qi, qj] = ion_coll_rate(Ni[qi], Nj[qj], kbTi[qi], kbTj[qj], Ai, Aj, qi, qj)
     return r_ij
 
+
 @numba.jit
 def electron_heating_vec(Ni, Ne, kbTi, Ee, Ai):
     """
-    Computes the heating rate due to elastic electron ion collisions
-    Referred to as Spitzer Heating
-    Ni - ion density in 1/m^3
-    Ne - electron density in 1/m^3
-    kbTi - electron energy /temperature in eV
-    Ee - electron kinetic energy in eV
-    Ai - ion mass in amu
+    Computes the heating rates due to elastic electron ion collisions ('Spitzer Heating')
+
+    Parameters
+    ----------
+    Ni : numpy.ndarray
+        <Unit: 1/m^3>
+        Vector of ion densities.
+    Ne : float
+        <Unit: 1/m^3>
+        Electron density.
+    kbTi : numpy.ndarray
+        <Unit: eV>
+        Vector of ion temperatures.
+    Ee : float or int
+        <Unit: eV>
+        Electron kinetic energy.
+    Ai : float or int
+        Ion mass number.
+
+    Returns
+    -------
+    numpy.ndarray
+        <Unit: eV/m^3/s>
+        Vector of electron heating rate for each charge state.
+
     """
     n = Ni.size
     heat = np.zeros(n)
@@ -186,15 +293,40 @@ def electron_heating_vec(Ni, Ne, kbTi, Ee, Ai):
             heat[qi] = const * Ni[qi] * coulomb_xs(Ni[qi], Ne, kbTi[qi], Ee, Ai, qi)
     return heat
 
+
 @numba.jit
 def energy_transfer_vec(Ni, Nj, kbTi, kbTj, Ai, Aj, rij):
     """
-    The energy transfer term for species "i" (with respect to species "j")
-    Ni/Nj - ion density in 1/m^3
-    kbTi/kbTj - electron energy /temperature in eV
-    Ai/Aj - ion mass in amu
-    qi/qj - ion charge
-    rij - ion ion collision rates in 1/s
+    Computes the collisional energy transfer rates for species "i" with respect to species "j".
+
+    Parameters
+    ----------
+    Ni : numpy.ndarray
+        <Unit: 1/m^3>
+        Vector of ion species "i" densities.
+    Nj : numpy.ndarray
+        <Unit: 1/m^3>
+        Vector of ion species "j" densities.
+    kbTi : numpy.ndarray
+        <Unit: eV>
+        Vector of ion species "i" temperatures.
+    kbTj : numpy.ndarray
+        <Unit: eV>
+        Vector of ion species "j" temperatures.
+    Ai : float or int
+        Ion species "i" mass number.
+    Aj : float or int
+        Ion species "j" mass number.
+    rij : numpy.ndarray
+        <Unit: 1/s>
+        Collision rate matrix for the ions (cf. ion_coll_mat).
+
+    Returns
+    -------
+    numpy.ndarray
+        <Unit: eV/m^3/s>
+        Vector of energy transfer rate for each charge state.
+
     """
     ni = Ni.size
     nj = Nj.size
@@ -208,12 +340,27 @@ def energy_transfer_vec(Ni, Nj, kbTi, kbTj, Ai, Aj, rij):
                                (1 + (Ai * kbTj[qj]) / (Aj * kbTi[qi]))**1.5
     return trans_i
 
+
 @numba.jit
 def loss_frequency_axial(kbTi, V):
     """
-    Axial ion loss frequency
-    kbTi - electron energy /temperature in eV
-    V - Trap depth in V
+    Computes the axial trap (loss) frequencies.
+
+    Parameters
+    ----------
+    kbTi : numpy.ndarray
+        <Unit: eV>
+        Vector of ion temperatures.
+    V : float or int
+        <Unit: V>
+        Trap depth.
+
+    Returns
+    -------
+    numpy.ndarray
+        <Unit: 1/s>
+        Vector of axial ion trap (loss) frequencies for each charge state.
+
     """
     valid = kbTi > 0
     q = np.arange(kbTi.size, dtype=float)
@@ -223,15 +370,41 @@ def loss_frequency_axial(kbTi, V):
     w[0] = np.inf # fake value for neutrals -> essentially infinite trap
     return w
 
+
 @numba.jit
 def loss_frequency_radial(kbTi, Ai, V, B, r_dt):
     """
-    Radial ion loss frequency
+    Radial trap (loss) frequencies.
     kbTi - electron energy /temperature in eV
     Ai - ion mass in amu
     V - Trap depth in V
     B - Axial magnetic field in T
     r_dt - drift tube in m
+
+
+    Parameters
+    ----------
+    kbTi : numpy.ndarray
+        <Unit: eV>
+        Vector of ion temperatures.
+    Ai : float or int
+        Ion mass number.
+    V : float or int
+        <Unit: V>
+        Trap depth.
+    B : float or int
+        <Unit: T>
+        Axial magnetic flux density.
+    r_dt : float or int
+        <Unit: m>
+        Drift tube radius.
+
+    Returns
+    -------
+    numpy.ndarray
+        <Unit: 1/s>
+        Vector of radial ion trap (loss) frequencies for each charge state.
+
     """
     valid = kbTi > 0
     q = np.arange(kbTi.size, dtype=float)
@@ -241,40 +414,100 @@ def loss_frequency_radial(kbTi, Ai, V, B, r_dt):
     w[0] = np.inf # fake value for neutrals -> essentially infinite trap
     return w
 
+
 @numba.jit
 def escape_rate_axial(Ni, kbTi, ri, V):
     """
-    Axial escape rate
-    Ni - ion density in 1/m^3
-    kbTi - electron energy /temperature in eV
-    ri - cumulated ion ion collision rates in 1/s
-    V - Trap depth in V
+    Computes the axial ion escape rates.
+
+    Parameters
+    ----------
+    Ni : numpy.ndarray
+        <Unit: 1/m^3>
+        Vector of ion densities.
+    kbTi : numpy.ndarray
+        <Unit: eV>
+        Vector of ion temperatures.
+    ri : numpy.ndarray
+        <Unit: 1/s>
+        Vector of total ion ion collision rates for each charge state.
+    V : float or int
+        <Unit: V>
+        Trap depth.
+
+    Returns
+    -------
+    numpy.ndarray
+        <Unit: 1/s>
+        Vector of axial ion loss rates for each charge state.
+
     """
     w = loss_frequency_axial(kbTi, V)
     return escape_rate(Ni, ri, w)
 
+
 @numba.jit
 def escape_rate_radial(Ni, kbTi, ri, Ai, V, B, r_dt):
     """
-    Radial escape rate
-    Ni - ion density in 1/m^3
-    kbTi - electron energy /temperature in eV
-    ri - cumulated ion ion collision rates in 1/s
-    Ai - ion mass in amu
-    V - Trap depth in V
-    B - Axial magnetic field in T
-    r_dt - drift tube in m
+    Computes the radial ion escape rates.
+
+    Parameters
+    ----------
+    Ni : numpy.ndarray
+        <Unit: 1/m^3>
+        Vector of ion densities.
+    kbTi : numpy.ndarray
+        <Unit: eV>
+        Vector of ion temperatures.
+    ri : numpy.ndarray
+        <Unit: 1/s>
+        Vector of total ion ion collision rates for each charge state.
+    Ai : float or int
+        Ion mass number.
+    V : float or int
+        <Unit: V>
+        Trap depth.
+    B : float or int
+        <Unit: T>
+        Axial magnetic flux density.
+    r_dt : float or int
+        <Unit: m>
+        Drift tube radius.
+
+    Returns
+    -------
+    numpy.ndarray
+        <Unit: 1/s>
+        Vector of radial ion loss rates for each charge state.
+
     """
     w = loss_frequency_radial(kbTi, Ai, V, B, r_dt)
     return escape_rate(Ni, ri, w)
+
 
 @numba.jit
 def escape_rate(Ni, ri, w):
     """
     Generic escape rate - to be called by axial and radial escape
-    Ni - ion density in 1/m^3
-    ri - cumulated ion ion collision rates in 1/s
-    w - loss frequency in 1/s
+
+    Parameters
+    ----------
+    Ni : numpy.ndarray
+        <Unit: 1/m^3>
+        Vector of ion densities.
+    ri : numpy.ndarray
+        <Unit: 1/s>
+        Vector of total ion ion collision rates for each charge state.
+    w : numpy.ndarray
+        <Unit: 1/s>
+        Vector of trap (loss) frequencies.
+
+    Returns
+    -------
+    numpy.ndarray
+        <Unit: 1/s>
+        Vector of ion loss rates for each charge state.
+
     """
     esc = 3 / math.sqrt(2) * Ni * ri * np.exp(-w) / w
     esc[esc < 0] = 0 # this cleans neutrals and any other faulty stuff
