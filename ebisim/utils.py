@@ -1,6 +1,6 @@
 """
-This module contains convenience functions not directly related to the Simulation code
-e.g. resource management
+This module contains convenience and management functions not directly related to the
+simulation code, e.g. loading resources.
 """
 import os
 import json
@@ -10,30 +10,56 @@ import numpy as np
 _MODULEDIR = os.path.dirname(os.path.abspath(__file__))
 _RESOURCEDIR = os.path.join(_MODULEDIR, "resources/")
 
-def _get_res_path(fn):
+def _get_res_path(filename):
     """
     Generates the path to a filename in the resource folder
 
-    fn - filename
+    Parameters
+    ----------
+    filename : str
+
+    Returns
+    -------
+    str
+        Absolute path to the file
+
     """
-    return os.path.join(_RESOURCEDIR, fn)
+    return os.path.join(_RESOURCEDIR, filename)
 
 
-def open_resource(fn):
+def open_resource(filename):
     """
-    Method for opening files in the resource folder in a robust way without worrying
+    Function for opening files in the resource folder in a robust way without worrying
     about the absolute path
 
-    fn - filename
+    Parameters
+    ----------
+    filename : str
+
+    Returns
+    -------
+    file object
+        Handle to the file
+
     """
-    return open(_get_res_path(fn))
+    return open(_get_res_path(filename))
 
 
 def load_element_info():
     """
-    Loads the chemical element info from json resource
+    Loads the basic information about chemical elements from a json resource
 
-    Returns tuples of Z, Symbol, Name, A
+    Returns
+    -------
+    z : tuple of ints
+        Atomic numbers
+    es : tuple of strings
+        Element symbol, eg 'H'
+    name : tuple of str
+        Element name
+    a : tuple of ints
+        Naturally abundant / typical mass number
+
     """
     with open_resource("ElementInfo.json") as f:
         data = json.load(f)
@@ -45,13 +71,17 @@ def load_electron_info():
     Loads the electron configurations and subshell binding energies for all elements into a
     convenient data structure
 
-    -List of subshell names
+    Returns
+    -------
+    electron_info : dict of dicts
+        A dictiomary with the proton number as dict-keys.
+        Each value is another dictionary with the items "cfg" (electron configuration) and
+        "ebind" (binding energy of the subshells).
+        The values are 2D numpy arrays with the charge states as the rows and the subshells in the
+        columns.
+    shellorder : tuple of strings
+        Subshell names in the order they appear in electron info.
 
-    -dict with keys Z (proton number)
-      dicts with keys
-        cfg: tuple of write protected numpy arrays with shell occupation numbers
-        ebind: tuple of write protected numpy arrays with shell binding energies
-        each tuple has one entry per charge state where the tuple index is equal to the charge state
     """
     with open_resource("BindingEnergies.json") as f:
         data = json.load(f)
@@ -59,7 +89,7 @@ def load_electron_info():
     shellorder = tuple(data[0])
     data = data[1]
 
-    new_data = {}
+    electron_info = {}
     for key, data in data.items():
         new_key = int(key) #Cast String type key to int (this is Z of the element)
         new_cfg = _nparray_from_jagged_list(data["cfg"])
@@ -67,20 +97,25 @@ def load_electron_info():
         new_ebind = _nparray_from_jagged_list(data["ebind"])
         new_ebind.setflags(write=False)
 
-        new_data[new_key] = dict(cfg=new_cfg, ebind=new_ebind)
+        electron_info[new_key] = dict(cfg=new_cfg, ebind=new_ebind)
 
-    return new_data, shellorder
+    return electron_info, shellorder
 
 
 def load_dr_data():
     """
-    Loads the avaliable dr data
+    Loads the avaliable DR transition data from the resource directory
 
-    dict with keys Z (proton number)
-      dicts with keys
-        cfg: tuple of write protected numpy arrays with shell occupation numbers
-        ebind: tuple of write protected numpy arrays with shell binding energies
-        each tuple has one entry per charge state where the tuple index is equal to the charge state
+    Returns
+    -------
+    dict of dicts
+        A dictiomary with the proton number as dict-keys.
+        Each value is another dictionary with the items
+        "dr_e_res" (resonance energy),
+        "dr_strength" (transitions strength),
+        and "dr_cs" (charge state)
+        The values are linear numpy arrays holding corresponding data on the same rows.
+
     """
     out = {}
     empt = np.array([])
@@ -98,8 +133,23 @@ def load_dr_data():
 
 def _parse_dr_file(fobj):
     """
-    Parses the content of a DR data file into a dict with three numpy arrays for the
-    relevant columns
+    Parses the content of a single DR data file into a dict with three numpy arrays holding
+    the data about resonance energies, transitions strengths and ion charge state.
+
+    Parameters
+    ----------
+    fobj : file object
+        File to parse
+
+    Returns
+    -------
+    dict
+        A dictionary object holding the following items:
+        "dr_e_res" (resonance energy),
+        "dr_strength" (transitions strength),
+        and "dr_cs" (charge state)
+        The values are linear numpy arrays holding corresponding data on the same rows.
+
     """
     fobj.seek(0)
     fobj.readline()
@@ -123,7 +173,17 @@ def _parse_dr_file(fobj):
 def _nparray_from_jagged_list(list_of_lists):
     """
     Takes a list of lists with varying length and turns them into a numpy array,
-    treatin each list as a left-aligned row and padding the right side with zeros
+    treating each list as a left-aligned row and padding the right side with zeros
+
+    Parameters
+    ----------
+    list_of_lists : list of lists
+        Data to be transformed into an array
+
+    Returns
+    -------
+    numpy.ndarray
+        A ndarray of sufficient size to hold the data, left aligned, padded with zeros.
     """
     nrows = len(list_of_lists)
     ncols = max(map(len, list_of_lists))
