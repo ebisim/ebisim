@@ -197,7 +197,7 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
 
     See Also
     --------
-    ebisim.ion_coll_rate_mat : Similar method for all charge states.
+    ebisim.plasma.ion_coll_rate_mat : Similar method for all charge states.
 
     """
     # Artifically clamp collision rate to zero if either density is very small
@@ -244,7 +244,7 @@ def ion_coll_rate_mat(Ni, Nj, kbTi, kbTj, Ai, Aj):
 
     See Also
     --------
-    ebisim.ion_coll_rate : Similar method for two single charge states.
+    ebisim.plasma.ion_coll_rate : Similar method for two single charge states.
 
     """
     ni = Ni.size

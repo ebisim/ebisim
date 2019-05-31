@@ -52,7 +52,7 @@ def eixs_vec(element, e_kin):
     Returns
     -------
     out : numpy.ndarray
-        <Unit m^2>
+        <Unit: m^2>
         The cross sections for each individual charge state, where the array-index corresponds
         to the charge state, i.e. out[q] ~ cross section of q+ ion.
 
@@ -65,7 +65,7 @@ def eixs_vec(element, e_kin):
 
     See Also
     --------
-    ebisim.eixs_mat : Similar method with different output format.
+    ebisim.xs.eixs_mat : Similar method with different output format.
 
     """
     css = element.e_bind.shape[0]
@@ -100,7 +100,7 @@ def eixs_mat(element, e_kin):
     Returns
     -------
     out : numpy.array
-        <Unit m^2>
+        <Unit: m^2>
         The cross sections for each individual charge state, arranged in a matrix suitable
         for implementation of a rate equation like dN/dt = j * xs_matrix dot N.
         out[q, q]   = - cross section of q+ ion
@@ -115,7 +115,7 @@ def eixs_mat(element, e_kin):
 
     See Also
     --------
-    ebisim.eixs_vec : Similar method with different output format.
+    ebisim.xs.eixs_vec : Similar method with different output format.
 
     """
     xs = eixs_vec(element, e_kin)
@@ -139,7 +139,7 @@ def rrxs_vec(element, e_kin):
     Returns
     -------
     out : numpy.ndarray
-        <Unit m^2>
+        <Unit: m^2>
         The cross sections for each individual charge state, where the array-index corresponds
         to the charge state, i.e. out[q] ~ cross section of q+ ion.
 
@@ -153,7 +153,7 @@ def rrxs_vec(element, e_kin):
 
     See Also
     --------
-    ebisim.rrxs_mat : Similar method with different output format.
+    ebisim.xs.rrxs_mat : Similar method with different output format.
 
     """
     chi = 2 * element.z_eff**2 * RY_EV / e_kin
@@ -180,7 +180,7 @@ def rrxs_mat(element, e_kin):
     Returns
     -------
     out : numpy.array
-        <Unit m^2>
+        <Unit: m^2>
         The cross sections for each individual charge state, arranged in a matrix suitable
         for implementation of a rate equation like dN/dt = j * xs_matrix dot N.
         out[q, q]   = - cross section of q+ ion
@@ -196,7 +196,7 @@ def rrxs_mat(element, e_kin):
 
     See Also
     --------
-    ebisim.rrxs_vec : Similar method with different output format.
+    ebisim.xs.rrxs_vec : Similar method with different output format.
 
     """
     xs = rrxs_vec(element, e_kin)
@@ -227,14 +227,14 @@ def drxs_vec(element, e_kin, fwhm):
     Returns
     -------
     out : numpy.ndarray
-        <Unit m^2>
+        <Unit: m^2>
         The cross sections for each individual charge state, where the array-index corresponds
         to the charge state, i.e. out[q] ~ cross section of q+ ion.
 
 
     See Also
     --------
-    ebisim.drxs_mat : Similar method with different output format.
+    ebisim.xs.drxs_mat : Similar method with different output format.
 
     """
     xs_vec = np.zeros(element.z + 1)
@@ -271,7 +271,7 @@ def drxs_mat(element, e_kin, fwhm):
     Returns
     -------
     out : numpy.array
-        <Unit m^2>
+        <Unit: m^2>
         The cross sections for each individual charge state, arranged in a matrix suitable
         for implementation of a rate equation like dN/dt = j * xs_matrix dot N.
         out[q, q]   = - cross section of q+ ion
@@ -279,7 +279,7 @@ def drxs_mat(element, e_kin, fwhm):
 
     See Also
     --------
-    ebisim.drxs_vec : Similar method with different output format.
+    ebisim.xs.drxs_vec : Similar method with different output format.
 
     """
     xs = drxs_vec(element, e_kin, fwhm)
@@ -322,8 +322,8 @@ def precompute_rr_quantities(cfg, shell_n):
 
     See Also
     --------
-    ebisim.rrxs_vec
-    ebisim.rrxs_mat
+    ebisim.xs.rrxs_vec
+    ebisim.xs.rrxs_mat
 
     """
     z = cfg.shape[0]
@@ -385,8 +385,8 @@ def eixs_energyscan(element, e_kin=None, n=1000):
 
     See Also
     --------
-    ebisim.rrxs_energyscan
-    ebisim.drxs_energyscan
+    ebisim.xs.rrxs_energyscan
+    ebisim.xs.drxs_energyscan
 
     """
     e_samp = _eirr_e_samp(element, e_kin, n)
@@ -429,8 +429,8 @@ def rrxs_energyscan(element, e_kin=None, n=1000):
 
     See Also
     --------
-    ebisim.eixs_energyscan
-    ebisim.drxs_energyscan
+    ebisim.xs.eixs_energyscan
+    ebisim.xs.drxs_energyscan
 
     """
     e_samp = _eirr_e_samp(element, e_kin, n)
@@ -520,8 +520,8 @@ def drxs_energyscan(element, fwhm, e_kin=None, n=1000):
 
     See Also
     --------
-    ebisim.eixs_energyscan
-    ebisim.rrxs_energyscan
+    ebisim.xs.eixs_energyscan
+    ebisim.xs.rrxs_energyscan
 
     """
     if e_kin is None:
