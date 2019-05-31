@@ -9,3 +9,6 @@ __pycache__
 # Docs building results
 /docs/build
 /docs/source/reference
+
+# Temp files
+/temp/
