@@ -1,8 +1,11 @@
+# VScode stuff
 .vscode
+
+# Python caches
 .ipynb_checkpoints
 .pytest_cache
 __pycache__
-.cache
-temp.py
-_playground/*
-s2i.exe
+
+# Docs building results
+/docs/build
+/docs/source/reference
