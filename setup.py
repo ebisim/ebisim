@@ -21,6 +21,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/HPLegion/ebisim",
     python_requires=">=3.7.0",
+    install_requires=["numpy", "scipy", "pandas", "numba", "matplotlib"],
     packages=setuptools.find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
     classifiers=[
         "Programming Language :: Python :: 3.7",
