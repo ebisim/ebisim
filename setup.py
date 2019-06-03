@@ -1,8 +1,12 @@
-import importlib.resources
+# import importlib.resources
+import os
 import setuptools
 
 def from_init(attr):
-    text = importlib.resources.read_text("ebisim", "__init__.py")
+    # text = importlib.resources.read_text("ebisim", "__init__.py")
+    loc = os.path.abspath(os.path.dirname(__file__))
+    with open(os.path.join(loc, "ebisim", "__init__.py")) as f:
+        text = f.read()
     for line in text.split("\n"):
         if line.strip().startswith(attr):
             return line.split("=")[-1].strip(" \n\'\"")
