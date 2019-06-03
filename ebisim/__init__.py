@@ -2,6 +2,8 @@
 This module contains classes and functions helping to simulate charge breeding in an EBIS
 including effects of dielectronic recombination
 """
+__version__ = "0.1.0"
+__author__ = "Hannes Pahl"
 
 from .xs import (
     eixs_vec, eixs_mat, rrxs_vec, rrxs_mat, drxs_vec, drxs_mat,

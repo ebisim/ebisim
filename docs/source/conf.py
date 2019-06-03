@@ -17,15 +17,17 @@ import sys
 sys.path.insert(0, os.path.abspath('../../'))
 
 # -- Project information -----------------------------------------------------
-
+from ebisim import __version__ as VERSION
+from ebisim import __author__ as AUTHOR
+from datetime import datetime
 project = 'ebisim'
-copyright = '2019, Hannes Pahl'
-author = 'Hannes Pahl'
+copyright = f"{datetime.today().year}, {AUTHOR}"
+author = AUTHOR
 
 # The short X.Y version
-version = ''
+version = VERSION
 # The full version, including alpha/beta/rc tags
-release = ''
+release = version
 
 
 # -- General configuration ---------------------------------------------------
