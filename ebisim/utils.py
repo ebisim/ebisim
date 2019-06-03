@@ -2,47 +2,9 @@
 This module contains convenience and management functions not directly related to the
 simulation code, e.g. loading resources.
 """
-import os
 import json
+from importlib.resources import open_text
 import numpy as np
-
-##### Logic for robust file imports
-_MODULEDIR = os.path.dirname(os.path.abspath(__file__))
-_RESOURCEDIR = os.path.join(_MODULEDIR, "resources/")
-
-def _get_res_path(filename):
-    """
-    Generates the path to a filename in the resource folder
-
-    Parameters
-    ----------
-    filename : str
-
-    Returns
-    -------
-    str
-        Absolute path to the file
-
-    """
-    return os.path.join(_RESOURCEDIR, filename)
-
-
-def open_resource(filename):
-    """
-    Function for opening files in the resource folder in a robust way without worrying
-    about the absolute path
-
-    Parameters
-    ----------
-    filename : str
-
-    Returns
-    -------
-    file object
-        Handle to the file
-
-    """
-    return open(_get_res_path(filename))
 
 
 def load_element_info():
@@ -61,7 +23,7 @@ def load_element_info():
         Naturally abundant / typical mass number
 
     """
-    with open_resource("ElementInfo.json") as f:
+    with open_text("ebisim.resources", "ElementInfo.json") as f:
         data = json.load(f)
     return tuple(map(tuple, [data["z"], data["es"], data["name"], data["a"]]))
 
@@ -83,7 +45,7 @@ def load_electron_info():
         Subshell names in the order they appear in electron info.
 
     """
-    with open_resource("BindingEnergies.json") as f:
+    with open_text("ebisim.resources", "BindingEnergies.json") as f:
         data = json.load(f)
 
     shellorder = tuple(data[0])
@@ -122,8 +84,8 @@ def load_dr_data():
     empt.setflags(write=False)
     for z in range(1, 106):
         try:
-            with open_resource(f"drdata/DR_{z}.csv") as fobj:
-                dat = _parse_dr_file(fobj)
+            with open_text("ebisim.resources.drdata", f"DR_{z}.csv") as f:
+                dat = _parse_dr_file(f)
         except FileNotFoundError:
             dat = dict(dr_e_res=empt.copy(), dr_strength=empt.copy(), dr_cs=empt.copy())
         dat["dr_cs"] = dat["dr_cs"].astype(int) # Need to assure int for indexing purposes
