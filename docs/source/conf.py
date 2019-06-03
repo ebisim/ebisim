@@ -182,3 +182,4 @@ apidoc_module_dir = '../../ebisim'
 apidoc_output_dir = 'reference'
 apidoc_separate_modules = True
 apidoc_module_first = True
+os.environ["SPHINX_APIDOC_OPTIONS"] = "members,undoc-members,inherited-members,show-inheritance"
