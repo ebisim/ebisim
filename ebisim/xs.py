@@ -46,13 +46,13 @@ def eixs_vec(element, e_kin):
         An ebisim.Element object that holds the required physical information for cross section
         calculations.
     e_kin : float
-        <Unit: eV>
+        <eV>
         Kinetic energy of the impacting electron.
 
     Returns
     -------
     out : numpy.ndarray
-        <Unit: m^2>
+        <m^2>
         The cross sections for each individual charge state, where the array-index corresponds
         to the charge state, i.e. out[q] ~ cross section of q+ ion.
 
@@ -94,13 +94,13 @@ def eixs_mat(element, e_kin):
         An ebisim.Element object that holds the required physical information for cross section
         calculations.
     e_kin : float
-        <Unit: eV>
+        <eV>
         Kinetic energy of the impacting electron.
 
     Returns
     -------
     out : numpy.array
-        <Unit: m^2>
+        <m^2>
         The cross sections for each individual charge state, arranged in a matrix suitable
         for implementation of a rate equation like dN/dt = j * xs_matrix dot N.
         out[q, q]   = - cross section of q+ ion
@@ -133,13 +133,13 @@ def rrxs_vec(element, e_kin):
         An ebisim.Element object that holds the required physical information for cross section
         calculations.
     e_kin : float
-        <Unit: eV>
+        <eV>
         Kinetic energy of the impacting electron.
 
     Returns
     -------
     out : numpy.ndarray
-        <Unit: m^2>
+        <m^2>
         The cross sections for each individual charge state, where the array-index corresponds
         to the charge state, i.e. out[q] ~ cross section of q+ ion.
 
@@ -174,13 +174,13 @@ def rrxs_mat(element, e_kin):
         An ebisim.Element object that holds the required physical information for cross section
         calculations.
     e_kin : float
-        <Unit: eV>
+        <eV>
         Kinetic energy of the impacting electron.
 
     Returns
     -------
     out : numpy.array
-        <Unit: m^2>
+        <m^2>
         The cross sections for each individual charge state, arranged in a matrix suitable
         for implementation of a rate equation like dN/dt = j * xs_matrix dot N.
         out[q, q]   = - cross section of q+ ion
@@ -217,17 +217,17 @@ def drxs_vec(element, e_kin, fwhm):
         An ebisim.Element object that holds the required physical information for cross section
         calculations.
     e_kin : float
-        <Unit: eV>
+        <eV>
         Kinetic energy of the impacting electron.
     fwhm : float
-        <Unit: eV>
+        <eV>
         Energy spread to apply for the resonance smearing, expressed in terms of
         full width at half maximum.
 
     Returns
     -------
     out : numpy.ndarray
-        <Unit: m^2>
+        <m^2>
         The cross sections for each individual charge state, where the array-index corresponds
         to the charge state, i.e. out[q] ~ cross section of q+ ion.
 
@@ -261,17 +261,17 @@ def drxs_mat(element, e_kin, fwhm):
         An ebisim.Element object that holds the required physical information for cross section
         calculations.
     e_kin : float
-        <Unit: eV>
+        <eV>
         Kinetic energy of the impacting electron.
     fwhm : float
-        <Unit: eV>
+        <eV>
         Energy spread to apply for the resonance smearing, expressed in terms of
         full width at half maximum.
 
     Returns
     -------
     out : numpy.array
-        <Unit: m^2>
+        <m^2>
         The cross sections for each individual charge state, arranged in a matrix suitable
         for implementation of a rate equation like dN/dt = j * xs_matrix dot N.
         out[q, q]   = - cross section of q+ ion
@@ -363,7 +363,7 @@ def eixs_energyscan(element, e_kin=None, n=1000):
         An ebisim.Element object that holds the required physical information for cross section
         calculations.
     e_kin : None or numpy.ndarray, optional
-        <Unit: eV>
+        <eV>
         If e_kin is None, the range of sampling energies is chosen based on the binding enrgies of
         the element and energies are sampled on a logscale. If e_kin is an array with 2 elements,
         they are interpreted as the minimum and maximum sampling energy.
@@ -376,10 +376,10 @@ def eixs_energyscan(element, e_kin=None, n=1000):
     Returns
     -------
     e_samp : numpy.ndarray
-        <Unit: eV>
+        <eV>
         Array holding the sampling energies
     xs_scan : numpy.ndarray
-        <Unit: m^2>
+        <m^2>
         Array holding the cross sections, where the row index corresponds to the charge state
         and the columns correspond to the different sampling energies
 
@@ -407,7 +407,7 @@ def rrxs_energyscan(element, e_kin=None, n=1000):
         An ebisim.Element object that holds the required physical information for cross section
         calculations.
     e_kin : None or numpy.ndarray, optional
-        <Unit: eV>
+        <eV>
         If e_kin is None, the range of sampling energies is chosen based on the binding enrgies of
         the element and energies are sampled on a logscale. If e_kin is an array with 2 elements,
         they are interpreted as the minimum and maximum sampling energy.
@@ -420,10 +420,10 @@ def rrxs_energyscan(element, e_kin=None, n=1000):
     Returns
     -------
     e_samp : numpy.ndarray
-        <Unit: eV>
+        <eV>
         Array holding the sampling energies
     xs_scan : numpy.ndarray
-        <Unit: m^2>
+        <m^2>
         Array holding the cross sections, where the row index corresponds to the charge state
         and the columns correspond to the different sampling energies
 
@@ -452,7 +452,7 @@ def _eirr_e_samp(element, e_kin, n):
         An ebisim.Element object that holds the required physical information for cross section
         calculations.
     e_kin : None or numpy.ndarray
-        <Unit: eV>
+        <eV>
         If e_kin is None, the range of sampling energies is chosen based on the binding enrgies of
         the element and energies are sampled on a logscale. If e_kin is an array with 2 elements,
         they are interpreted as the minimum and maximum sampling energy.
@@ -465,7 +465,7 @@ def _eirr_e_samp(element, e_kin, n):
     Returns
     -------
     e_samp : numpy.ndarray
-        <Unit: eV>
+        <eV>
         Array with sampling energies
     """
     if e_kin is None:
@@ -494,11 +494,11 @@ def drxs_energyscan(element, fwhm, e_kin=None, n=1000):
         An ebisim.Element object that holds the required physical information for cross section
         calculations.
     fwhm : float
-        <Unit: eV>
+        <eV>
         Energy spread to apply for the resonance smearing, expressed in terms of
         full width at half maximum.
     e_kin : None or numpy.ndarray, optional
-        <Unit: eV>
+        <eV>
         If e_kin is None, the range of sampling energies is chosen based on the binding enrgies of
         the element and energies are sampled on a logscale. If e_kin is an array with 2 elements,
         they are interpreted as the minimum and maximum sampling energy.
@@ -511,10 +511,10 @@ def drxs_energyscan(element, fwhm, e_kin=None, n=1000):
     Returns
     -------
     e_samp : numpy.ndarray
-        <Unit: eV>
+        <eV>
         Array holding the sampling energies
     xs_scan : numpy.ndarray
-        <Unit: m^2>
+        <m^2>
         Array holding the cross sections, where the row index corresponds to the charge state
         and the columns correspond to the different sampling energies
 

@@ -21,13 +21,13 @@ def electron_velocity(e_kin):
     Parameters
     ----------
     e_kin : float or int or numpy.ndarray
-        <Unit: eV>
+        <eV>
         Kinetic energy of the electron.
 
     Returns
     -------
     float or numpy.ndarray
-        <Unit: m/s>
+        <m/s>
         Speed of the electron.
 
     """
@@ -42,16 +42,16 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
     Parameters
     ----------
     Ni : float
-        <Unit: 1/m^3>
+        <1/m^3>
         Ion density.
     Ne : float
-        <Unit: 1/m^3>
+        <1/m^3>
         Electron density.
     kbTi : float
-        <Unit: eV>
+        <eV>
         Ion temperature.
     kbTe : float
-        <Unit: eV>
+        <eV>
         Electron temperature.
     Ai : float or int
         Ion mass number.
@@ -87,16 +87,16 @@ def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     Parameters
     ----------
     Ni : float
-        <Unit: 1/m^3>
+        <1/m^3>
         Ion species "i" density.
     Nj : float
-        <Unit: 1/m^3>
+        <1/m^3>
         Ion species "j" density.
     kbTi : float
-        <Unit: eV>
+        <eV>
         Ion species "i" temperature.
     kbTj : float
-        <Unit: eV>
+        <eV>
         Ion species "j" temperature.
     Ai : float or int
         Ion species "i" mass number.
@@ -131,16 +131,16 @@ def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
     Parameters
     ----------
     Ni : float
-        <Unit: 1/m^3>
+        <1/m^3>
         Ion density.
     Ne : float
-        <Unit: 1/m^3>
+        <1/m^3>
         Electron density.
     kbTi : float
-        <Unit: eV>
+        <eV>
         Ion temperature.
     Ee : float or int
-        <Unit: eV>
+        <eV>
         Electron kinetic energy.
     Ai : float or int
         Ion mass number.
@@ -150,7 +150,7 @@ def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
     Returns
     -------
     float
-        <Unit: m^2>
+        <m^2>
         Coulomb cross section.
 
     """
@@ -169,16 +169,16 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     Parameters
     ----------
     Ni : float
-        <Unit: 1/m^3>
+        <1/m^3>
         Ion species "i" density.
     Nj : float
-        <Unit: 1/m^3>
+        <1/m^3>
         Ion species "j" density.
     kbTi : float
-        <Unit: eV>
+        <eV>
         Ion species "i" temperature.
     kbTj : float
-        <Unit: eV>
+        <eV>
         Ion species "j" temperature.
     Ai : float or int
         Ion species "i" mass number.
@@ -192,7 +192,7 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     Returns
     -------
     float
-        <Unit: 1/s>
+        <1/s>
         Ion ion collision rate.
 
     See Also
@@ -219,16 +219,16 @@ def ion_coll_rate_mat(Ni, Nj, kbTi, kbTj, Ai, Aj):
     Parameters
     ----------
     Ni : numpy.ndarray
-        <Unit: 1/m^3>
+        <1/m^3>
         Vector of ion species "i" densities.
     Nj : numpy.ndarray
-        <Unit: 1/m^3>
+        <1/m^3>
         Vector of ion species "j" densities.
     kbTi : numpy.ndarray
-        <Unit: eV>
+        <eV>
         Vector of ion species "i" temperatures.
     kbTj : numpy.ndarray
-        <Unit: eV>
+        <eV>
         Vector of ion species "j" temperatures.
     Ai : float or int
         Ion species "i" mass number.
@@ -238,7 +238,7 @@ def ion_coll_rate_mat(Ni, Nj, kbTi, kbTj, Ai, Aj):
     Returns
     -------
     numpy.ndarray
-        <Unit: 1/s>
+        <1/s>
         Ion ion collision rates stored in a 2D array, where
         r_ij[qi, qj] = ion_coll_rate(Ni[qi], Nj[qj], kbTi[qi], kbTj[qj], Ai, Aj, qi, qj)
 
@@ -264,16 +264,16 @@ def electron_heating_vec(Ni, Ne, kbTi, Ee, Ai):
     Parameters
     ----------
     Ni : numpy.ndarray
-        <Unit: 1/m^3>
+        <1/m^3>
         Vector of ion densities.
     Ne : float
-        <Unit: 1/m^3>
+        <1/m^3>
         Electron density.
     kbTi : numpy.ndarray
-        <Unit: eV>
+        <eV>
         Vector of ion temperatures.
     Ee : float or int
-        <Unit: eV>
+        <eV>
         Electron kinetic energy.
     Ai : float or int
         Ion mass number.
@@ -281,7 +281,7 @@ def electron_heating_vec(Ni, Ne, kbTi, Ee, Ai):
     Returns
     -------
     numpy.ndarray
-        <Unit: eV/m^3/s>
+        <eV/m^3/s>
         Vector of electron heating rate for each charge state.
 
     """
@@ -302,29 +302,29 @@ def energy_transfer_vec(Ni, Nj, kbTi, kbTj, Ai, Aj, rij):
     Parameters
     ----------
     Ni : numpy.ndarray
-        <Unit: 1/m^3>
+        <1/m^3>
         Vector of ion species "i" densities.
     Nj : numpy.ndarray
-        <Unit: 1/m^3>
+        <1/m^3>
         Vector of ion species "j" densities.
     kbTi : numpy.ndarray
-        <Unit: eV>
+        <eV>
         Vector of ion species "i" temperatures.
     kbTj : numpy.ndarray
-        <Unit: eV>
+        <eV>
         Vector of ion species "j" temperatures.
     Ai : float or int
         Ion species "i" mass number.
     Aj : float or int
         Ion species "j" mass number.
     rij : numpy.ndarray
-        <Unit: 1/s>
+        <1/s>
         Collision rate matrix for the ions (cf. ion_coll_mat).
 
     Returns
     -------
     numpy.ndarray
-        <Unit: eV/m^3/s>
+        <eV/m^3/s>
         Vector of energy transfer rate for each charge state.
 
     """
@@ -349,16 +349,16 @@ def loss_frequency_axial(kbTi, V):
     Parameters
     ----------
     kbTi : numpy.ndarray
-        <Unit: eV>
+        <eV>
         Vector of ion temperatures.
     V : float or int
-        <Unit: V>
+        <V>
         Trap depth.
 
     Returns
     -------
     numpy.ndarray
-        <Unit: 1/s>
+        <1/s>
         Vector of axial ion trap (loss) frequencies for each charge state.
 
     """
@@ -385,24 +385,24 @@ def loss_frequency_radial(kbTi, Ai, V, B, r_dt):
     Parameters
     ----------
     kbTi : numpy.ndarray
-        <Unit: eV>
+        <eV>
         Vector of ion temperatures.
     Ai : float or int
         Ion mass number.
     V : float or int
-        <Unit: V>
+        <V>
         Trap depth.
     B : float or int
-        <Unit: T>
+        <T>
         Axial magnetic flux density.
     r_dt : float or int
-        <Unit: m>
+        <m>
         Drift tube radius.
 
     Returns
     -------
     numpy.ndarray
-        <Unit: 1/s>
+        <1/s>
         Vector of radial ion trap (loss) frequencies for each charge state.
 
     """
@@ -423,22 +423,22 @@ def escape_rate_axial(Ni, kbTi, ri, V):
     Parameters
     ----------
     Ni : numpy.ndarray
-        <Unit: 1/m^3>
+        <1/m^3>
         Vector of ion densities.
     kbTi : numpy.ndarray
-        <Unit: eV>
+        <eV>
         Vector of ion temperatures.
     ri : numpy.ndarray
-        <Unit: 1/s>
+        <1/s>
         Vector of total ion ion collision rates for each charge state.
     V : float or int
-        <Unit: V>
+        <V>
         Trap depth.
 
     Returns
     -------
     numpy.ndarray
-        <Unit: 1/s>
+        <1/s>
         Vector of axial ion loss rates for each charge state.
 
     """
@@ -454,30 +454,30 @@ def escape_rate_radial(Ni, kbTi, ri, Ai, V, B, r_dt):
     Parameters
     ----------
     Ni : numpy.ndarray
-        <Unit: 1/m^3>
+        <1/m^3>
         Vector of ion densities.
     kbTi : numpy.ndarray
-        <Unit: eV>
+        <eV>
         Vector of ion temperatures.
     ri : numpy.ndarray
-        <Unit: 1/s>
+        <1/s>
         Vector of total ion ion collision rates for each charge state.
     Ai : float or int
         Ion mass number.
     V : float or int
-        <Unit: V>
+        <V>
         Trap depth.
     B : float or int
-        <Unit: T>
+        <T>
         Axial magnetic flux density.
     r_dt : float or int
-        <Unit: m>
+        <m>
         Drift tube radius.
 
     Returns
     -------
     numpy.ndarray
-        <Unit: 1/s>
+        <1/s>
         Vector of radial ion loss rates for each charge state.
 
     """
@@ -493,19 +493,19 @@ def escape_rate(Ni, ri, w):
     Parameters
     ----------
     Ni : numpy.ndarray
-        <Unit: 1/m^3>
+        <1/m^3>
         Vector of ion densities.
     ri : numpy.ndarray
-        <Unit: 1/s>
+        <1/s>
         Vector of total ion ion collision rates for each charge state.
     w : numpy.ndarray
-        <Unit: 1/s>
+        <1/s>
         Vector of trap (loss) frequencies.
 
     Returns
     -------
     numpy.ndarray
-        <Unit: 1/s>
+        <1/s>
         Vector of ion loss rates for each charge state.
 
     """
