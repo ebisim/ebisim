@@ -6,6 +6,9 @@ import json
 from importlib.resources import open_text
 import numpy as np
 
+from . import resources as _resources
+from .resources import drdata as _drdata
+
 
 def load_element_info():
     """
@@ -23,7 +26,7 @@ def load_element_info():
         Naturally abundant / typical mass number
 
     """
-    with open_text("ebisim.resources", "ElementInfo.json") as f:
+    with open_text(_resources, "ElementInfo.json") as f:
         data = json.load(f)
     return tuple(map(tuple, [data["z"], data["es"], data["name"], data["a"]]))
 
@@ -45,7 +48,7 @@ def load_electron_info():
         Subshell names in the order they appear in electron info.
 
     """
-    with open_text("ebisim.resources", "BindingEnergies.json") as f:
+    with open_text(_resources, "BindingEnergies.json") as f:
         data = json.load(f)
 
     shellorder = tuple(data[0])
@@ -84,7 +87,7 @@ def load_dr_data():
     empt.setflags(write=False)
     for z in range(1, 106):
         try:
-            with open_text("ebisim.resources.drdata", f"DR_{z}.csv") as f:
+            with open_text(_drdata, f"DR_{z}.csv") as f:
                 dat = _parse_dr_file(f)
         except FileNotFoundError:
             dat = dict(dr_e_res=empt.copy(), dr_strength=empt.copy(), dr_cs=empt.copy())
