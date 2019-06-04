@@ -2,6 +2,17 @@
 import os
 import setuptools
 
+NAME = "ebisim"
+EMAIL = None
+DESCRIPTION = "A package for simulating the charge state distribution evolution in an EBIS/EBIT."
+URL = "https://github.com/HPLegion/ebisim"
+PYTHON_REQUIRES = ">=3.7.0"
+INSTALL_REQUIRES = ["numpy", "scipy", "pandas", "numba", "matplotlib"]
+CLASSIFIERS = ["Programming Language :: Python :: 3.7"]
+
+with open("README.md", "r") as fh:
+    LONG_DESCRIPTION = fh.read()
+
 def from_init(attr):
     # text = importlib.resources.read_text("ebisim", "__init__.py")
     loc = os.path.abspath(os.path.dirname(__file__))
@@ -12,22 +23,22 @@ def from_init(attr):
             return line.split("=")[-1].strip(" \n\'\"")
     return "attr not found"
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+
+VERSION = from_init("__init__")
+AUTHOR = from_init("__author__")
 
 setuptools.setup(
-    name="ebisim",
-    version=from_init("__version__"),
-    author=from_init("__author__"),
-    #author_email="n/a",
-    description="A package for simulating the charge state distribution evolution in an EBIS/EBIT.",
-    long_description=long_description,
+    name=NAME,
+    version=VERSION,
+    author=AUTHOR,
+    author_email=EMAIL,
+    description=DESCRIPTION,
+    long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
-    url="https://github.com/HPLegion/ebisim",
-    python_requires=">=3.7.0",
-    install_requires=["numpy", "scipy", "pandas", "numba", "matplotlib"],
+    url=URL,
+    python_requires=PYTHON_REQUIRES,
+    install_requires=INSTALL_REQUIRES,
     packages=setuptools.find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
-    classifiers=[
-        "Programming Language :: Python :: 3.7",
-    ],
+    include_package_data=True,
+    classifiers=CLASSIFIERS,
 )
