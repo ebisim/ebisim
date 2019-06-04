@@ -3,7 +3,10 @@ This module contains convenience and management functions not directly related t
 simulation code, e.g. loading resources.
 """
 import json
-from importlib.resources import open_text
+try:
+    from importlib.resources import open_text # py>=3.7
+except ImportError:
+    from importlib_resources import open_text # py<3.7
 import numpy as np
 
 from . import resources as _resources
