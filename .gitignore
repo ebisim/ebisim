@@ -5,6 +5,9 @@
 .ipynb_checkpoints
 .pytest_cache
 __pycache__
+/build
+/dist
+/ebisim.egg-info
 
 # Docs building results
 /docs/build

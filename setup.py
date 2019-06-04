@@ -8,7 +8,14 @@ DESCRIPTION = "A package for simulating the charge state distribution evolution 
 URL = "https://github.com/HPLegion/ebisim"
 PYTHON_REQUIRES = ">=3.7.0"
 INSTALL_REQUIRES = ["numpy", "scipy", "pandas", "numba", "matplotlib"]
-CLASSIFIERS = ["Programming Language :: Python :: 3.7"]
+CLASSIFIERS = [
+    "Programming Language :: Python :: 3.7"
+    ]
+PACKAGE_DATA = {
+    "ebisim": ["*"],
+    "ebisim.resources": ["*"],
+    "ebisim.resources.drdata": ["*"],
+}
 
 with open("README.md", "r") as fh:
     LONG_DESCRIPTION = fh.read()
@@ -24,7 +31,7 @@ def from_init(attr):
     return "attr not found"
 
 
-VERSION = from_init("__init__")
+VERSION = from_init("__version__")
 AUTHOR = from_init("__author__")
 
 setuptools.setup(
@@ -38,7 +45,8 @@ setuptools.setup(
     url=URL,
     python_requires=PYTHON_REQUIRES,
     install_requires=INSTALL_REQUIRES,
-    packages=setuptools.find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
+    packages=setuptools.find_packages(exclude=["test", "test.*"]),
     include_package_data=True,
+    package_data=PACKAGE_DATA,
     classifiers=CLASSIFIERS,
 )

@@ -1,0 +1,11 @@
+recursive-include ebisim *
+recursive-include ebisim/resources *
+recursive-include ebisim/resources/drdata *
+
+# recursive-include docs *
+# prune docs/build
+# prune docs/source/reference
+
+prune test
+prune */__pycache__
+global-exclude *.pyc *.pyo *.pyd *.swp *.bak *~
