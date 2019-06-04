@@ -7,10 +7,3 @@ matplotlib
 # docs
 sphinxcontrib-apidoc
 sphinx_rtd_theme
-# for dashboard
-dash==0.39.0
-dash-html-components==0.14.0
-dash-core-components==0.44.0
-dash-table==3.6.0
-# deployment
-gunicorn
