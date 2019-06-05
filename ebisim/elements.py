@@ -21,7 +21,17 @@ _DR_DATA = utils.load_dr_data()
 
 def element_z(element):
     """
-    Returns the Atomic Number of the Element, for given name or Element Symbol
+    Returns the proton number of the given element.
+
+    Parameters
+    ----------
+    element : str
+        The full name or the abbreviated symbol of the element.
+
+    Returns
+    -------
+    int
+        Proton number
     """
     if len(element) < 3:
         idx = _ELEM_ES.index(element)
@@ -32,7 +42,17 @@ def element_z(element):
 
 def element_symbol(element):
     """
-    Returns the Symbol of the Element, for given name or Atomic Number
+    Returns the abbreviated symbol of the given element.
+
+    Parameters
+    ----------
+    element : str or int
+        The full name or the proton number of the element.
+
+    Returns
+    -------
+    str
+        Element symbol
     """
     if isinstance(element, int):
         idx = _ELEM_Z.index(element)
@@ -43,7 +63,17 @@ def element_symbol(element):
 
 def element_name(element):
     """
-    Returns the Name of the Element, for given Symbol or Atomic Number
+    Returns the name of the given element.
+
+    Parameters
+    ----------
+    element : str or int
+        The abbreviated symbol or the proton number of the element.
+
+    Returns
+    -------
+    str
+        Element name
     """
     if isinstance(element, int):
         idx = _ELEM_Z.index(element)
@@ -70,7 +100,27 @@ _ElementSpec = namedtuple(
 
 class Element(_ElementSpec):
     """
-    Named tuple holding some essential information about a chemical element
+    This class is derived from collections.namedtuple which facilitates use with numba-compiled
+    functions.
+    Instances are holding information about a chemical element.
+    Some of the fields and methods exist mostly for convenience, while others hold essential
+    information for the computations of cross sections and rates.
+    Many ebisim functions take an instance of Element as their input and access the information
+    stored within the instance for their computations.
+
+    Parameters
+    ----------
+    element_id : str or int
+        The full name, abbreviated symbol, or proton number of the element of interest.
+    a : int or None, optional
+        If provided sets the (isotopic) mass number of the Element object otherwise a reasonable
+        value is chosen automatically, by default None.
+
+
+    Raises
+    ------
+    ValueError
+        If the Element could not be identified or a meaningless mass number is provided.
     """
     # https://docs.python.org/3.6/library/collections.html#collections.namedtuple
     # contains documentation for named tuples
@@ -79,6 +129,22 @@ class Element(_ElementSpec):
         """
         Provides a convenient constructor accepting the atomic number, symbol, or name
         If a is provided is interpreted as the mass number, otherwise a resonable value is assigned
+        The __new__ construct is necessary due to the immutable nature of the underlying namedtuple.
+
+
+        Parameters
+        ----------
+        element_id : str or int
+            The full name, abbreviated symbol, or proton number of the element of interest.
+        a : int or None, optional
+            If provided sets the (isotopic) mass number of the Element object otherwise a reasonable
+            value is chosen automatically, by default None.
+
+
+        Raises
+        ------
+        ValueError
+            If the Element could not be identified or a meaningless mass number is provided.
         """
         # Basic element info
         try:
@@ -97,7 +163,7 @@ class Element(_ElementSpec):
             idx = _ELEM_Z.index(z)
             a = _ELEM_A[idx]
         if a <= 0:
-            raise ValueError("Mass number 'a' cannot be smaller than 1")
+            raise ValueError("Mass number 'a' cannot be smaller than 1.")
 
         # Electron configuration and shell binding energies
         cfg = _ELECTRON_INFO[z]["cfg"]
@@ -128,7 +194,12 @@ class Element(_ElementSpec):
 
     def latex_isotope(self):
         """
-        returns a latex formatted string describing the isotope
+        Returns the isotope as a LaTeX formatted string.
+
+        Returns
+        -------
+        str
+            LaTeX formatted string describing the isotope.
         """
         return f"$^{{{self.a}}}_{{{self.z}}}${self.symbol}"
 
