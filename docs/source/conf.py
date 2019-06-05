@@ -181,6 +181,7 @@ epub_exclude_files = ['search.html']
 # -- Extension configuration -------------------------------------------------
 # API doc
 apidoc_module_dir = '../../ebisim'
+apidoc_excluded_paths = ['resources']
 apidoc_output_dir = 'reference'
 apidoc_separate_modules = True
 apidoc_module_first = True
