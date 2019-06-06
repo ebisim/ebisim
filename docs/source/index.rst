@@ -6,17 +6,35 @@
 Welcome to ebisim's documentation!
 ==================================
 
+The ebisim package is being devleoped to provide a collection of tools for simulating the evolution
+of the charge state distribution inside an Electron Beam Ion Source / Trap (EBIS/T)
+using Python.
+
+.. .. plot ::
+
+..     import ebisim as eb
+..     from matplotlib.pyplot import show
+
+..     K = eb.Element("Potassium")
+..     eb.plot_ei_xs(K)
+..     show()
+
+This documentation contains a few :doc:`examples <examples/examples>` demonstrating the
+general features of ebisim. For a detailed description of the included modules please refer
+to the :doc:`API reference <reference/ebisim>`.
+
+
 .. toctree::
    :maxdepth: 3
    :caption: Reference:
 
+   examples/examples
    reference/ebisim
-
 
 
 Indices and tables
 ==================
 
 * :ref:`genindex`
-.. * :ref:`modindex`
-.. * :ref:`search`
+* :ref:`modindex`
+* :ref:`search`
