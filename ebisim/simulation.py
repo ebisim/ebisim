@@ -206,6 +206,8 @@ def basic_simulation(element, j, e_kin, t_max,
     radiative recombination and optionally dielectronic recombination (for those transitions whose
     data is available in the resource directory). All other effects are not ignored.
 
+    Continuous Neutral Injection (CNI) can be activated on demand.
+
     The results only represent the proportions of different charge states, not actual densities.
 
     Parameters
@@ -230,16 +232,16 @@ def basic_simulation(element, j, e_kin, t_max,
     N_initial : None or numpy.array, optional
         Determines the initial charge state distribution if given, must have Z + 1 entries, where
         the array index corresponds to the charge state.
-        If no value is given the distribution defaults to 100 % 1+ ions at t = 0 s, or a small
-        amount of neutral atoms in the case of continuous neutral injection.
+        If no value is given the distribution defaults to 100% of 1+ ions at t = 0 s, or a small
+        amount of neutral atoms in the case of CNI.
         By default None.
     CNI : bool, optional
-        Determines whether there is a continuous injection of neutral atoms to the distribution.
+        Determines whether there is a continuous addition of neutral atoms to the distribution.
         If True, the feed rate is 1/s.
         By default False.
-    solver_kwargs : dict, optional
-        If supplied these keyword arguments are unpacked in the solver call, refer to
-        the documentation of scipy.integrate.solve_ivp for more information.
+    solver_kwargs : None or dict, optional
+        If supplied these keyword arguments are unpacked in the solver call.
+        Refer to the documentation of scipy.integrate.solve_ivp for more information.
         By default None.
 
     Returns
