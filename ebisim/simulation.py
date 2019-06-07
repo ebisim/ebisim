@@ -10,149 +10,290 @@ from . import plotting
 from . import xs
 from . import elements
 from . import plasma
-# from . import ivp
 from .physconst import Q_E, M_P, PI
 from .physconst import MINIMAL_DENSITY, MINIMAL_KBT
 
-class SimpleEBISProblem:
+class Result:
     """
-    class defining an EBIS charge breeding simulation and providing the interface to solve it
-    Time independent problems only
+    Instances of this class are containers for the results of ebisim simulations and contain a
+    variety of convenience methods for simple plot generation etc.
 
-    Solving is done depending on the latest setting for the kinetic energy so this could create
-    race conditions. Be a bit careful with that, when doing batch work.
-    """
+    The required attributes can either be set during instantiation or manually added afterwards.
 
-    def __init__(self, element, j, e_kin, fwhm):
-        """
-        Defines the general problem constants (current density, electron energy and spread)
+    Parameters
+    ----------
+    param : dict, optional
+        A dictionary containing general simulation parameters, by default None.
+    t : numpy.array, optional
+        An array holding the time step coordinates, by default None.
+    N : numpy.array, optional
+        An array holding the occupancy of each charge state at a given time, by default None.
+    kbT : numpy.array, optional
+        An array holding the temperature of each charge state at a given time, by default None.
+    N_is_density : bool, optional
+        Indicates whether N describes the occupany in abstract terms or as an actual density.
+        This has an influence on some default plot labels, by default False.
 
-        Input parameters
-        element - Identifier of the element under investigation
-        j - current density in A / cm^2
-        e_kin - electron energy
-        fwhm - electron energy spread (for DR width)
-        """
-        if not isinstance(element, elements.Element):
-            element = elements.Element(element)
-        self._element = element
-        self._fwhm = fwhm
-        self._j = j * 1e4 # convert to A/m**2
-        self._e_kin = e_kin
-        self._solution = None
-        #Default initial condition for solving the EBIS ODE System (all atoms in 1+ charge state)
-        self._default_initial = np.zeros(self._element.z + 1)
-        self._default_initial[1] = 1
-
-    @property
-    def solution(self):
-        """Returns the solution of the lates solve of this problem"""
-        return self._solution
-
-    @property
-    def e_kin(self):
-        """Returns the kinetic energy"""
-        return self._e_kin
-
-    @e_kin.setter
-    def e_kin(self, val):
-        """Set e_kin to new value and delete existing solution"""
-        if val != self._e_kin:
-            self._solution = None
-            self._e_kin = val
-
-    def _jacobian(self):
-        """
-        The jacobian of the RHS of the ODE (I think this is the Hessian of y)
-        """
-        j = self._j / Q_E
-        xs_mat = xs.eixs_mat(self._element, self._e_kin)\
-                 + xs.rrxs_mat(self._element, self._e_kin) \
-                 + xs.drxs_mat(self._element, self._e_kin, self._fwhm)
-        jac = j * xs_mat
-        return jac
-
-    def _generate_ode_func(self):
-        """
-        Generates a callable function for the RHS of the ode system describing the charge breeding
-        """
-        jac = self._jacobian() # Cache jac (it is time indpendent) to save calls
-        ode = lambda t, y: jac.dot(y) # time independent problem
-        return ode
-
-    def solve(self, max_time, y0=None, **kwargs):
-        """
-        solves the charge state evolution up to the given time
-        An intital distribution can be provided, if None is given, all ions will start as 1+
-
-        Returns the ODE solution object and saves it in solution property for later access
-
-        Input Parameters
-        max_time - Integration maximum time
-        y0 - initial distribution (numpy vector where the python index = charge state)
-        **kwargs - are forwarded to the solver (scipy.integrate.solve_ivp)
-        """
-        # LSODA solver requires "callable" jacobian
-        _jac = self._jacobian() # Cache jac (it is time indpendent) to save calls
-        jac = lambda t, y: _jac
-        # the ode system
-        dydt = self._generate_ode_func()
-
-        if y0 is None:
-            y0 = self._default_initial
-        # solution = scipy.integrate.solve_ivp(self._ode_system, [0, max_time], y0, **kwargs)
-        solution = scipy.integrate.solve_ivp(dydt, [0, max_time], y0, jac=jac,
-                                             method="LSODA", **kwargs)
-        solution.y = solution.y / np.sum(solution.y, axis=0) # Normalise to sum 1 at each time step
-        self._solution = solution
-        return solution
-
-    def plot_solution(self):
-        """
-        After the problem has been solved, the charge state evolution can be plotted by calling
-        this function
-
-        Returns figure handle and does not call show()
-        """
-        if self.solution is None:
-            print("Error! Need to solve problem before plotting")
-        tmax = self.solution.t.max()
-        xlim = (1e-4, tmax)
-        title = f"{self._element.latex_isotope()} charge state evolution " \
-                f"($j = {self._j/1.e4:0.1f}$ A/cm$^2$, $E_{{e}} = {self._e_kin:0.1f}$ eV, " \
-                f"$FWHM = {self._fwhm:0.1f}$ eV)"
-        return plotting.plot_cs_evolution(self.solution, xlim=xlim, title=title)
-
-
-class ContinuousNeutralInjectionEBISProblem(SimpleEBISProblem):
-    """
-    The class has been modified to increase the abundance in the neutral charge state
-    at a constant rate to mimick continous neutral injection
-    Time independent problems only
-
-    Solving is done depending on the latest setting for the kinetic energy so this could create
-    race conditions. Be a bit careful with that, when doing batch work.
     """
 
-    def __init__(self, element, j, e_kin, fwhm):
-        """
-        Initialiser for a continuous injection problem, calls init of SimpleEBISProblem and adjusts
-        the default initial condition, i.e. emtpy trap.
-        """
-        super().__init__(element, j, e_kin, fwhm)
-        #Default initial condition for solving the EBIS ODE System (all atoms in neutral state)
-        self._default_initial = np.zeros(self._element.z + 1)
-        self._default_initial[0] = 1e-12
+    def __init__(self, param=None, t=None, N=None, kbT=None, N_is_density=False):
+        self.param = param
+        self.t = t
+        self.N = N
+        self.kbT = kbT
+        self.N_is_density = N_is_density
 
-    def _generate_ode_func(self):
+
+    def _param_title(self, stub):
         """
-        Generates a callable function for the RHS of the ode system describing the charge breeding
+        Generates a plot title by merging the stub with some general simulation parameters.
+        Defaults to the stub if no parameters are available
+
+        Parameters
+        ----------
+        stub : str
+            Title stub for the plot
+
+        Returns
+        -------
+        str
+            A LaTeX formatted title string compiled from the stub, current density and fwhm.
+
         """
-        jac = self._jacobian() # Cache jac (it is time indpendent) to save calls
-        feed = np.zeros(self._element.z + 1)
+        if self.param:
+            title = f"{self.param['element'].latex_isotope()} {stub.lower()} " \
+                    f"($j = {self.param['j']:0.1f}$ A/cm$^2$, " \
+                    f"$E_{{e}} = {self.param['e_kin']:0.1f}$ eV)"
+            if "fwhm" in self.param:
+                title = title[:-1] + f", FWHM = {self.param['fwhm']:0.1f} eV)"
+        else:
+            title = stub
+        return title
+
+
+    def plot_charge_states(self, relative=False, **kwargs):
+        """
+        Plot the charge state evolution of this result object.
+
+        Parameters
+        ----------
+        relative : bool, optional
+            Flags whether the absolute numbers relative fraction should be plotted at each
+            timestep, by default False.
+        **kwargs
+            Keyword arguments are handed down to plotting.plot_generic_evolution,
+            cf. documentation thereof.
+            If no arguments are provided, reasonable default values are injected.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            Figure handle of the generated plot
+
+        Raises
+        ------
+        ValueError
+            If the required data (self.t, self.N) is not available, i.e.
+            corresponding attributes of this Result instance have not been set correctly.
+
+        """
+        if self.t is None or self.N is None:
+            raise ValueError("The t or N field does not contain any plottable data.")
+
+        kwargs.setdefault("xlim", (1e-4, self.t.max()))
+        kwargs.setdefault("ylim", (0, self.N.sum(axis=0).max()*1.05))
+        kwargs.setdefault("title", self._param_title("Charge states"))
+        kwargs.setdefault("yscale", "linear")
+        kwargs.setdefault("plot_total", True)
+
+        if self.N_is_density and not relative:
+            kwargs.setdefault("ylabel", "Density (m$^{-3}$)")
+        else:
+            kwargs.setdefault("ylabel", "Relative Abundance")
+
+        if relative:
+            fig = plotting.plot_generic_evolution(self.t, self.N/np.sum(self.N, axis=0), **kwargs)
+        else:
+            fig = plotting.plot_generic_evolution(self.t, self.N, **kwargs)
+        return fig
+
+
+    plot = plot_charge_states #: Alias for plot_charge_states
+
+
+    def plot_energy_density(self, **kwargs):
+        """
+        Plot the energy density evolution of this result object.
+
+        Parameters
+        ----------
+        **kwargs
+            Keyword arguments are handed down to plotting.plot_generic_evolution,
+            cf. documentation thereof.
+            If no arguments are provided, reasonable default values are injected.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            Figure handle of the generated plot
+
+        Raises
+        ------
+        ValueError
+            If the required data (self.t, self.kbT) is not available, i.e.
+            corresponding attributes of this Result instance have not been set correctly.
+
+        """
+        if self.t is None or self.kbT is None:
+            raise ValueError("The t or kbT field does not contain any plottable data.")
+
+        e_den = self.N * self.kbT
+        ymin = 10**(np.floor(np.log10(e_den[:, 0].sum(axis=0)) - 1))
+        ymax = 10**(np.ceil(np.log10(e_den.sum(axis=0).max()) + 1))
+
+        kwargs.setdefault("xlim", (1e-4, self.t.max()))
+        kwargs.setdefault("ylim", (ymin, ymax))
+        kwargs.setdefault("title", self._param_title("Energy density"))
+        kwargs.setdefault("ylabel", "Energy density (eV / m$^{-3}$)")
+        kwargs.setdefault("plot_total", True)
+
+        fig = plotting.plot_generic_evolution(self.t, e_den, **kwargs)
+        return fig
+
+
+    def plot_temperature(self, **kwargs):
+        """
+        Plot the temperature evolution of this result object.
+
+        Parameters
+        ----------
+        **kwargs
+            Keyword arguments are handed down to plotting.plot_generic_evolution,
+            cf. documentation thereof.
+            If no arguments are provided, reasonable default values are injected.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            Figure handle of the generated plot
+
+        Raises
+        ------
+        ValueError
+            If the required data (self.t, self.kbT) is not available, i.e.
+            corresponding attributes of this Result instance have not been set correctly.
+
+        """
+        if self.t is None or self.kbT is None:
+            raise ValueError("The t or kbT field does not contain any plottable data.")
+
+        kwargs.setdefault("xlim", (1e-4, self.t.max()))
+        kwargs.setdefault("ylim", (0.01, 10**(np.ceil(np.log10(self.kbT.max()) + 1))))
+        kwargs.setdefault("title", self._param_title("Temperature"))
+        kwargs.setdefault("ylabel", "Temperature (eV)")
+
+        fig = plotting.plot_generic_evolution(self.t, self.kbT, **kwargs)
+        return fig
+
+
+def basic_simulation(element, j, e_kin, t_max,
+                     dr_fwhm=None, N_initial=None, CNI=False,
+                     solver_kwargs=None):
+    """
+    Interface for performing basic charge breeding simulations.
+
+    These simulations only include the most important effects, i.e. electron ionisation,
+    radiative recombination and optionally dielectronic recombination (for those transitions whose
+    data is available in the resource directory). All other effects are not ignored.
+
+    The results only represent the proportions of different charge states, not actual densities.
+
+    Parameters
+    ----------
+    element : ebisim.elements.Element or str or int
+        An instance of the Element class, or an identifier for the element, i.e. either its
+        name, symbol or proton number.
+    j : float
+        <A/cm^2>
+        Current density
+    e_kin : float
+        <eV>
+        Electron beam energy
+    t_max : float
+        <s>
+        Simulated breeding time
+    dr_fwhm : None or float, optional
+        <eV>
+        If a value is given, determines the energy spread of the electron beam
+        (in terms of Full Width Half Max) and hence the effective width of DR resonances.
+        Otherwise DR is excluded from the simulation. By default None.
+    N_initial : None or numpy.array, optional
+        Determines the initial charge state distribution if given, must have Z + 1 entries, where
+        the array index corresponds to the charge state.
+        If no value is given the distribution defaults to 100 % 1+ ions at t = 0 s, or a small
+        amount of neutral atoms in the case of continuous neutral injection.
+        By default None.
+    CNI : bool, optional
+        Determines whether there is a continuous injection of neutral atoms to the distribution.
+        If True, the feed rate is 1/s.
+        By default False.
+    solver_kwargs : dict, optional
+        If supplied these keyword arguments are unpacked in the solver call, refer to
+        the documentation of scipy.integrate.solve_ivp for more information.
+        By default None.
+
+    Returns
+    -------
+    ebisim.simulation.Result
+        An instance of the Result class, holding the simulation parameters, timesteps and
+        charge state distribution.
+    """
+
+    # cast element to Element if necessary
+    if not isinstance(element, elements.Element):
+        element = elements.Element(element)
+
+    # set initial conditions if not supplied by user
+    if not N_initial:
+        N_initial = np.zeros(element.z + 1)
+        if CNI:
+            N_initial[0] = 1e-12
+        else:
+            N_initial[1] = 1
+
+    # prepare solver options
+    if not solver_kwargs:
+        solver_kwargs = {}
+    solver_kwargs.setdefault("method", "LSODA")
+
+    # save adjusted call parameters for passing on to Result
+    param = locals().copy()
+
+    # convert current density A/cm**2 to particle flux density electrons/s/m**2
+    j = j * 1.e4 / Q_E
+
+    # compute cross section
+    xs_mat = xs.eixs_mat(element, e_kin) + xs.rrxs_mat(element, e_kin)
+    if dr_fwhm:
+        xs_mat += xs.drxs_mat(element, e_kin, dr_fwhm)
+
+    # the jacobian of a basic simulation
+    _jac = j * xs_mat
+    if solver_kwargs["method"] == "LSODA":
+        jac = lambda _, N: _jac # LSODA solver requires "callable" jacobian
+    else:
+        jac = _jac
+
+    # the rate equation
+    if CNI:
+        feed = np.zeros(element.z + 1)
         feed[0] = 1
-        ode = lambda t, y: jac.dot(y) + feed # time independent problem
-        return ode
+        dNdt = lambda _, N: _jac.dot(N) + feed
+    else:
+        dNdt = lambda _, N: _jac.dot(N)
+
+    sol = scipy.integrate.solve_ivp(dNdt, (0, t_max), N_initial, jac=jac, **solver_kwargs)
+    return Result(param=param, t=sol.t, N=sol.y)
 
 
 class EnergyScan:
@@ -419,7 +560,7 @@ class ComplexEBISProblem:
         ylim = (0, N.sum(axis=0).max()*1.05)
         ylabel = ("Density (m$^{-3}$)")
         fig = plotting.plot_generic_evolution(t, N, xlim=xlim, ylim=ylim, ylabel=ylabel,
-                                              title=title, yscale="linear", plot_sum=True)
+                                              title=title, yscale="linear", plot_total=True)
         return fig
 
     def plot_energy_evo(self):
@@ -442,7 +583,7 @@ class ComplexEBISProblem:
         ylim = (ymin, ymax)
         ylabel = ("Energy density (eV / m$^{-3}$)")
         fig = plotting.plot_generic_evolution(t, E, xlim=xlim, ylim=ylim, ylabel=ylabel,
-                                              title=title, plot_sum=True)
+                                              title=title, plot_total=True)
         return fig
 
     def plot_temperature_evo(self):
