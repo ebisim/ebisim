@@ -286,7 +286,7 @@ def _set_line_prop_cycle(ax, n_lines):
 
 
 def _decorate_axes(ax, title=None, xlabel=None, ylabel=None, xlim=None, ylim=None, grid=True,
-                   legend=False, label_lines=True):
+                   legend=False, label_lines=True, tight_layout=True):
     """
     helper functions for common axes decorations
     """
@@ -310,6 +310,8 @@ def _decorate_axes(ax, title=None, xlabel=None, ylabel=None, xlim=None, ylim=Non
         step = int(np.ceil(len(lines)/10))
         lines = lines [::step]
         labelLines(lines, size=7, bbox={"pad":0.1, "fc":"w", "ec":"none"})
+    if tight_layout:
+        ax.figure.tight_layout()
 
 ###########################################################################################
 #### Code for decorating line plots with online labels
