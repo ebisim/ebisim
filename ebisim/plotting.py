@@ -120,7 +120,7 @@ def plot_cs_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
 
 def plot_generic_evolution(t, y, xlim=(1e-4, 1e3), ylim=None, ylabel="", title="",
                            xscale="log", yscale="log", legend=False, label_lines=True,
-                           plot_sum=False):
+                           plot_total=False):
     """
     Method that plots the evolution of a quantity of an EBIS charge breeding simulation
     returns figure handle
@@ -143,8 +143,8 @@ def plot_generic_evolution(t, y, xlim=(1e-4, 1e3), ylim=None, ylabel="", title="
             plt.loglog([], [], figure=fig) # Ghost draw for purely zero cases
         else:
             plt.loglog(t, y[cs, :], figure=fig, label=str(cs) + "+")
-    if plot_sum:
-        plt.plot(t, np.sum(y, axis=0), c="k", ls="--", figure=fig, label="sum")
+    if plot_total:
+        plt.plot(t, np.sum(y, axis=0), c="k", ls="--", figure=fig, label="total")
     ax.set_xscale(xscale)
     ax.set_yscale(yscale)
 
