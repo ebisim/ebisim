@@ -464,6 +464,10 @@ def advanced_simulation(element, j, e_kin, t_max,
         ode_sol=sol
         )
 
+
+def energyscan(sim_func, simu_args, energies, eval_times):
+    pass
+
 class EnergyScan:
     """
     Class that provides a simple interface to perform a scan of the electron beam energy for
