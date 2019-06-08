@@ -10,7 +10,7 @@ from .physconst import M_E, M_P, PI, EPS_0, Q_E, C_L, M_E_EV
 from .physconst import MINIMAL_DENSITY
 
 
-@numba.jit
+@numba.njit(cache=True)
 def electron_velocity(e_kin):
     """
     Computes the electron velocity corresponding to a kinetic energy.
@@ -34,7 +34,7 @@ def electron_velocity(e_kin):
     return C_L * np.sqrt(1 - (M_E_EV / (M_E_EV + e_kin))**2)
 
 
-@numba.jit
+@numba.njit(cache=True)
 def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
     """
     The coulomb logarithm for ion electron collisions.
@@ -79,7 +79,7 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
         return 24 - math.log(Ne**0.5 / kbTe)
 
 
-@numba.jit
+@numba.njit(cache=True)
 def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     """
     The coulomb logarithm for ion ion collisions.
@@ -123,7 +123,7 @@ def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     return clog
 
 
-@numba.jit
+@numba.njit(cache=True)
 def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
     """
     Computes the Coulomb cross section for elastic electron ion collisions
@@ -161,7 +161,7 @@ def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
     return 4 * PI * (qi * Q_E * Q_E / (4 * PI * EPS_0 * M_E))**2 * clog / v_e**4
 
 
-@numba.jit
+@numba.njit(cache=True)
 def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     """
     Collision rates for ions species "i" and target species "j"
@@ -211,7 +211,7 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     return const * Nj * (qi * qj * Q_E * Q_E / Mi)**2 * (Mi/kbTi_SI)**1.5 * clog
 
 
-@numba.jit
+@numba.njit(cache=True)
 def ion_coll_rate_mat(Ni, Nj, kbTi, kbTj, Ai, Aj):
     """
     Matrix holding collision rates for ions species "i" and target species "j"
@@ -256,7 +256,7 @@ def ion_coll_rate_mat(Ni, Nj, kbTi, kbTj, Ai, Aj):
     return r_ij
 
 
-@numba.jit
+@numba.njit(cache=True)
 def electron_heating_vec(Ni, Ne, kbTi, Ee, Ai):
     """
     Computes the heating rates due to elastic electron ion collisions ('Spitzer Heating')
@@ -294,7 +294,7 @@ def electron_heating_vec(Ni, Ne, kbTi, Ee, Ai):
     return heat
 
 
-@numba.jit
+@numba.njit(cache=True)
 def energy_transfer_vec(Ni, Nj, kbTi, kbTj, Ai, Aj, rij):
     """
     Computes the collisional energy transfer rates for species "i" with respect to species "j".
@@ -341,7 +341,7 @@ def energy_transfer_vec(Ni, Nj, kbTi, kbTj, Ai, Aj, rij):
     return trans_i
 
 
-@numba.jit
+@numba.njit(cache=True)
 def loss_frequency_axial(kbTi, V):
     """
     Computes the axial trap (loss) frequencies.
@@ -363,7 +363,7 @@ def loss_frequency_axial(kbTi, V):
 
     """
     valid = kbTi > 0
-    q = np.arange(kbTi.size, dtype=float)
+    q = np.arange(kbTi.size)/1 # divide by one to make float
     w = q * V
     w[valid] = w[valid] / kbTi[valid]
     w[np.logical_not(valid)] = np.inf
@@ -371,7 +371,7 @@ def loss_frequency_axial(kbTi, V):
     return w
 
 
-@numba.jit
+@numba.njit(cache=True)
 def loss_frequency_radial(kbTi, Ai, V, B, r_dt):
     """
     Radial trap (loss) frequencies.
@@ -407,7 +407,7 @@ def loss_frequency_radial(kbTi, Ai, V, B, r_dt):
 
     """
     valid = kbTi > 0
-    q = np.arange(kbTi.size, dtype=float)
+    q = np.arange(kbTi.size)/1 # divide by one to make float
     w = q
     w[valid] = w[valid] * (V + B * r_dt * np.sqrt(2 * kbTi[valid] * Q_E /(3*M_P*Ai))) / kbTi[valid]
     w[np.logical_not(valid)] = np.inf
@@ -415,7 +415,7 @@ def loss_frequency_radial(kbTi, Ai, V, B, r_dt):
     return w
 
 
-@numba.jit
+@numba.njit(cache=True)
 def escape_rate_axial(Ni, kbTi, ri, V):
     """
     Computes the axial ion escape rates.
@@ -446,7 +446,7 @@ def escape_rate_axial(Ni, kbTi, ri, V):
     return escape_rate(Ni, ri, w)
 
 
-@numba.jit
+@numba.njit(cache=True)
 def escape_rate_radial(Ni, kbTi, ri, Ai, V, B, r_dt):
     """
     Computes the radial ion escape rates.
@@ -485,7 +485,7 @@ def escape_rate_radial(Ni, kbTi, ri, Ai, V, B, r_dt):
     return escape_rate(Ni, ri, w)
 
 
-@numba.jit
+@numba.njit(cache=True)
 def escape_rate(Ni, ri, w):
     """
     Generic escape rate - to be called by axial and radial escape
