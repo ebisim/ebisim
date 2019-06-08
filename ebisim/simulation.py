@@ -35,16 +35,19 @@ class Result:
     N_is_density : bool, optional
         Indicates whether N describes the occupany in abstract terms or as an actual density.
         This has an influence on some default plot labels, by default False.
+    ode_sol : optional
+        The solution object returned by scipy.integrate.solve_ivp. This can contain useful
+        information about the solver performance etc. Refer to scipy documentation for details.
 
     """
 
-    def __init__(self, param=None, t=None, N=None, kbT=None, N_is_density=False):
+    def __init__(self, param=None, t=None, N=None, kbT=None, N_is_density=False, ode_sol=None):
         self.param = param
         self.t = t
         self.N = N
         self.kbT = kbT
         self.N_is_density = N_is_density
-
+        self.ode_sol = ode_sol
 
     def _param_title(self, stub):
         """
@@ -297,7 +300,7 @@ def basic_simulation(element, j, e_kin, t_max,
         dNdt = lambda _, N: _jac.dot(N)
 
     sol = scipy.integrate.solve_ivp(dNdt, (0, t_max), N_initial, jac=jac, **solver_kwargs)
-    return Result(param=param, t=sol.t, N=sol.y)
+    return Result(param=param, t=sol.t, N=sol.y, ode_sol=sol)
 
 
 def advanced_simulation(element, j, e_kin, t_max,
@@ -457,7 +460,8 @@ def advanced_simulation(element, j, e_kin, t_max,
         t=sol.t,
         N=sol.y[:element.z + 1, :],
         kbT=sol.y[element.z + 1:, :],
-        N_is_density=True
+        N_is_density=True,
+        ode_sol=sol
         )
 
 class EnergyScan:
