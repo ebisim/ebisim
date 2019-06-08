@@ -11,7 +11,7 @@ from matplotlib.dates import date2num
 from . import xs
 from . import elements
 
-COLORMAP = plt.cm.gist_rainbow
+COLORMAP = plt.cm.gist_rainbow # pylint: disable=E1101
 
 
 ########################
@@ -85,38 +85,9 @@ def plot_energy_time_scan(data, cs, xlim=None, ylim=None, title=None):
     return fig
 
 
-########################
-#### CS Evo Plotting ###
-########################
-
-
-def plot_cs_evolution(ode_solution, xlim=(1e-4, 1e3), ylim=(1e-4, 1),
-                      title="Charge state evolution", legend=False, label_lines=True):
-    """
-    Method that plots the solution of an EBIS charge breeding simulation
-    returns figure handle
-
-    ode_solution - solution object to plot
-    title - (optional) Plot title
-    xlim, ylim - (optional) plot limits
-    legend - (optional) show legend?
-    line_labels - annotate lines?
-    """
-    fig = plt.figure(figsize=(8, 6), dpi=150)
-    ax = fig.add_subplot(111)
-
-    n = ode_solution.y.shape[0]
-    _set_line_prop_cycle(ax, n)
-
-    for cs in range(n):
-        if np.array_equal(np.unique(ode_solution.y[cs, :]), np.array([0])):
-            plt.semilogx([], [], figure=fig) # Ghost draw for purely zero cases
-        else:
-            plt.semilogx(ode_solution.t, ode_solution.y[cs, :], figure=fig, label=str(cs) + "+")
-
-    _decorate_axes(ax, title=title, xlabel="Time (s)", ylabel="Relative Abundance",
-                   xlim=xlim, ylim=ylim, grid=True, legend=legend, label_lines=label_lines)
-    return fig
+###########################
+#### Evolution Plotting ###
+###########################
 
 def plot_generic_evolution(t, y, xlim=(1e-4, 1e3), ylim=None, ylabel="", title="",
                            xscale="log", yscale="log", legend=False, label_lines=True,
@@ -258,6 +229,7 @@ def plot_dr_xs(element, fwhm, **kwargs):
     # Return figure handle
     return fig
 
+
 def plot_combined_xs(element, fwhm, xlim=None, ylim=(1e-24, 1e-16),
                      xscale="linear", yscale="log", legend=True):
     """
@@ -306,7 +278,8 @@ def _decorate_axes(ax, title=None, xlabel=None, ylabel=None, xlim=None, ylim=Non
         ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     # Label lines should be called at the end of the plot generation since it relies on axlim
     if label_lines:
-        lines = [l for l in ax.get_lines() if any(l._x)]
+        # TODO: Check if this can be done without private member access
+        lines = [l for l in ax.get_lines() if any(l._x)] # pylint: disable=W0212
         step = int(np.ceil(len(lines)/10))
         lines = lines [::step]
         labelLines(lines, size=7, bbox={"pad":0.1, "fc":"w", "ec":"none"})
