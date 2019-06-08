@@ -341,9 +341,9 @@ class ComplexEBISProblem:
         ri = np.sum(rij, axis=1)
 
         ### Particle density rates
-        R_ei = je * N * xs.eixs_mat(self._element, e_kin)
-        R_rr = je * N * xs.rrxs_mat(self._element, e_kin)
-        R_dr = je * N * xs.drxs_mat(self._element, e_kin, self._fwhm)
+        R_ei = je * N * xs.eixs_vec(self._element, e_kin)
+        R_rr = je * N * xs.rrxs_vec(self._element, e_kin)
+        R_dr = je * N * xs.drxs_vec(self._element, e_kin, self._fwhm)
 
         sigcx = 1.43e-16 * q**1.17 * self._bg_IP**-2.76
         R_cx = N * self._bg_N0 * np.sqrt(8 * Q_E * np.clip(kbT, 0, None)/(PI * A * M_P)) * sigcx
