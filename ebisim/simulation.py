@@ -1,6 +1,7 @@
 """
 Module containing classes that provide interface for problem setup and solution
 """
+
 import sys
 import numpy as np
 import pandas as pd
@@ -484,9 +485,9 @@ class ComplexEBISProblem:
         ri = np.sum(rij, axis=1)
 
         ### Particle density rates
-        R_ei = je * N * xs.eixs_mat(self._element, e_kin)
-        R_rr = je * N * xs.rrxs_mat(self._element, e_kin)
-        R_dr = je * N * xs.drxs_mat(self._element, e_kin, self._fwhm)
+        R_ei = je * N * xs.eixs_vec(self._element, e_kin)
+        R_rr = je * N * xs.rrxs_vec(self._element, e_kin)
+        R_dr = je * N * xs.drxs_vec(self._element, e_kin, self._fwhm)
 
         sigcx = 1.43e-16 * q**1.17 * self._bg_IP**-2.76
         R_cx = N * self._bg_N0 * np.sqrt(8 * Q_E * np.clip(kbT, 0, None)/(PI * A * M_P)) * sigcx
@@ -540,9 +541,15 @@ class ComplexEBISProblem:
         lb = np.ones(y0.size) * MINIMAL_DENSITY
         lb[self._element.z + 1:] *= MINIMAL_KBT
         method = kwargs.pop("method", "Radau")
-        solution = scipy.integrate.solve_ivp(self._rhs, [0, max_time], y0, method=method, **kwargs)
-        self._solution = solution
-        return solution
+        sol = scipy.integrate.solve_ivp(self._rhs, [0, max_time], y0, method=method, **kwargs)
+        self._solution = sol
+        return Result(
+            param=None,
+            t=sol.t,
+            N=sol.y[:self._element.z + 1, :],
+            kbT=sol.y[self._element.z + 1:, :],
+            N_is_density=True
+            )
 
     def plot_cs_evo(self):
         """
