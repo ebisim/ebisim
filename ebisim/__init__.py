@@ -6,10 +6,19 @@ __version__ = "0.1.0"
 __author__ = "Hannes Pahl"
 
 from .xs import (
-    eixs_vec, eixs_mat, rrxs_vec, rrxs_mat, drxs_vec, drxs_mat,
-    eixs_energyscan, rrxs_energyscan, drxs_energyscan
+    eixs_vec, eixs_mat, eixs_energyscan,
+    rrxs_vec, rrxs_mat, rrxs_energyscan,
+    drxs_vec, drxs_mat, drxs_energyscan
     )
-from .simulation import basic_simulation, Result, EnergyScan
+
+from .simulation import (
+    basic_simulation,
+    advanced_simulation,
+    energy_scan,
+    Result,
+    EnergyScanResult
+)
+
 from .physconst import (
     Q_E,
     M_E,
@@ -24,6 +33,9 @@ from .physconst import (
     RY_EV,
     COMPT_E_RED,
 )
+
 from .elements import Element
+
 from .plotting import plot_ei_xs, plot_rr_xs, plot_dr_xs, plot_combined_xs
+
 from . import beams
