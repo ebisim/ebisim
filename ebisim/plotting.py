@@ -17,71 +17,47 @@ COLORMAP = plt.cm.gist_rainbow # pylint: disable=E1101
 ########################
 #### E scan Plotting ###
 ########################
-
-
-def plot_energy_scan(data, cs, ylim=None, title=None, invert_hor=False, x2fun=None, x2label=""):
-    """
-    Plots the charge state abundance vs the energy
-    """
-    fig = plt.figure(figsize=(6, 3), dpi=150)
-    ax1 = fig.add_subplot(111)
-    n = data.shape[1] - 1
-    _set_line_prop_cycle(ax1, n)
-
-    for c in range(n):
-        if c in cs:
-            plt.plot(data["e_kin"], data[c], figure=fig, label=str(c) + "+")
-        else:
-            plt.plot([], [], figure=fig)
-
-
-    xlim = (data["e_kin"].min(), data["e_kin"].max())
-    xlabel = "Electron Energy (eV)"
-    ylabel = "Abundance"
-    _decorate_axes(ax1, xlabel=xlabel, ylabel=ylabel, xlim=xlim, ylim=ylim)
-    if invert_hor:
-        plt.gca().invert_xaxis()
-
-    if x2fun:
-        ax2 = ax1.twiny()
-        def tick_function(x):
-            """tick function for the second axis"""
-            V = x2fun(x)
-            return ["%.0f" % z for z in V]
-        new_tick_locations = ax1.get_xticks()
-        ax2.set_xlim(ax1.get_xlim())
-        ax2.set_xticks(new_tick_locations)
-        ax2.set_xticklabels(tick_function(new_tick_locations))
-        ax2.set_xlabel(x2label)
-        if title:
-            title += "\n\n"
-    if title:
-        ax1.set_title(title)
-    plt.tight_layout()
-
-    return fig
-
-def plot_energy_time_scan(data, cs, xlim=None, ylim=None, title=None):
-    """
-    Plots the abundance of a charge state depending on the breeding time and energy
-    """
-    plotdf = data[["t", "e_kin", cs]].rename(columns={cs:"DATA"})
-    nt = len(plotdf.t.unique())
-    e_kin = plotdf.e_kin.values.reshape((-1, nt))
-    t = plotdf.t.values.reshape((-1, nt))
-    abd = plotdf.DATA.values.reshape((-1, nt))
-
+def plot_energy_scan(energies, abundance, cs=None, **kwargs):
     fig = plt.figure(figsize=(6, 3), dpi=150)
     ax = fig.add_subplot(111)
 
+    n = abundance.shape[0]
+    _set_line_prop_cycle(ax, n)
+
+    for c in range(n):
+        if cs is None or c in cs:
+            plt.plot(energies, abundance[c, :], figure=fig, label=f"{c}+")
+        else:
+            plt.plot([], [], figure=fig)
+
+    kwargs.setdefault("xlim", (energies.min(), energies.max()))
+    kwargs.setdefault("xlabel", "Electron energy (eV)")
+    kwargs.setdefault("ylabel", "Abundance")
+    _decorate_axes(ax, **kwargs)
+
+    return fig
+
+
+def plot_energy_time_scan(energies, times, abundance, **kwargs):
+    """
+    Plots the abundance of a charge state depending on the breeding time and energy
+    """
+    fig = plt.figure(figsize=(6, 3), dpi=150)
+    ax = fig.add_subplot(111)
+
+    e_kin, t = np.meshgrid(energies, times)
     levels = np.arange(21)/20
-    plot = ax.contourf(e_kin, t, abd, levels=levels, cmap="plasma")
+    plot = ax.contourf(e_kin, t, abundance, levels=levels, cmap="plasma")
     ax.set_yscale("log")
     plt.colorbar(plot, ticks=np.arange(0, 1.1, 0.1))
-    ax.contour(e_kin, t, abd, levels=levels, colors="k", linewidths=.5)
-    _decorate_axes(ax, title=title,
-                   xlabel="Electron kinetic energy (eV)", ylabel="Time (s)",
-                   xlim=xlim, ylim=ylim, grid=False, legend=False, label_lines=False)
+    ax.contour(e_kin, t, abundance, levels=levels, colors="k", linewidths=.5)
+
+    kwargs.setdefault("xlabel", "Electron energy (eV)")
+    kwargs.setdefault("ylabel", "Time (s)")
+    kwargs.setdefault("grid", False)
+    kwargs["label_lines"] = False
+    _decorate_axes(ax, **kwargs)
+
     return fig
 
 

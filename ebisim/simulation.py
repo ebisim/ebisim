@@ -3,6 +3,7 @@ Module containing classes that provide interface for problem setup and solution
 """
 
 import sys
+from warnings import warn
 import numpy as np
 import pandas as pd
 import scipy.integrate
@@ -465,111 +466,70 @@ def advanced_simulation(element, j, e_kin, t_max,
         )
 
 
-def energyscan(sim_func, simu_args, energies, eval_times):
-    pass
+def energy_scan(sim_func, sim_kwargs, energies):
+    if "e_kin" in sim_kwargs:
+        sim_kwargs = sim_kwargs.copy()
+        del sim_kwargs["e_kin"]
+        warn(f"sim_kwargs contains a value for e_kin, this item will be ignored.")
 
-class EnergyScan:
-    """
-    Class that provides a simple interface to perform a scan of the electron beam energy for
-    a SimpleEBISProblem (and inherited)
-    """
-    def __init__(self, problemtype, element, j, fwhm, energies, eval_times):
-        """
-        Initialises the energy scan settings
+    sim_kwargs.setdefault("solver_kwargs", {})
+    sim_kwargs["solver_kwargs"]["dense_output"] = True # need dense output for interpolation
 
-        Input Parameters
-        problemtype - class handle specifiying the problem
-        element - Identifier of the element under investigation
-        j - current density in A/cm**2
-        fwhm - electron energy spread (for DR width)
-        energies - list of the energies to scan
-        eval_times - list of the times to evaluate
-        """
-        self._problem = problemtype(element, j, 0, fwhm)
-        if not isinstance(element, elements.Element):
-            element = elements.Element(element)
-        self._element = element
-        self._j = j
-        self._energies = np.array(energies)
-        self._eval_times = np.array(eval_times)
-        self._solution = None
+    energies = np.array(energies)
+    energies.sort()
 
-    @property
-    def solution(self):
-        """
-        Returns the results of the energy scan as a single pandas frame
-        """
-        return self._solution
+    def sim(e_kin):
+        return sim_func(e_kin=e_kin, **sim_kwargs)
 
-    def solve(self, y0=None, show_progress=True, **kwargs):
-        """
-        Trigger the computation of the energy scan that has previously been set up
-        This can be fairly time consuming!
-        """
-        # Integration time
-        max_time = np.max(self._eval_times)
-        # Solve ODES
-        scan_solutions = pd.DataFrame()
-        prog = 0
-        for e_kin in self._energies:
-            self._problem.e_kin = e_kin
-            solution = self._problem.solve(max_time, y0=y0, t_eval=self._eval_times, **kwargs)
-            y = solution.y.T
-            if isinstance(self._problem, ComplexEBISProblem):
-                y = y[:, :int(y.shape[1]/2)] # Cut off temperatures
-                y = y / np.sum(y, axis=1)[:, np.newaxis] # Normalise
-            sol_df = pd.DataFrame(y)
-            sol_df["t"] = solution.t
-            sol_df["e_kin"] = e_kin
-            scan_solutions = scan_solutions.append(sol_df, ignore_index=True)
-            prog += 1
-            if show_progress:
-                sys.stdout.write(f"\rProgress:  {100 * prog / len(self._energies):>4.1f}%")
-        self._solution = scan_solutions
-        if show_progress:
-            sys.stdout.writelines([])
-        return scan_solutions
+    results = [sim(e_kin) for e_kin in energies]
+    return EnergyScanResult(energies, results)
 
-    def plot_abundance_at_time(self, t, cs, normalise=False, invert_hor=False,
-                               x2fun=None, x2label=""):
-        """
-        Plots the charge state abundance at a time close to t (depends on eval_times)
-        Returns the figure handle
 
-        Input Parameters
-        t - time for which to plot
-        cs - list of charge states (integers) to plot
-        normalise - normalise each curve with its own mean
-        invert_hor - should the horizontal axis be inverted
-        x2fun - (optional) function to compute values on 2nd x axis
-        x2label - (optional) label for second x axis
-        """
-        t = self._eval_times[np.argmin(np.abs(self._eval_times - t))] # find closest t
-        # data = self._solution.loc[self._solution["t"] == t]
-        data = self._solution.groupby("t").get_group(t)
-        if normalise:
-            for c in range(self._element.z+1):
-                data[c] = data[c]/data[c].mean()
-            title = f"Normalised abundance of {self._element.latex_isotope()} " \
-                    f"at $T={1000*t:.1f}$ ms"
-            ylim = None
-        else:
-            title = f"Relative abundance of {self._element.latex_isotope()} at $T={1000*t:.1f}$ ms"
-            ylim = (0.01, 1)
+class EnergyScanResult:
+    def __init__(self, energies, results):
+        self._energies = energies
+        self._results = results
+        self._t_max = min([res.param["t_max"] for res in results])
+        self._element = self._results[0].param["element"]
 
-        fig = plotting.plot_energy_scan(data, cs, ylim=ylim, title=title, invert_hor=invert_hor,
-                                        x2fun=x2fun, x2label=x2label)
-        return fig
 
-    def plot_abundance_of_cs(self, cs, xlim=None, ylim=None):
-        """
-        Creates a 2D plot of the abundance of a charge state for a given range of energies and
-        breeding times (as available in the solution object)
+    def abundance_at_time(self, t):
+        if t < 0 or t > self._t_max:
+            raise ValueError("This time has not been simulated during the energyscan.")
+        per_energy = [res.ode_sol.sol(t) for res in self._results]
+        return self._energies, np.column_stack(per_energy)
 
-        Input Parameters
-        cs - charge state to plot
-        xlim/ylim - axes limits
-        """
-        title = f"Abundance of {self._element.latex_isotope()}$^{{{cs}+}}$"
-        fig = plotting.plot_energy_time_scan(self.solution, cs, xlim=xlim, ylim=ylim, title=title)
-        return fig
+
+    def abundance_of_cs(self, cs):
+        if cs > self._element.z:
+            raise ValueError("This charge state is not available for the given element.")
+        times = np.logspace(-4, np.log10(self._t_max), 500)
+        print(times)
+        times = np.clip(times, a_min=0, a_max=self._t_max)
+        print(times)
+        per_time = [self.abundance_at_time(t)[1][cs, :] for t in times]
+        return self._energies, times, np.row_stack(per_time)
+
+
+    def plot_abundance_at_time(self, t, cs=None, **kwargs):
+        energies, abundance = self.abundance_at_time(t)
+        kwargs.setdefault("title",
+                          f"Abundance of {self._element.latex_isotope()} at $T={1000*t:.1f}$ ms")
+        return plotting.plot_energy_scan(
+            energies=energies,
+            abundance=abundance,
+            cs=cs,
+            **kwargs
+        )
+
+
+    def plot_abundance_of_cs(self, cs, **kwargs):
+        energies, times, abundance = self.abundance_of_cs(cs)
+        kwargs.setdefault("title",
+                          f"Abundance of {self._element.latex_isotope()}$^{{{cs}+}}$")
+        return plotting.plot_energy_time_scan(
+            energies=energies,
+            times=times,
+            abundance=abundance,
+            **kwargs
+        )
