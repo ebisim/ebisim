@@ -85,17 +85,17 @@ class Result:
         Parameters
         ----------
         relative : bool, optional
-            Flags whether the absolute numbers relative fraction should be plotted at each
+            Flags whether the absolute numbers or a relative fraction should be plotted at each
             timestep, by default False.
         **kwargs
-            Keyword arguments are handed down to plotting.plot_generic_evolution,
+            Keyword arguments are handed down to ebisim.plotting.plot_generic_evolution,
             cf. documentation thereof.
             If no arguments are provided, reasonable default values are injected.
 
         Returns
         -------
         matplotlib.figure.Figure
-            Figure handle of the generated plot
+            Figure handle of the generated plot.
 
         Raises
         ------
@@ -135,14 +135,14 @@ class Result:
         Parameters
         ----------
         **kwargs
-            Keyword arguments are handed down to plotting.plot_generic_evolution,
+            Keyword arguments are handed down to ebisim.plotting.plot_generic_evolution,
             cf. documentation thereof.
             If no arguments are provided, reasonable default values are injected.
 
         Returns
         -------
         matplotlib.figure.Figure
-            Figure handle of the generated plot
+            Figure handle of the generated plot.
 
         Raises
         ------
@@ -175,7 +175,7 @@ class Result:
         Parameters
         ----------
         **kwargs
-            Keyword arguments are handed down to plotting.plot_generic_evolution,
+            Keyword arguments are handed down to ebisim.plotting.plot_generic_evolution,
             cf. documentation thereof.
             If no arguments are provided, reasonable default values are injected.
 
@@ -520,6 +520,24 @@ def energy_scan(sim_func, sim_kwargs, energies, parallel=False):
 
 
 class EnergyScanResult:
+    """
+    This class provides a convenient interface to access and evaluate the
+    the results of the ebisim.simulation.energy_scan function.
+    Abundances at arbitrary times are provided by performing linear interpolations of the solutions
+    of the rate equation.
+
+    Parameters
+    ----------
+    sim_kwargs : dict
+        The sim_kwargs dictionary as provided during the call to ebisim.simulation.energy_scan.
+    energies : numpy.array
+        <eV>
+        A sorted array containing the energies at which the energy scan has been evaluated.
+    results : list
+        A list of dicts containing the results of each simulation corresponding to an entry in
+        'energies'. Dict should contain keys ['t', 'N', 'kbT'] holding the information about
+        timesteps, ion density, and temperature as found in ebisim.simulation.Result
+    """
     def __init__(self, sim_kwargs, energies, results):
         self._sim_kwargs = sim_kwargs
         self._t_max = self._sim_kwargs["t_max"]
@@ -535,22 +553,88 @@ class EnergyScanResult:
 
 
     def abundance_at_time(self, t):
+        """
+        Provides information about the charge state distribution at a given time for all energies.
+
+        Parameters
+        ----------
+        t : float
+            <s>
+            Point of time to evaluate.
+
+        Returns
+        -------
+        energies : numpy.array
+            The evaluated energies.
+        abundance : numpy.array
+            Contains the abundance of each charge state (rows) for each energy (columns).
+
+        Raises
+        ------
+        ValueError
+            If 't' is not part of the simulated time domain
+        """
         if t < 0 or t > self._t_max:
             raise ValueError("This time has not been simulated during the energyscan.")
         per_energy = [res["N_interp"](t) for res in self._results]
-        return self._energies, np.column_stack(per_energy)
+        return self._energies.copy(), np.column_stack(per_energy)
 
 
     def abundance_of_cs(self, cs):
+        """
+        Provides information about the abundance of a single charge states at all simulated times
+        and energies.
+
+        Parameters
+        ----------
+        cs : int
+            The charge state to evaluate.
+
+        Returns
+        -------
+        energies : numpy.array
+            The evaluated energies.
+        times : numpy.array
+            The evaluated timesteps.
+        abundance : numpy.array
+            Abundance of charge state 'cs' at given times (rows) and energies (columns).
+
+        Raises
+        ------
+        ValueError
+            If 'cs' is not a sensible charge state for the performed simulation.
+        """
         if cs > self._element.z:
             raise ValueError("This charge state is not available for the given element.")
         times = np.logspace(-4, np.log10(self._t_max), 500)
         times = np.clip(times, a_min=0, a_max=self._t_max)
         per_time = [self.abundance_at_time(t)[1][cs, :] for t in times]
-        return self._energies, times, np.row_stack(per_time)
+        return self._energies.copy(), times, np.row_stack(per_time)
 
 
     def plot_abundance_at_time(self, t, cs=None, **kwargs):
+        """
+        Produces a plot of the charge state abundance for different energies at a given time.
+
+        Parameters
+        ----------
+        t : float
+            <s>
+            Point of time to evaluate.
+        cs : list or None, optional
+            If None, all charge states are plotted. By supplying a list of int it
+            is possible to filter the charge states that should be plotted.
+            By default None.
+        **kwargs
+            Keyword arguments are handed down to ebisim.plotting.plot_energy_scan,
+            cf. documentation thereof.
+            If no arguments are provided, reasonable default values are injected.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            Figure handle of the generated plot.
+        """
         energies, abundance = self.abundance_at_time(t)
         kwargs.setdefault("title",
                           f"Abundance of {self._element.latex_isotope()} at $T={1000*t:.1f}$ ms")
@@ -563,6 +647,24 @@ class EnergyScanResult:
 
 
     def plot_abundance_of_cs(self, cs, **kwargs):
+        """
+        Produces a 2D contour plot of the charge state abundance for all simulated
+        energies and times.
+
+        Parameters
+        ----------
+        cs : int
+            The charge state to plot.
+        **kwargs
+            Keyword arguments are handed down to ebisim.plotting.plot_energy_scan,
+            cf. documentation thereof.
+            If no arguments are provided, reasonable default values are injected.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            Figure handle of the generated plot.
+        """
         energies, times, abundance = self.abundance_of_cs(cs)
         kwargs.setdefault("title",
                           f"Abundance of {self._element.latex_isotope()}$^{{{cs}+}}$")
