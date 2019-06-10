@@ -2,11 +2,9 @@
 Module containing classes that provide interface for problem setup and solution
 """
 
-import sys
 from warnings import warn
 from multiprocessing.pool import Pool
 import numpy as np
-import pandas as pd
 import scipy.integrate
 import scipy.interpolate
 # import numba
@@ -51,6 +49,7 @@ class Result:
         self.kbT = kbT
         self.N_is_density = N_is_density
         self.ode_sol = ode_sol
+
 
     def _param_title(self, stub):
         """
@@ -362,8 +361,6 @@ def advanced_simulation(element, j, e_kin, t_max,
         An instance of the Result class, holding the simulation parameters, timesteps and
         charge state distribution including the species temperature.
     """
-    # TODO: verify docstring
-
     # cast element to Element if necessary
     if not isinstance(element, elements.Element):
         element = elements.Element(element)
@@ -468,6 +465,33 @@ def advanced_simulation(element, j, e_kin, t_max,
 
 
 def energy_scan(sim_func, sim_kwargs, energies, parallel=False):
+    """
+    This function provides a convenient way to repeat the same simulation for a number of different
+    electron beam energies. This can reveal variations in the charge state balance due to
+    weakly energy dependent ionisation cross sections or
+    even resonant phenomena like dielectronic recombination.
+
+    Parameters
+    ----------
+    sim_func : callable
+        The function handle for the simulation e.g. ebisim.simulation.basic_simulation.
+    sim_kwargs : dict
+        A dictionary containing all the required and optional parameters of the simulations
+        (except for the kinetic electron energy) as key value pairs.
+        This is unpacked in the function call.
+    energies : list or numpy.array
+        A list or array of the energies at which the simulation should be performed.
+    parallel : bool, optional
+        Determine whether multiple simulations should be run in parallel using pythons
+        multiprocessing.pool. This may accelerate the scan when performing a large number of
+        simulations.
+        By default False.
+
+    Returns
+    -------
+    ebisim.simulation.EnergyScanResult
+        An object providing convenient access to the generated scan data.
+    """
     sim_kwargs = sim_kwargs.copy()
 
     if "e_kin" in sim_kwargs:
@@ -481,16 +505,16 @@ def energy_scan(sim_func, sim_kwargs, energies, parallel=False):
     energies = np.array(energies)
     energies.sort()
 
-    global sim
-    def sim(e_kin):
+    global _e_scan_sim # has to be global for mp.pool, pylint: disable=W0602
+    def _e_scan_sim(e_kin):
         res = sim_func(e_kin=e_kin, **sim_kwargs)
         return dict(t=res.t, N=res.N, kbT=res.kbT)
 
     if parallel:
         with Pool() as pool:
-            results = pool.map(sim, energies)
+            results = pool.map(_e_scan_sim, energies)
     else:
-        results = [sim(e_kin) for e_kin in energies]
+        results = [_e_scan_sim(e_kin) for e_kin in energies]
 
     return EnergyScanResult(sim_kwargs, energies, results)
 
