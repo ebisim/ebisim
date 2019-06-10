@@ -14,12 +14,15 @@ from matplotlib.dates import date2num
 from . import xs
 from . import elements
 
-COLORMAP = plt.cm.gist_rainbow # pylint: disable=E1101
+
+#: The default colormap used to grade line plots
+COLORMAP = plt.cm.gist_rainbow #pylint: disable=E1101
 
 
 ########################
 #### E scan Plotting ###
 ########################
+
 def plot_energy_scan(energies, abundance, cs=None, **kwargs):
     fig = plt.figure(figsize=(6, 3), dpi=150)
     ax = fig.add_subplot(111)
@@ -29,14 +32,14 @@ def plot_energy_scan(energies, abundance, cs=None, **kwargs):
 
     for c in range(n):
         if cs is None or c in cs:
-            plt.plot(energies, abundance[c, :], figure=fig, label=f"{c}+")
+            ax.plot(energies, abundance[c, :], figure=fig, label=f"{c}+")
         else:
-            plt.plot([], [], figure=fig)
+            ax.plot([], [], figure=fig)
 
     kwargs.setdefault("xlim", (energies.min(), energies.max()))
     kwargs.setdefault("xlabel", "Electron energy (eV)")
     kwargs.setdefault("ylabel", "Abundance")
-    _decorate_axes(ax, **kwargs)
+    decorate_axes(ax, **kwargs)
 
     return fig
 
@@ -50,16 +53,17 @@ def plot_energy_time_scan(energies, times, abundance, **kwargs):
 
     e_kin, t = np.meshgrid(energies, times)
     levels = np.arange(21)/20
+
     plot = ax.contourf(e_kin, t, abundance, levels=levels, cmap="plasma")
-    ax.set_yscale("log")
     plt.colorbar(plot, ticks=np.arange(0, 1.1, 0.1))
     ax.contour(e_kin, t, abundance, levels=levels, colors="k", linewidths=.5)
 
     kwargs.setdefault("xlabel", "Electron energy (eV)")
     kwargs.setdefault("ylabel", "Time (s)")
+    kwargs.setdefault("yscale", "log")
     kwargs.setdefault("grid", False)
     kwargs["label_lines"] = False
-    _decorate_axes(ax, **kwargs)
+    decorate_axes(ax, **kwargs)
 
     return fig
 
@@ -68,9 +72,7 @@ def plot_energy_time_scan(energies, times, abundance, **kwargs):
 #### Evolution Plotting ###
 ###########################
 
-def plot_generic_evolution(t, y, xlim=(1e-4, 1e3), ylim=None, ylabel="", title="",
-                           xscale="log", yscale="log", legend=False, label_lines=True,
-                           plot_total=False):
+def plot_generic_evolution(t, y, plot_total=False, **kwargs):
     """
     Method that plots the evolution of a quantity of an EBIS charge breeding simulation
     returns figure handle
@@ -95,20 +97,24 @@ def plot_generic_evolution(t, y, xlim=(1e-4, 1e3), ylim=None, ylabel="", title="
             plt.loglog(t, y[cs, :], figure=fig, label=str(cs) + "+")
     if plot_total:
         plt.plot(t, np.sum(y, axis=0), c="k", ls="--", figure=fig, label="total")
-    ax.set_xscale(xscale)
-    ax.set_yscale(yscale)
 
-    _decorate_axes(ax, title=title, xlabel="Time (s)", ylabel=ylabel,
-                   xlim=xlim, ylim=ylim, grid=True, legend=legend, label_lines=label_lines)
+    kwargs.setdefault("xlim", (1e-4, 1e3))
+    kwargs.setdefault("xlabel", "Time (s)")
+    kwargs.setdefault("ylabel", "Abundance")
+    kwargs.setdefault("xscale", "log")
+    kwargs.setdefault("yscale", "log")
+    kwargs.setdefault("grid", True)
+    kwargs.setdefault("legend", False)
+    kwargs.setdefault("label_lines", True)
+    decorate_axes(ax, **kwargs)
+
     return fig
 
 ########################
 #### XS Plotting #######
 ########################
 
-def _plot_xs(e_samp, xs_scan, fig=None, xscale="log", yscale="log",
-             title=None, xlim=None, ylim=None, legend=False, label_lines=True,
-             ls="-"):
+def plot_xs(e_samp, xs_scan, fig=None, ls="-", **kwargs):
     """
     Creates a figure showing the cross sections and returns the figure handle
 
@@ -123,29 +129,32 @@ def _plot_xs(e_samp, xs_scan, fig=None, xscale="log", yscale="log",
     line_labels - annotate lines?
     ls - linestyle
     """
-    n_cs = xs_scan.shape[0]
-
     if not fig:
         fig = plt.figure(figsize=(8, 6), dpi=150)
     ax = fig.gca()
 
-    ax.set_prop_cycle(None) # Reset property (color) cycle, needed when plotting on existing fig
-    _set_line_prop_cycle(ax, n_cs)
+    n = xs_scan.shape[0]
 
-    for cs in range(n_cs):
+    ax.set_prop_cycle(None) # Reset property (color) cycle, needed when plotting on existing fig
+    _set_line_prop_cycle(ax, n)
+
+    for cs in range(n):
         xs_cs = xs_scan[cs, :]
         if np.array_equal(np.unique(xs_cs), np.array([0])):
             plt.plot([], []) # If all xs are zero, do a ghost plot to advance color cycle
         else:
             plt.plot(e_samp, 1e4*xs_cs, figure=fig, ls=ls, label=str(cs)+"+") # otherwise plot data
 
-    ax.set_xscale(xscale)
-    ax.set_yscale(yscale)
-    if not xlim:
-        xlim = (e_samp[0], e_samp[-1])
-    _decorate_axes(ax, title=title,
-                   xlabel="Electron kinetic energy (eV)", ylabel="Cross section (cm$^2$)",
-                   xlim=xlim, ylim=ylim, grid=True, legend=legend, label_lines=label_lines)
+    kwargs.setdefault("xlim", (e_samp[0], e_samp[-1]))
+    kwargs.setdefault("xscale", "log")
+    kwargs.setdefault("yscale", "log")
+    kwargs.setdefault("xlabel", "Electron kinetic energy (eV)")
+    kwargs.setdefault("ylabel", "Cross section (cm$^2$)")
+    kwargs.setdefault("legend", False)
+    kwargs.setdefault("label_lines", True)
+    kwargs.setdefault("grid", True)
+    decorate_axes(ax, **kwargs)
+
     return fig
 
 
@@ -161,10 +170,9 @@ def plot_eixs(element, **kwargs):
 
     e_samp, xs_scan = xs.eixs_energyscan(element)
 
-    if kwargs.get("title") is None:
-        kwargs["title"] = f"EI cross sections of {element.latex_isotope()}"
+    kwargs.setdefault("title", f"EI cross sections of {element.latex_isotope()}")
 
-    return _plot_xs(e_samp, xs_scan, **kwargs)
+    return plot_xs(e_samp, xs_scan, **kwargs)
 
 
 def plot_rrxs(element, **kwargs):
@@ -179,10 +187,9 @@ def plot_rrxs(element, **kwargs):
 
     e_samp, xs_scan = xs.rrxs_energyscan(element)
 
-    if kwargs.get("title") is None:
-        kwargs["title"] = f"RR cross sections of {element.latex_isotope()}"
+    kwargs.setdefault("title", f"RR cross sections of {element.latex_isotope()}")
 
-    return _plot_xs(e_samp, xs_scan, **kwargs)
+    return plot_xs(e_samp, xs_scan, **kwargs)
 
 
 def plot_drxs(element, fwhm, **kwargs):
@@ -194,34 +201,64 @@ def plot_drxs(element, fwhm, **kwargs):
     """
     if not isinstance(element, elements.Element):
         element = elements.Element(element)
+
     e_samp, xs_scan = xs.drxs_energyscan(element, fwhm)
-    # Set some kwargs if they are not given by caller
-    kwargs["xscale"] = kwargs.get("xscale", "linear")
-    kwargs["yscale"] = kwargs.get("yscale", "linear")
-    kwargs["legend"] = kwargs.get("legend", True)
-    kwargs["label_lines"] = kwargs.get("label_lines", False)
-    # call _plot_xs with correct title and data
-    if kwargs.get("title") is None:
-        kwargs["title"] = f"DR cross sections of {element.latex_isotope()} " \
-                          f"(Electron beam FWHM = {fwhm:0.1f} eV)"
-    fig = _plot_xs(e_samp, xs_scan, **kwargs)
-    # Return figure handle
-    return fig
+
+    kwargs.setdefault("xscale", "linear")
+    kwargs.setdefault("yscale", "linear")
+    kwargs.setdefault("legend", True)
+    kwargs.setdefault("label_lines", False)
+    kwargs.setdefault(
+        "title",
+        f"DR cross sections of {element.latex_isotope()} (Electron beam FWHM = {fwhm:0.1f} eV)"
+    )
+
+    return plot_xs(e_samp, xs_scan, **kwargs)
 
 
-def plot_combined_xs(element, fwhm, xlim=None, ylim=(1e-24, 1e-16),
-                     xscale="linear", yscale="log", legend=True):
+def plot_combined_xs(element, fwhm, **kwargs):
     """
     Combo Plot of EI RR DR for element with fwhm for DR resonances
     """
     if not isinstance(element, elements.Element):
         element = elements.Element(element)
-    title = f"Combined cross sections of {element.latex_isotope()} " \
-            f"(Electron beam FWHM = {fwhm:0.1f} eV)"
-    common_kwargs = dict(xlim=xlim, ylim=ylim, xscale=xscale, yscale=yscale)
-    fig = plot_eixs(element, label_lines=False, legend=legend, ls="--", **common_kwargs)
-    fig = plot_rrxs(element, fig=fig, ls="-.", **common_kwargs)
-    fig = plot_drxs(element, fwhm, fig=fig, ls="-", legend=False, title=title, **common_kwargs)
+
+    kwargs.setdefault("xscale", "linear")
+    kwargs.setdefault("yscale", "log")
+    kwargs.setdefault("ylim", (1e-24, 1e-16))
+    kwargs.setdefault("legend", True)
+    kwargs.setdefault(
+        "title",
+        f"Combined cross sections of {element.latex_isotope()} " \
+        f"(Electron beam FWHM = {fwhm:0.1f} eV)"
+    )
+
+    legend = kwargs.pop("legend")
+
+    fig = plot_eixs(
+        element,
+        ls="--",
+        legend=legend,
+        label_lines=False,
+        **kwargs
+    )
+    fig = plot_rrxs(
+        element,
+        fig=fig,
+        ls="-.",
+        label_lines=True,
+        legend=False,
+        **kwargs
+    )
+    fig = plot_drxs(
+        element,
+        fwhm,
+        fig=fig,
+        ls="-",
+        legend=False,
+        **kwargs
+    )
+
     return fig
 
 
@@ -231,26 +268,15 @@ def plot_combined_xs(element, fwhm, xlim=None, ylim=(1e-24, 1e-16),
 
 def _set_line_prop_cycle(ax, n_lines):
     color = [COLORMAP(i) for i in np.linspace(0, 1, n_lines)]
-    # color = [COLORMAP((i%10)/10) for i in range(n_lines)]
     lw = [.75 if (i % 5 != 0) else 1.5 for i in range(n_lines)]
     ax.set_prop_cycle(color=color, linewidth=lw)
 
 
-def _decorate_axes(ax, title=None, xlabel=None, ylabel=None, xlim=None, ylim=None, grid=True,
-                   legend=False, label_lines=True, tight_layout=True):
+def decorate_axes(ax, grid=True, legend=False, label_lines=True, tight_layout=True, **kwargs):
     """
     helper functions for common axes decorations
     """
-    if title:
-        ax.set_title(title)
-    if xlabel:
-        ax.set_xlabel(xlabel)
-    if ylabel:
-        ax.set_ylabel(ylabel)
-    if xlim:
-        ax.set_xlim(xlim)
-    if ylim:
-        ax.set_ylim(ylim)
+    ax.set(**kwargs)
     if grid:
         ax.grid(which="both", alpha=0.5, lw=0.5)
     if legend:
@@ -267,7 +293,7 @@ def _decorate_axes(ax, title=None, xlabel=None, ylabel=None, xlim=None, ylim=Non
 
 ###########################################################################################
 #### Code for decorating line plots with online labels
-#### Code pulled from https://github.com/cphyc/matplotlib-label-lines
+#### Code copied from https://github.com/cphyc/matplotlib-label-lines
 #### Based on https://stackoverflow.com/questions/16992038/inline-labels-in-matplotlib
 ###########################################################################################
 # Label line with line2D label data
