@@ -4,9 +4,11 @@ Module containing classes that provide interface for problem setup and solution
 
 import sys
 from warnings import warn
+from multiprocessing.pool import Pool
 import numpy as np
 import pandas as pd
 import scipy.integrate
+import scipy.interpolate
 # import numba
 
 from . import plotting
@@ -256,7 +258,6 @@ def basic_simulation(element, j, e_kin, t_max,
         An instance of the Result class, holding the simulation parameters, timesteps and
         charge state distribution.
     """
-
     # cast element to Element if necessary
     if not isinstance(element, elements.Element):
         element = elements.Element(element)
@@ -466,37 +467,53 @@ def advanced_simulation(element, j, e_kin, t_max,
         )
 
 
-def energy_scan(sim_func, sim_kwargs, energies):
+def energy_scan(sim_func, sim_kwargs, energies, parallel=False):
+    sim_kwargs = sim_kwargs.copy()
+
     if "e_kin" in sim_kwargs:
-        sim_kwargs = sim_kwargs.copy()
         del sim_kwargs["e_kin"]
         warn(f"sim_kwargs contains a value for e_kin, this item will be ignored.")
 
-    sim_kwargs.setdefault("solver_kwargs", {})
-    sim_kwargs["solver_kwargs"]["dense_output"] = True # need dense output for interpolation
+    # cast element to Element if necessary
+    if not isinstance(sim_kwargs["element"], elements.Element):
+        sim_kwargs["element"] = elements.Element(sim_kwargs["element"])
 
     energies = np.array(energies)
     energies.sort()
 
+    global sim
     def sim(e_kin):
-        return sim_func(e_kin=e_kin, **sim_kwargs)
+        res = sim_func(e_kin=e_kin, **sim_kwargs)
+        return dict(t=res.t, N=res.N, kbT=res.kbT)
 
-    results = [sim(e_kin) for e_kin in energies]
-    return EnergyScanResult(energies, results)
+    if parallel:
+        with Pool() as pool:
+            results = pool.map(sim, energies)
+    else:
+        results = [sim(e_kin) for e_kin in energies]
+
+    return EnergyScanResult(sim_kwargs, energies, results)
 
 
 class EnergyScanResult:
-    def __init__(self, energies, results):
+    def __init__(self, sim_kwargs, energies, results):
+        self._sim_kwargs = sim_kwargs
+        self._t_max = self._sim_kwargs["t_max"]
+        self._element = self._sim_kwargs["element"]
         self._energies = energies
         self._results = results
-        self._t_max = min([res.param["t_max"] for res in results])
-        self._element = self._results[0].param["element"]
+        for res in self._results:
+            res["N_interp"] = scipy.interpolate.interp1d(res["t"], res["N"])
+            if res["kbT"]:
+                res["kbT_interp"] = scipy.interpolate.interp1d(res["t"], res["kbT"])
+            else:
+                res["kbT_interp"] = None
 
 
     def abundance_at_time(self, t):
         if t < 0 or t > self._t_max:
             raise ValueError("This time has not been simulated during the energyscan.")
-        per_energy = [res.ode_sol.sol(t) for res in self._results]
+        per_energy = [res["N_interp"](t) for res in self._results]
         return self._energies, np.column_stack(per_energy)
 
 
@@ -504,9 +521,7 @@ class EnergyScanResult:
         if cs > self._element.z:
             raise ValueError("This charge state is not available for the given element.")
         times = np.logspace(-4, np.log10(self._t_max), 500)
-        print(times)
         times = np.clip(times, a_min=0, a_max=self._t_max)
-        print(times)
         per_time = [self.abundance_at_time(t)[1][cs, :] for t in times]
         return self._energies, times, np.row_stack(per_time)
 
