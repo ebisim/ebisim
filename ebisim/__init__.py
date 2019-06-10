@@ -41,9 +41,9 @@ COMPT_E_RED
 
 Element
 
-plot_ei_xs
-plot_rr_xs
-plot_dr_xs
+plot_eixs
+plot_rrxs
+plot_drxs
 plot_combined_xs
 
 beams
@@ -83,6 +83,6 @@ from .physconst import (
 
 from .elements import Element
 
-from .plotting import plot_ei_xs, plot_rr_xs, plot_dr_xs, plot_combined_xs
+from .plotting import plot_eixs, plot_rrxs, plot_drxs, plot_combined_xs
 
 from . import beams

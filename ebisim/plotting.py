@@ -149,7 +149,7 @@ def _plot_xs(e_samp, xs_scan, fig=None, xscale="log", yscale="log",
     return fig
 
 
-def plot_ei_xs(element, **kwargs):
+def plot_eixs(element, **kwargs):
     """
     Creates a figure showing the EI cross sections and returns the figure handle
 
@@ -167,7 +167,7 @@ def plot_ei_xs(element, **kwargs):
     return _plot_xs(e_samp, xs_scan, **kwargs)
 
 
-def plot_rr_xs(element, **kwargs):
+def plot_rrxs(element, **kwargs):
     """
     Creates a figure showing the RR cross sections and returns the figure handle
 
@@ -185,7 +185,7 @@ def plot_rr_xs(element, **kwargs):
     return _plot_xs(e_samp, xs_scan, **kwargs)
 
 
-def plot_dr_xs(element, fwhm, **kwargs):
+def plot_drxs(element, fwhm, **kwargs):
     """
     Creates a figure showing the DR cross sections and returns the figure handle
 
@@ -219,9 +219,9 @@ def plot_combined_xs(element, fwhm, xlim=None, ylim=(1e-24, 1e-16),
     title = f"Combined cross sections of {element.latex_isotope()} " \
             f"(Electron beam FWHM = {fwhm:0.1f} eV)"
     common_kwargs = dict(xlim=xlim, ylim=ylim, xscale=xscale, yscale=yscale)
-    fig = plot_ei_xs(element, label_lines=False, legend=legend, ls="--", **common_kwargs)
-    fig = plot_rr_xs(element, fig=fig, ls="-.", **common_kwargs)
-    fig = plot_dr_xs(element, fwhm, fig=fig, ls="-", legend=False, title=title, **common_kwargs)
+    fig = plot_eixs(element, label_lines=False, legend=legend, ls="--", **common_kwargs)
+    fig = plot_rrxs(element, fig=fig, ls="-.", **common_kwargs)
+    fig = plot_drxs(element, fwhm, fig=fig, ls="-", legend=False, title=title, **common_kwargs)
     return fig
 
 
