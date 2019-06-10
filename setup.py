@@ -1,3 +1,7 @@
+"""
+setup for ebisim
+"""
+
 # import importlib.resources
 import os
 import sys
@@ -24,6 +28,9 @@ with open("README.md", "r") as fh:
     LONG_DESCRIPTION = fh.read()
 
 def from_init(attr):
+    """
+    read a value from ebisim/__init__.py
+    """
     # text = importlib.resources.read_text("ebisim", "__init__.py")
     loc = os.path.abspath(os.path.dirname(__file__))
     with open(os.path.join(loc, "ebisim", "__init__.py")) as f:
