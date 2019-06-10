@@ -15,7 +15,8 @@ from . import xs
 from . import elements
 
 
-#: The default colormap used to grade line plots
+#: The default colormap used to grade line plots, assigning another colormap to this object
+#: will result in an alternative color gradient for line plots
 COLORMAP = plt.cm.gist_rainbow #pylint: disable=E1101
 
 
@@ -24,6 +25,30 @@ COLORMAP = plt.cm.gist_rainbow #pylint: disable=E1101
 ########################
 
 def plot_energy_scan(energies, abundance, cs=None, **kwargs):
+    """
+    Produces a plot of the charge state abundance for different energies at a given time.
+
+    Parameters
+    ----------
+    energies : numpy.array
+        <eV>
+        The evaluated energies.
+    abundance : numpy.array
+        The abundance of each charge state (rows) for each energy (columns).
+    cs : list of int or None, optional
+        If None, all charge states are plotted. By supplying a list of int it
+        is possible to filter the charge states that should be plotted.
+        By default None.
+    **kwargs
+        Keyword arguments are handed down to ebisim.plotting.decorate_axes,
+        cf. documentation thereof.
+        If no arguments are provided, reasonable default values are injected.
+
+    Returns
+    -------
+    matplotlib.Figure
+        Figure handle of the generated plot.
+    """
     fig = plt.figure(figsize=(6, 3), dpi=150)
     ax = fig.add_subplot(111)
 
@@ -46,7 +71,28 @@ def plot_energy_scan(energies, abundance, cs=None, **kwargs):
 
 def plot_energy_time_scan(energies, times, abundance, **kwargs):
     """
-    Plots the abundance of a charge state depending on the breeding time and energy
+    Provides information about the abundance of a single charge states at all simulated times
+    and energies.
+
+    Parameters
+    ----------
+    energies : numpy.array
+        <eV>
+        The evaluated energies.
+    times : numpy.array
+        <s>
+        The evaluated timesteps.
+    abundance : numpy.array
+        Abundance of charge state 'cs' at given times (rows) and energies (columns).
+    **kwargs
+        Keyword arguments are handed down to ebisim.plotting.decorate_axes,
+        cf. documentation thereof.
+        If no arguments are provided, reasonable default values are injected.
+
+    Returns
+    -------
+    matplotlib.Figure
+        Figure handle of the generated plot.
     """
     fig = plt.figure(figsize=(6, 3), dpi=150)
     ax = fig.add_subplot(111)
@@ -74,15 +120,29 @@ def plot_energy_time_scan(energies, times, abundance, **kwargs):
 
 def plot_generic_evolution(t, y, plot_total=False, **kwargs):
     """
-    Method that plots the evolution of a quantity of an EBIS charge breeding simulation
-    returns figure handle
+    Plots the evolution of a quantity with time
 
-    ode_solution - solution object to plot
-    title - (optional) Plot title
-    xlim, ylim - (optional) plot limits
-    ylabel - label
-    legend - (optional) show legend?
-    line_labels - annotate lines?
+    Parameters
+    ----------
+    t : numpy.array
+        <s>
+        Values for the time steps.
+    y : numpy.array
+        Values of the evoloving quantity to plot as a function of time.
+        Has to be a 2D numpy array where the rows correspond to the different charge states and
+        the columns correspond to the individual timesteps.
+    plot_total : bool, optional
+        Indicate whether a black dashed line indicating the total accross all charge states should
+        also be plotted, by default False.
+    **kwargs
+        Keyword arguments are handed down to ebisim.plotting.decorate_axes,
+        cf. documentation thereof.
+        If no arguments are provided, reasonable default values are injected.
+
+    Returns
+    -------
+    matplotlib.Figure
+        Figure handle of the generated plot.
     """
     fig = plt.figure(figsize=(8, 6), dpi=150)
     ax = fig.add_subplot(111)
@@ -114,20 +174,32 @@ def plot_generic_evolution(t, y, plot_total=False, **kwargs):
 #### XS Plotting #######
 ########################
 
-def plot_xs(e_samp, xs_scan, fig=None, ls="-", **kwargs):
+def _plot_xs(e_samp, xs_scan, fig=None, ls="-", **kwargs):
     """
-    Creates a figure showing the cross sections and returns the figure handle
+    Low level plotting routine serving plot_eixs, plot_rrxs and plot_drxs
 
-    Input Parameters
-    xs_df - dataframe holding the required data, one column must be ekin (energy) other columns
-            represent each chargestate (columns should be in ascending order)
-    fig - (optional) Pass handle to plot on existing figure
-    xscale, yscale - (optional) Scaling of x and y axis (log or linear)
-    title - (optional) Plot title
-    xlim, ylim - (optional) plot limits
-    legend - (optional) show legend?
-    line_labels - annotate lines?
-    ls - linestyle
+    Parameters
+    ----------
+    e_samp : numpy.ndarray
+        <eV>
+        Array holding the sampling energies.
+    xs_scan : numpy.ndarray
+        <m^2>
+        Array holding the cross sections, where the row index corresponds to the charge state
+        and the columns correspond to the different sampling energies.
+    fig : matplotlib.Figure, optional
+        Provide if you want to add this plot to an existing figure, by default None.
+    ls : str, optional
+        Can be provided to define a linestyle for the plot, by default "-".
+    **kwargs
+        Keyword arguments are handed down to ebisim.plotting.decorate_axes,
+        cf. documentation thereof.
+        If no arguments are provided, reasonable default values are injected.
+
+    Returns
+    -------
+    matplotlib.Figure
+        Figure handle of the generated plot.
     """
     if not fig:
         fig = plt.figure(figsize=(8, 6), dpi=150)
@@ -160,10 +232,24 @@ def plot_xs(e_samp, xs_scan, fig=None, ls="-", **kwargs):
 
 def plot_eixs(element, **kwargs):
     """
-    Creates a figure showing the EI cross sections and returns the figure handle
+    Creates a figure showing the electron ionisation cross sections of the provided element.
 
-    Input Parameters
-    **kwargs - passed on to _plot_xs, check arguments thereof
+    Parameters
+    ----------
+    element : ebisim.elements.Element or str or int
+        An instance of the Element class, or an identifier for the element, i.e. either its
+        name, symbol or proton number.
+    **kwargs
+        'fig' is intercepted and can be used to plot on top of an existing figure.
+        'ls' is intercepted and can be used to set the linestyle for plotting.
+        Remaining keyword arguments are handed down to ebisim.plotting.decorate_axes,
+        cf. documentation thereof.
+        If no arguments are provided, reasonable default values are injected.
+
+    Returns
+    -------
+    matplotlib.Figure
+        Figure handle of the generated plot.
     """
     if not isinstance(element, elements.Element):
         element = elements.Element(element)
@@ -172,15 +258,29 @@ def plot_eixs(element, **kwargs):
 
     kwargs.setdefault("title", f"EI cross sections of {element.latex_isotope()}")
 
-    return plot_xs(e_samp, xs_scan, **kwargs)
+    return _plot_xs(e_samp, xs_scan, **kwargs)
 
 
 def plot_rrxs(element, **kwargs):
     """
-    Creates a figure showing the RR cross sections and returns the figure handle
+    Creates a figure showing the radiative recombination cross sections of the provided element.
 
-    Input Parameters
-    **kwargs - passed on to _plot_xs, check arguments thereof
+    Parameters
+    ----------
+    element : ebisim.elements.Element or str or int
+        An instance of the Element class, or an identifier for the element, i.e. either its
+        name, symbol or proton number.
+    **kwargs
+        'fig' is intercepted and can be used to plot on top of an existing figure.
+        'ls' is intercepted and can be used to set the linestyle for plotting.
+        Remaining keyword arguments are handed down to ebisim.plotting.decorate_axes,
+        cf. documentation thereof.
+        If no arguments are provided, reasonable default values are injected.
+
+    Returns
+    -------
+    matplotlib.Figure
+        Figure handle of the generated plot.
     """
     if not isinstance(element, elements.Element):
         element = elements.Element(element)
@@ -189,15 +289,33 @@ def plot_rrxs(element, **kwargs):
 
     kwargs.setdefault("title", f"RR cross sections of {element.latex_isotope()}")
 
-    return plot_xs(e_samp, xs_scan, **kwargs)
+    return _plot_xs(e_samp, xs_scan, **kwargs)
 
 
 def plot_drxs(element, fwhm, **kwargs):
     """
-    Creates a figure showing the DR cross sections and returns the figure handle
+    Creates a figure showing the dielectronic recombination cross sections of the provided element.
 
-    Input Parameters
-    **kwargs - passed on to _plot_xs, check arguments thereof
+    Parameters
+    ----------
+    element : ebisim.elements.Element or str or int
+        An instance of the Element class, or an identifier for the element, i.e. either its
+        name, symbol or proton number.
+    fwhm : float
+        <eV>
+        Energy spread to apply for the resonance smearing, expressed in terms of
+        full width at half maximum.
+    **kwargs
+        'fig' is intercepted and can be used to plot on top of an existing figure.
+        'ls' is intercepted and can be used to set the linestyle for plotting.
+        Remaining keyword arguments are handed down to ebisim.plotting.decorate_axes,
+        cf. documentation thereof.
+        If no arguments are provided, reasonable default values are injected.
+
+    Returns
+    -------
+    matplotlib.Figure
+        Figure handle of the generated plot.
     """
     if not isinstance(element, elements.Element):
         element = elements.Element(element)
@@ -213,12 +331,32 @@ def plot_drxs(element, fwhm, **kwargs):
         f"DR cross sections of {element.latex_isotope()} (Electron beam FWHM = {fwhm:0.1f} eV)"
     )
 
-    return plot_xs(e_samp, xs_scan, **kwargs)
+    return _plot_xs(e_samp, xs_scan, **kwargs)
 
 
 def plot_combined_xs(element, fwhm, **kwargs):
     """
-    Combo Plot of EI RR DR for element with fwhm for DR resonances
+    Creates a figure showing the electron ionisation, radiative recombination and,
+    dielectronic recombination cross sections of the provided element.
+
+    Parameters
+    ----------
+    element : ebisim.elements.Element or str or int
+        An instance of the Element class, or an identifier for the element, i.e. either its
+        name, symbol or proton number.
+    fwhm : float
+        <eV>
+        Energy spread to apply for the resonance smearing, expressed in terms of
+        full width at half maximum.
+    **kwargs
+        Remaining keyword arguments are handed down to ebisim.plotting.decorate_axes,
+        cf. documentation thereof.
+        If no arguments are provided, reasonable default values are injected.
+
+    Returns
+    -------
+    matplotlib.Figure
+        Figure handle of the generated plot.
     """
     if not isinstance(element, elements.Element):
         element = elements.Element(element)
@@ -232,7 +370,9 @@ def plot_combined_xs(element, fwhm, **kwargs):
         f"Combined cross sections of {element.latex_isotope()} " \
         f"(Electron beam FWHM = {fwhm:0.1f} eV)"
     )
+    kwargs.setdefault("label_lines", True)
 
+    label_lines = kwargs.pop("label_lines")
     legend = kwargs.pop("legend")
 
     fig = plot_eixs(
@@ -246,7 +386,7 @@ def plot_combined_xs(element, fwhm, **kwargs):
         element,
         fig=fig,
         ls="-.",
-        label_lines=True,
+        label_lines=label_lines,
         legend=False,
         **kwargs
     )
@@ -274,7 +414,23 @@ def _set_line_prop_cycle(ax, n_lines):
 
 def decorate_axes(ax, grid=True, legend=False, label_lines=True, tight_layout=True, **kwargs):
     """
-    helper functions for common axes decorations
+    This function exists to have a common routine for setting certain figure properties, it is
+    called by all other plotting routines and takes over the majority of the visual polishing.
+
+    Parameters
+    ----------
+    ax : matplotlib.Axes
+        The axes to be modifed.
+    grid : bool, optional
+        Whether or not to lay a grid over the plot, by default True.
+    legend : bool, optional
+        Whether or not to put a legend next to the plot, by default False.
+    label_lines : bool, optional
+        Whether or not to put labels along the lines in the plot, by default True.
+    tight_layout : bool, optional
+        Whether or not to apply matplotlibs tight layout on the parentfigure of ax, by default True.
+    **kwargs
+        Are directly applied as axes properties, e.g. xlabel, xscale, title, etc.
     """
     ax.set(**kwargs)
     if grid:
@@ -287,7 +443,7 @@ def decorate_axes(ax, grid=True, legend=False, label_lines=True, tight_layout=Tr
         lines = [l for l in ax.get_lines() if any(l._x)] # pylint: disable=W0212
         step = int(np.ceil(len(lines)/10))
         lines = lines [::step]
-        labelLines(lines, size=7, bbox={"pad":0.1, "fc":"w", "ec":"none"})
+        _labelLines(lines, size=7, bbox={"pad":0.1, "fc":"w", "ec":"none"})
     if tight_layout:
         ax.figure.tight_layout()
 
@@ -297,7 +453,7 @@ def decorate_axes(ax, grid=True, legend=False, label_lines=True, tight_layout=Tr
 #### Based on https://stackoverflow.com/questions/16992038/inline-labels-in-matplotlib
 ###########################################################################################
 # Label line with line2D label data
-def labelLine(line, x, label=None, align=True, **kwargs):
+def _labelLine(line, x, label=None, align=True, **kwargs):
     '''Label a single matplotlib line at position x'''
     ax = line.axes
     xdata = line.get_xdata()
@@ -359,7 +515,7 @@ def labelLine(line, x, label=None, align=True, **kwargs):
     ax.text(x, y, label, rotation=trans_angle, **kwargs)
 
 
-def labelLines(lines, align=True, xvals=None, **kwargs):
+def _labelLines(lines, align=True, xvals=None, **kwargs):
     '''Label all lines with their respective legends.
 
     xvals: (xfirst, xlast) or array of position. If a tuple is provided, the
@@ -388,4 +544,4 @@ def labelLines(lines, align=True, xvals=None, **kwargs):
             xvals = np.linspace(xmin, xmax, len(labLines)+2)[1:-1]
 
     for line, x, label in zip(labLines, xvals, labels):
-        labelLine(line, x, label, align, **kwargs)
+        _labelLine(line, x, label, align, **kwargs)
