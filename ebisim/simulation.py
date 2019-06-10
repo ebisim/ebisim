@@ -95,7 +95,7 @@ class Result:
 
         Returns
         -------
-        matplotlib.figure.Figure
+        matplotlib.Figure
             Figure handle of the generated plot.
 
         Raises
@@ -142,7 +142,7 @@ class Result:
 
         Returns
         -------
-        matplotlib.figure.Figure
+        matplotlib.Figure
             Figure handle of the generated plot.
 
         Raises
@@ -182,7 +182,7 @@ class Result:
 
         Returns
         -------
-        matplotlib.figure.Figure
+        matplotlib.Figure
             Figure handle of the generated plot
 
         Raises
@@ -633,7 +633,7 @@ class EnergyScanResult:
 
         Returns
         -------
-        matplotlib.figure.Figure
+        matplotlib.Figure
             Figure handle of the generated plot.
         """
         energies, abundance = self.abundance_at_time(t)
@@ -663,7 +663,7 @@ class EnergyScanResult:
 
         Returns
         -------
-        matplotlib.figure.Figure
+        matplotlib.Figure
             Figure handle of the generated plot.
         """
         energies, times, abundance = self.abundance_of_cs(cs)
