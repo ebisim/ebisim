@@ -1,7 +1,6 @@
 # for ebsisim
 numpy
 scipy
-pandas
 numba
 matplotlib
 # docs
