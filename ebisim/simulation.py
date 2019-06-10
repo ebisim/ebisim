@@ -1,5 +1,6 @@
 """
-Module containing classes that provide interface for problem setup and solution
+This module containins functions and classes provide an interface to run simulations and inspect
+their results.
 """
 
 from warnings import warn

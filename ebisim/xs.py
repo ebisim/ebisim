@@ -1,6 +1,6 @@
 """
 This module contains functions to compute the cross sections for various ionisation and
-recombination processes
+recombination processes.
 """
 
 # from functools import lru_cache

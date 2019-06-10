@@ -1,6 +1,9 @@
 """
-Module holding functions and classes for convenient handling of elements in the periodic table
-May be extended for more functionality (element properties) in the future
+This module most notably implements the Element class, which serves as the main container for
+physical data going into the ebisim computations.
+
+Besides that, there are some small helper functions to translate certain element properties,
+which may offer convenience to the user.
 """
 
 from collections import namedtuple

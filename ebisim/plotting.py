@@ -1,6 +1,9 @@
 """
-Module containing logic for plotting
+All the plotting logic of ebisim is collected in this module. The functions can be called manually
+by the user, but are primarily desinged to be called internally by ebisim, thefore the API may lack
+convenience in some places.
 """
+
 from datetime import datetime
 from math import atan2, degrees
 import numpy as np

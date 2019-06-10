@@ -1,5 +1,6 @@
 """
-This module contains classes dealing with Electron beam properties / physics
+This module contains tools for computing characteristic quantities of electron beams typically
+found in an electron beam ion source / trap.
 """
 
 import numpy as np

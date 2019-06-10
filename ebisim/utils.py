@@ -1,7 +1,9 @@
 """
 This module contains convenience and management functions not directly related to the
-simulation code, e.g. loading resources.
+simulation code, e.g. loading resources. These functions are meant for internal use only, they
+have no real use outside this scope.
 """
+
 import json
 try:
     from importlib.resources import open_text # py>=3.7

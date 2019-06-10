@@ -1,5 +1,5 @@
 """
-This module contains functions for computing collission rates and related plasma parameters
+This module contains functions for computing collission rates and related plasma parameters.
 """
 
 import math
