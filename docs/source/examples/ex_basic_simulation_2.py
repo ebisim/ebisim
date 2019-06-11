@@ -1,7 +1,7 @@
-import ebisim as eb
-from matplotlib.pyplot import show
+"""Example: Basic simulation with CNI"""
 
-# Continuous Neutral Injection (CNI) simulation
+from matplotlib.pyplot import show
+import ebisim as eb
 
 element = eb.Element("Argon") # element that is to be charge bred
 j = 200 # current density in A/cm^2
@@ -17,7 +17,7 @@ result = eb.basic_simulation(
 )
 
 # Since the number of ions is constantly increasing with CNI,
-# it is helpful to only plot the relative distribution at each timestep
+# it is helpful to only plot the relative distribution at each time step
 # This is easily achieved by setting the corresponding flag
 result.plot_charge_states(relative=True)
 

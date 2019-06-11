@@ -1,7 +1,9 @@
-import ebisim as eb
-from matplotlib.pyplot import show
+"""Example: Basic simulation with DR"""
 
-# For the basic simulation only a small number of parameters needs to be supplied for the run
+from matplotlib.pyplot import show
+import ebisim as eb
+
+# For the basic simulation only a small number of parameters needs to be provided
 
 element = eb.Element("Potassium") # element that is to be charge bred
 j = 200 # current density in A/cm^2

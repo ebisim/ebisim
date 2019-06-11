@@ -1,5 +1,7 @@
-import ebisim as eb
+"""Example: Plotting cross sections"""
+
 from matplotlib.pyplot import show
+import ebisim as eb
 
 # The cross section plot commands accept a number of formats for the element parameter
 # This example shows the different possibilities

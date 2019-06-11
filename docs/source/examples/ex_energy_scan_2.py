@@ -1,8 +1,10 @@
-import ebisim as eb
+"""Example: Energy scan accross DR resonances"""
+
 from matplotlib.pyplot import show
 import numpy as np
+import ebisim as eb
 
-sim_kwargs= dict(
+sim_kwargs = dict(
     element=eb.Element("Potassium"), # element that is to be charge bred
     j=200, # current density in A/cm^2
     t_max=1, # length of simulation in s
@@ -15,7 +17,7 @@ scan = eb.energy_scan(
     parallel=True
 )
 
-scan.plot_abundance_at_time(t=.1, cs=[14,15,16,17])
+scan.plot_abundance_at_time(t=0.1, cs=[14, 15, 16, 17])
 scan.plot_abundance_of_cs(cs=16)
 
 show()
