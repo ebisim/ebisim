@@ -52,6 +52,42 @@ class Result:
         self.ode_res = ode_res
 
 
+    def times_of_highest_abundance(self):
+        """
+        Yields the point of time with the highest abundance for each charge state
+
+        Returns
+        -------
+        numpy.array
+            <s>
+            Array of times.
+
+        """
+        args = np.argmax(self.N, axis=1)
+        return self.t[args]
+
+
+    def abundance_at_time(self, t):
+        """
+        Yields the abundance of each charge state at a given time
+
+        Parameters
+        ----------
+        t : float
+            <s>
+            Point of time to evaluate.
+
+        Returns
+        -------
+        numpy.array
+            Abundance of each charge state, array index corresponds to charge state.
+
+        """
+        if self.ode_res and self.ode_res.sol:
+            return self.ode_res.sol(t)
+        interp = scipy.interpolate.interp1d(self.t, self.N)
+        return interp(t)
+
     def _param_title(self, stub):
         """
         Generates a plot title by merging the stub with some general simulation parameters.
@@ -561,6 +597,32 @@ class EnergyScanResult:
         self._results = results
 
 
+    def get_result(self, e_kin):
+        """
+        Returns the result object corresponding to the simulation at a given energy
+
+        Parameters
+        ----------
+        e_kin : float
+            <eV>
+            The energy of the simulation one wishes to retrieve.
+
+        Returns
+        -------
+        ebisim.simulation.Result
+            The Result object for the polled scan step.
+
+        Raises
+        ------
+        ValueError
+            If the polled energy is not available.
+        """
+        if e_kin in self._energies:
+            return self._results[self._energies.index(e_kin)]
+        else:
+            raise ValueError(f"e_kin = {e_kin} eV has not been simulated during this energy scan.")
+
+
     def abundance_at_time(self, t):
         """
         Provides information about the charge state distribution at a given time for all energies.
@@ -585,7 +647,7 @@ class EnergyScanResult:
         """
         if t < 0 or t > self._t_max:
             raise ValueError("This time has not been simulated during the energyscan.")
-        per_energy = [res.ode_res.sol(t) for res in self._results]
+        per_energy = [res.abundance_at_time(t) for res in self._results]
         return self._energies.copy(), np.column_stack(per_energy)
 
 
