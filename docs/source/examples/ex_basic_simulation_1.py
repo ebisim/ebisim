@@ -5,7 +5,7 @@ import ebisim as eb
 
 # For the basic simulation only a small number of parameters needs to be provided
 
-element = eb.Element("Potassium") # element that is to be charge bred
+element = eb.get_element("Potassium") # element that is to be charge bred
 j = 200 # current density in A/cm^2
 e_kin = 2470 # electron beam energy in eV
 t_max = 1 # length of simulation in s

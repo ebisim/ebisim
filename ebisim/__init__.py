@@ -39,7 +39,7 @@ M_E_EV
 RY_EV
 COMPT_E_RED
 
-Element
+get_element
 
 plot_eixs
 plot_rrxs
@@ -81,7 +81,7 @@ from .physconst import (
     COMPT_E_RED,
 )
 
-from .elements import Element
+from .elements import get_element
 
 from .plotting import plot_eixs, plot_rrxs, plot_drxs, plot_combined_xs
 

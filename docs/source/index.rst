@@ -15,7 +15,7 @@ using Python.
 ..     import ebisim as eb
 ..     from matplotlib.pyplot import show
 
-..     K = eb.Element("Potassium")
+..     K = eb.get_element("Potassium")
 ..     eb.plot_ei_xs(K)
 ..     show()
 

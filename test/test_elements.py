@@ -7,6 +7,7 @@ from ebisim.elements import (
     element_symbol,
     element_z,
     Element,
+    get_element
 )
 
 def test_element_z():
@@ -40,34 +41,34 @@ def test_Element_basic_info():
     u = [92, "U", "Uranium", 238]
     for elem_ref in [k, cs, u]:
         for idx in elem_ref[:-1]:
-            elem = Element(idx)
+            elem = get_element(idx)
             assert elem.z == elem_ref[0]
             assert elem.symbol == elem_ref[1]
             assert elem.name == elem_ref[2]
             assert elem.a == elem_ref[3]
     # Check that meaningless elements throw ValueErrors
     with pytest.raises(ValueError):
-        Element(0)
+        get_element(0)
     with pytest.raises(ValueError):
-        Element(106)
+        get_element(106)
     with pytest.raises(ValueError):
-        Element("h")
+        get_element("h")
     with pytest.raises(ValueError):
-        Element("HE")
+        get_element("HE")
     with pytest.raises(ValueError):
-        Element("XX")
+        get_element("XX")
     with pytest.raises(ValueError):
-        Element("Ccarbon")
+        get_element("Ccarbon")
 
 def test_Element_mass_number():
     # test overwriting of the defaults of a
     for z in [12, 15, 55]:
         for a_ref in [1, 12, 54, 23, 77]:
-            assert Element(z, a=a_ref).a == a_ref
+            assert get_element(z, a=a_ref).a == a_ref
     # test that meaningless a raise an Error
     with pytest.raises(ValueError):
-        Element(1, a=-1)
+        get_element(1, a=-1)
     with pytest.raises(ValueError):
-        Element(1, a=0)
+        get_element(1, a=0)
     with pytest.raises(TypeError):
-        Element(1, a="x")
+        get_element(1, a="x")

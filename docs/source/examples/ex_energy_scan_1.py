@@ -10,7 +10,7 @@ import ebisim as eb
 # simulation function that one wants to use, these names can be found in the API Reference
 
 sim_kwargs = dict(
-    element=eb.Element("Potassium"), # element that is to be charge bred
+    element=eb.get_element("Potassium"), # element that is to be charge bred
     j=200, # current density in A/cm^2
     t_max=100 # length of simulation in s
 )

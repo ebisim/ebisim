@@ -101,8 +101,11 @@ _ElementSpec = namedtuple(
     ]
 )
 
+
 class Element(_ElementSpec):
     """
+    USE THE ebisim.elements.get_element FACTORY METHOD TO CREATE INSTANCES OF THIS CLASS.
+
     This class is derived from collections.namedtuple which facilitates use with numba-compiled
     functions.
     Instances are holding information about a chemical element.
@@ -110,90 +113,10 @@ class Element(_ElementSpec):
     information for the computations of cross sections and rates.
     Many ebisim functions take an instance of Element as their input and access the information
     stored within the instance for their computations.
-
-    Parameters
-    ----------
-    element_id : str or int
-        The full name, abbreviated symbol, or proton number of the element of interest.
-    a : int or None, optional
-        If provided sets the (isotopic) mass number of the Element object otherwise a reasonable
-        value is chosen automatically, by default None.
-
-
-    Raises
-    ------
-    ValueError
-        If the Element could not be identified or a meaningless mass number is provided.
     """
     # https://docs.python.org/3.6/library/collections.html#collections.namedtuple
     # contains documentation for named tuples
     __slots__ = () # This is a trick to suppress unnecessary dict() for this kind of class
-    def __new__(cls, element_id, a=None):
-        """
-        Provides a convenient constructor accepting the atomic number, symbol, or name
-        If a is provided is interpreted as the mass number, otherwise a resonable value is assigned
-        The __new__ construct is necessary due to the immutable nature of the underlying namedtuple.
-
-
-        Parameters
-        ----------
-        element_id : str or int
-            The full name, abbreviated symbol, or proton number of the element of interest.
-        a : int or None, optional
-            If provided sets the (isotopic) mass number of the Element object otherwise a reasonable
-            value is chosen automatically, by default None.
-
-
-        Raises
-        ------
-        ValueError
-            If the Element could not be identified or a meaningless mass number is provided.
-        """
-        # Basic element info
-        try:
-            if isinstance(element_id, int):
-                z = element_id
-            else:
-                z = element_z(element_id)
-            symbol = element_symbol(z)
-            name = element_name(z)
-        except ValueError:
-            raise ValueError(f"Unable to interpret element_id = {element_id}, " \
-                "ebisim only supports elements up to Z = 105.")
-
-        # Mass number
-        if a is None:
-            idx = _ELEM_Z.index(z)
-            a = _ELEM_A[idx]
-        if a <= 0:
-            raise ValueError("Mass number 'a' cannot be smaller than 1.")
-
-        # Electron configuration and shell binding energies
-        cfg = _ELECTRON_INFO[z]["cfg"]
-        e_bind = _ELECTRON_INFO[z]["ebind"]
-
-        # Precomputations for radiative recombination
-        z_eff, n_0_eff = xs.precompute_rr_quantities(cfg, _SHELL_N)
-
-        # Data for computations of dielectronic recombination cross sections
-        dr_cs = _DR_DATA[z]["dr_cs"]
-        dr_e_res = _DR_DATA[z]["dr_e_res"]
-        dr_strength = _DR_DATA[z]["dr_strength"]
-
-        return super(Element, cls).__new__(
-            cls,
-            z,
-            symbol,
-            name,
-            a,
-            cfg,
-            e_bind,
-            z_eff,
-            n_0_eff,
-            dr_cs,
-            dr_e_res,
-            dr_strength
-        )
 
     def latex_isotope(self):
         """
@@ -228,3 +151,71 @@ Element.n_0_eff.__doc__ = "Numpy array of effective valence shell numbers for RR
 Element.dr_cs.__doc__ = "Numpy array of charge states for DR cross sections."
 Element.dr_e_res.__doc__ = "Numpy array of resonance energies for DR cross sections."
 Element.dr_strength.__doc__ = "Numpy array of transition strengths for DR cross sections."
+
+def get_element(element_id, a=None):
+    """
+    Factory method to create instances of the Element class.
+
+    Parameters
+    ----------
+    element_id : str or int
+        The full name, abbreviated symbol, or proton number of the element of interest.
+    a : int or None, optional
+        If provided sets the (isotopic) mass number of the Element object otherwise a reasonable
+        value is chosen automatically, by default None.
+
+    Returns
+    -------
+    ebisim.elements.Element
+        An instance of Element with the physical data corresponding to the supplied element_id, and
+        optionally mass number.
+
+    Raises
+    ------
+    ValueError
+        If the Element could not be identified or a meaningless mass number is provided.
+    """
+    # Basic element info
+    try:
+        if isinstance(element_id, int):
+            z = element_id
+        else:
+            z = element_z(element_id)
+        symbol = element_symbol(z)
+        name = element_name(z)
+    except ValueError:
+        raise ValueError(f"Unable to interpret element_id = {element_id}, " \
+            "ebisim only supports elements up to Z = 105.")
+
+    # Mass number
+    if a is None:
+        idx = _ELEM_Z.index(z)
+        a = _ELEM_A[idx]
+    if a <= 0:
+        raise ValueError("Mass number 'a' cannot be smaller than 1.")
+
+    # Electron configuration and shell binding energies
+    cfg = _ELECTRON_INFO[z]["cfg"]
+    e_bind = _ELECTRON_INFO[z]["ebind"]
+
+    # Precomputations for radiative recombination
+    z_eff, n_0_eff = xs.precompute_rr_quantities(cfg, _SHELL_N)
+
+    # Data for computations of dielectronic recombination cross sections
+    dr_cs = _DR_DATA[z]["dr_cs"]
+    dr_e_res = _DR_DATA[z]["dr_e_res"]
+    dr_strength = _DR_DATA[z]["dr_strength"]
+
+    return Element(
+        z,
+        symbol,
+        name,
+        a,
+        cfg,
+        e_bind,
+        z_eff,
+        n_0_eff,
+        dr_cs,
+        dr_e_res,
+        dr_strength
+    )

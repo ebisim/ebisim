@@ -5,7 +5,7 @@ import numpy as np
 import ebisim as eb
 
 sim_kwargs = dict(
-    element=eb.Element("Potassium"), # element that is to be charge bred
+    element=eb.get_element("Potassium"), # element that is to be charge bred
     j=200, # current density in A/cm^2
     t_max=1, # length of simulation in s
     dr_fwhm=15 # This time DR has to be activated by setting an effective line width

@@ -260,7 +260,7 @@ def basic_simulation(element, j, e_kin, t_max,
     """
     # cast element to Element if necessary
     if not isinstance(element, elements.Element):
-        element = elements.Element(element)
+        element = elements.get_element(element)
 
     # set initial conditions if not supplied by user
     if not N_initial:
@@ -364,7 +364,7 @@ def advanced_simulation(element, j, e_kin, t_max,
     """
     # cast element to Element if necessary
     if not isinstance(element, elements.Element):
-        element = elements.Element(element)
+        element = elements.get_element(element)
 
     # set initial conditions if not supplied by user
     if not N_kbT_initial:
@@ -501,7 +501,7 @@ def energy_scan(sim_func, sim_kwargs, energies, parallel=False):
 
     # cast element to Element if necessary
     if not isinstance(sim_kwargs["element"], elements.Element):
-        sim_kwargs["element"] = elements.Element(sim_kwargs["element"])
+        sim_kwargs["element"] = elements.get_element(sim_kwargs["element"])
 
     energies = np.array(energies)
     energies.sort()

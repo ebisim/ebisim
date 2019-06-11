@@ -7,7 +7,7 @@ import ebisim as eb
 # This example shows the different possibilities
 
 # The first option is to provide an instance of the Element class
-potassium = eb.Element("Potassium")
+potassium = eb.get_element("Potassium")
 
 # This command produces the cross section plot for electron impact ionisation
 eb.plot_eixs(element=potassium)

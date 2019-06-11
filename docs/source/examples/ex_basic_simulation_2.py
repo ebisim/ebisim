@@ -3,7 +3,7 @@
 from matplotlib.pyplot import show
 import ebisim as eb
 
-element = eb.Element("Argon") # element that is to be charge bred
+element = eb.get_element("Argon") # element that is to be charge bred
 j = 200 # current density in A/cm^2
 e_kin = 2470 # electron beam energy in eV
 t_max = 1 # length of simulation in s
