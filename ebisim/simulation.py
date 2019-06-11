@@ -37,19 +37,19 @@ class Result:
     N_is_density : bool, optional
         Indicates whether N describes the occupany in abstract terms or as an actual density.
         This has an influence on some default plot labels, by default False.
-    ode_sol : optional
-        The solution object returned by scipy.integrate.solve_ivp. This can contain useful
+    ode_res : optional
+        The result object returned by scipy.integrate.solve_ivp. This can contain useful
         information about the solver performance etc. Refer to scipy documentation for details.
 
     """
 
-    def __init__(self, param=None, t=None, N=None, kbT=None, N_is_density=False, ode_sol=None):
+    def __init__(self, param=None, t=None, N=None, kbT=None, N_is_density=False, ode_res=None):
         self.param = param
         self.t = t
         self.N = N
         self.kbT = kbT
         self.N_is_density = N_is_density
-        self.ode_sol = ode_sol
+        self.ode_res = ode_res
 
 
     def _param_title(self, stub):
@@ -301,8 +301,8 @@ def basic_simulation(element, j, e_kin, t_max,
     else:
         dNdt = lambda _, N: _jac.dot(N)
 
-    sol = scipy.integrate.solve_ivp(dNdt, (0, t_max), N_initial, jac=jac, **solver_kwargs)
-    return Result(param=param, t=sol.t, N=sol.y, ode_sol=sol)
+    res = scipy.integrate.solve_ivp(dNdt, (0, t_max), N_initial, jac=jac, **solver_kwargs)
+    return Result(param=param, t=res.t, N=res.y, ode_res=res)
 
 
 def advanced_simulation(element, j, e_kin, t_max,
@@ -454,14 +454,14 @@ def advanced_simulation(element, j, e_kin, t_max,
 
         return np.concatenate((R_tot, Q_tot))
 
-    sol = scipy.integrate.solve_ivp(rhs, (0, t_max), N_kbT_initial, **solver_kwargs)
+    res = scipy.integrate.solve_ivp(rhs, (0, t_max), N_kbT_initial, **solver_kwargs)
     return Result(
         param=param,
-        t=sol.t,
-        N=sol.y[:element.z + 1, :],
-        kbT=sol.y[element.z + 1:, :],
+        t=res.t,
+        N=res.y[:element.z + 1, :],
+        kbT=res.y[element.z + 1:, :],
         N_is_density=True,
-        ode_sol=sol
+        ode_res=res
         )
 
 
@@ -499,6 +499,9 @@ def energy_scan(sim_func, sim_kwargs, energies, parallel=False):
         del sim_kwargs["e_kin"]
         warn(f"sim_kwargs contains a value for e_kin, this item will be ignored.")
 
+    sim_kwargs.setdefault("solver_kwargs", {}) # cast element to Element if necessary
+    sim_kwargs["solver_kwargs"]["dense_output"] = True # need dense output for interpolation
+
     # cast element to Element if necessary
     if not isinstance(sim_kwargs["element"], elements.Element):
         sim_kwargs["element"] = elements.get_element(sim_kwargs["element"])
@@ -506,18 +509,31 @@ def energy_scan(sim_func, sim_kwargs, energies, parallel=False):
     energies = np.array(energies)
     energies.sort()
 
-    global _e_scan_sim # has to be global for mp.pool, pylint: disable=W0602
-    def _e_scan_sim(e_kin):
-        res = sim_func(e_kin=e_kin, **sim_kwargs)
-        return dict(t=res.t, N=res.N, kbT=res.kbT)
+    proc = _EScanProcessor(sim_func, sim_kwargs)
 
     if parallel:
         with Pool() as pool:
-            results = pool.map(_e_scan_sim, energies)
+            results = pool.map(proc, energies)
     else:
-        results = [_e_scan_sim(e_kin) for e_kin in energies]
+        results = list(map(proc, energies))
 
     return EnergyScanResult(sim_kwargs, energies, results)
+
+
+class _EScanProcessor:
+    """A simple helper class to set default arguments when calling functions with pool.map"""
+
+    def __init__(self, sim_func, sim_kwargs):
+        """Create the container by supplying the function handle"""
+        self.sim_func = sim_func
+        self.sim_kwargs = sim_kwargs
+        if "e_kin" in sim_kwargs:
+            del sim_kwargs["e_kin"]
+
+    def __call__(self, e_kin):
+        """Call the undelying function injecting the correct energy and returning a
+        dictionary containing the time, density and temperature fields"""
+        return self.sim_func(e_kin=e_kin, **self.sim_kwargs)
 
 
 class EnergyScanResult:
@@ -534,10 +550,8 @@ class EnergyScanResult:
     energies : numpy.array
         <eV>
         A sorted array containing the energies at which the energy scan has been evaluated.
-    results : list
-        A list of dicts containing the results of each simulation corresponding to an entry in
-        'energies'. Dict should contain keys ['t', 'N', 'kbT'] holding the information about
-        timesteps, ion density, and temperature as found in ebisim.simulation.Result
+    results : list of ebisim.simulation.Result
+        A list of Result objects holding the results of each individual simulation
     """
     def __init__(self, sim_kwargs, energies, results):
         self._sim_kwargs = sim_kwargs
@@ -545,12 +559,6 @@ class EnergyScanResult:
         self._element = self._sim_kwargs["element"]
         self._energies = energies
         self._results = results
-        for res in self._results:
-            res["N_interp"] = scipy.interpolate.interp1d(res["t"], res["N"])
-            if res["kbT"]:
-                res["kbT_interp"] = scipy.interpolate.interp1d(res["t"], res["kbT"])
-            else:
-                res["kbT_interp"] = None
 
 
     def abundance_at_time(self, t):
@@ -577,7 +585,7 @@ class EnergyScanResult:
         """
         if t < 0 or t > self._t_max:
             raise ValueError("This time has not been simulated during the energyscan.")
-        per_energy = [res["N_interp"](t) for res in self._results]
+        per_energy = [res.ode_res.sol(t) for res in self._results]
         return self._energies.copy(), np.column_stack(per_energy)
 
 
