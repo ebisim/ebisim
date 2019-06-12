@@ -26,7 +26,7 @@ to the :doc:`API reference <reference/ebisim>`.
 
 .. toctree::
    :maxdepth: 3
-   :caption: Reference:
+   :caption: Content:
 
    examples/examples
    reference/ebisim
