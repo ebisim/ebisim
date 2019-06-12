@@ -8,7 +8,6 @@ from multiprocessing.pool import Pool
 import numpy as np
 import scipy.integrate
 import scipy.interpolate
-# import numba
 
 from . import plotting
 from . import xs
@@ -427,7 +426,6 @@ def advanced_simulation(element, j, e_kin, t_max,
     # save adjusted call parameters for passing on to Result
     param = locals().copy()
 
-    # @numba.jit
     def rhs(_, y):
         ve = plasma.electron_velocity(e_kin)
         je = j / Q_E * 1e4

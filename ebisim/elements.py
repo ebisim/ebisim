@@ -199,7 +199,10 @@ def get_element(element_id, a=None):
     e_bind = _ELECTRON_INFO[z]["ebind"]
 
     # Precomputations for radiative recombination
+    # set write protection flags here since precompute_rr_quantities is compiled and cannot do this
     z_eff, n_0_eff = xs.precompute_rr_quantities(cfg, _SHELL_N)
+    n_0_eff.setflags(write=False)
+    z_eff.setflags(write=False)
 
     # Data for computations of dielectronic recombination cross sections
     dr_cs = _DR_DATA[z]["dr_cs"]

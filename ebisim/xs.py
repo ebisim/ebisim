@@ -286,7 +286,7 @@ def drxs_mat(element, e_kin, fwhm):
     return np.diag(xs[1:], 1) - np.diag(xs)
 
 
-@numba.jit(cache=True)
+@numba.njit(cache=True)
 def precompute_rr_quantities(cfg, shell_n):
     """
     Precomputes the effective valence shell and nuclear charge for all charge states,
@@ -347,12 +347,10 @@ def precompute_rr_quantities(cfg, shell_n):
     n_0_eff = n_0 + (1 - w_n0) - 0.3
     z_eff = (z + np.arange(z + 1)) / 2
 
-    n_0_eff.setflags(write=False)
-    z_eff.setflags(write=False)
     return z_eff, n_0_eff
 
 
-@numba.jit(cache=True)
+@numba.njit(cache=True)
 def eixs_energyscan(element, e_kin=None, n=1000):
     """
     Creates an array of EI cross sections for varying electron energies.
@@ -396,7 +394,7 @@ def eixs_energyscan(element, e_kin=None, n=1000):
     return e_samp, xs_scan
 
 
-@numba.jit(cache=True)
+@numba.njit(cache=True)
 def rrxs_energyscan(element, e_kin=None, n=1000):
     """
     Creates an array of RR cross sections for varying electron energies.
@@ -440,7 +438,7 @@ def rrxs_energyscan(element, e_kin=None, n=1000):
     return e_samp, xs_scan
 
 
-@numba.jit(cache=True)
+@numba.njit(cache=True)
 def _eirr_e_samp(element, e_kin, n):
     """
     Generates a resonable energy interval for EI and RR cross section scans based on user input
@@ -469,21 +467,24 @@ def _eirr_e_samp(element, e_kin, n):
         Array with sampling energies
     """
     if e_kin is None:
-        e_min = element.e_bind[np.nonzero(element.e_bind)].min() # Expecting (1 < e_min < 100)
+        e_min = 100.0
+        for eb in element.e_bind.flatten():
+            if eb > 0 and eb < e_min:
+                e_min = eb
         e_min = 1.0 if (e_min < 10.0) else 10.0 # Go to next smaller magnitude
         e_max = 10 * element.e_bind.max()
         e_max = 10**np.ceil(np.log10(e_max))
-        e_samp = np.logspace(np.log10(e_min), np.log10(e_max), n)
+        e_samp = 10**np.linspace(np.log10(e_min), np.log10(e_max), n)
     elif len(e_kin) == 2:
         e_min = e_kin[0]
         e_max = e_kin[1]
-        e_samp = np.logspace(np.log10(e_min), np.log10(e_max), n)
+        e_samp = 10**np.linspace(np.log10(e_min), np.log10(e_max), n)
     else:
         e_samp = e_kin
     return e_samp
 
 
-@numba.jit(cache=True)
+@numba.njit(cache=True)
 def drxs_energyscan(element, fwhm, e_kin=None, n=1000):
     """
     Creates an array of DR cross sections for varying electron energies.
@@ -527,11 +528,11 @@ def drxs_energyscan(element, fwhm, e_kin=None, n=1000):
     if e_kin is None:
         e_min = element.dr_e_res.min() - 3 * fwhm
         e_max = element.dr_e_res.max() + 3 * fwhm
-        e_samp = np.logspace(np.log10(e_min), np.log10(e_max), n)
+        e_samp = 10**np.linspace(np.log10(e_min), np.log10(e_max), n)
     elif len(e_kin) == 2:
         e_min = e_kin[0]
         e_max = e_kin[1]
-        e_samp = np.logspace(np.log10(e_min), np.log10(e_max), n)
+        e_samp = 10**np.linspace(np.log10(e_min), np.log10(e_max), n)
     else:
         e_samp = e_kin
     xs_scan = np.zeros((element.z + 1, len(e_samp)))
