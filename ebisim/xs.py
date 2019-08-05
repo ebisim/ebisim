@@ -3,14 +3,11 @@ This module contains functions to compute the cross sections for various ionisat
 recombination processes.
 """
 
-# from functools import lru_cache
 import math
 import numpy as np
 import numba
 
 from .physconst import RY_EV, ALPHA, PI, COMPT_E_RED
-
-# XS_CACHE_MAXSIZE = 1024 # The max number of cached cross section results per function
 
 @numba.njit(cache=True)
 def _normpdf(x, mu, sigma):
@@ -76,10 +73,12 @@ def eixs_vec(element, e_kin):
         for shell in range(shells):
             e = element.e_bind[cs, shell]
             n = element.cfg[cs, shell]
-            if e_kin > e and n > 0:
-                xs += n * math.log(e_kin / e) / (e_kin * e)
+            a = element.lotz_a[cs, shell]
+            b = element.lotz_b[cs, shell]
+            c = element.lotz_c[cs, shell]
+            if n > 0 and e_kin > e:
+                xs += a * n * math.log(e_kin / e) / (e_kin * e) * (1 - b*np.exp(-c*(e_kin/e - 1)))
         xs_vec[cs] = xs
-    xs_vec *= 4.5e-18
     return xs_vec
 
 
@@ -348,6 +347,14 @@ def precompute_rr_quantities(cfg, shell_n):
     z_eff = (z + np.arange(z + 1)) / 2
 
     return z_eff, n_0_eff
+
+
+@numba.njit(cache=True)
+def precompute_lotz_factors(cfg, _SHELLORDER):
+    a = np.ones_like(cfg) * 4.5e-18
+    b = np.zeros_like(cfg)
+    c = np.zeros_like(cfg)
+    return a, b, c
 
 
 @numba.njit(cache=True)
