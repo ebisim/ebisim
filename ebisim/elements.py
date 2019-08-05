@@ -216,10 +216,7 @@ def get_element(element_id, a=None):
     dr_strength = _DR_DATA[z]["dr_strength"]
 
     # Precompute the factors for the Lotz formula for EI cross section
-    lotz_a, lotz_b, lotz_c = xs.precompute_lotz_factors(cfg, _SHELLORDER)
-    lotz_a.setflags(write=False)
-    lotz_b.setflags(write=False)
-    lotz_c.setflags(write=False)
+    lotz_a, lotz_b, lotz_c = xs.lookup_lotz_factors(cfg, _SHELLORDER)
 
     return Element(
         z,

@@ -7,7 +7,7 @@ import math
 import numpy as np
 import numba
 
-from .physconst import RY_EV, ALPHA, PI, COMPT_E_RED
+from .physconst import RY_EV, ALPHA, PI, COMPT_E_RED, _LOTZ_TABLE
 
 @numba.njit(cache=True)
 def _normpdf(x, mu, sigma):
@@ -292,7 +292,7 @@ def precompute_rr_quantities(cfg, shell_n):
     as required for the computation of radiative recombinations cross sections.
     According to the procedure described in [1]_.
 
-    This function is primarily meant for internal use inside the ebisim.Element class.
+    This function is primarily meant for internal use inside the ebisim.get_element() function.
 
     Parameters
     ----------
@@ -349,12 +349,77 @@ def precompute_rr_quantities(cfg, shell_n):
     return z_eff, n_0_eff
 
 
-@numba.njit(cache=True)
-def precompute_lotz_factors(cfg, _SHELLORDER):
-    a = np.ones_like(cfg) * 4.5e-18
-    b = np.zeros_like(cfg)
-    c = np.zeros_like(cfg)
-    return a, b, c
+# @numba.njit(cache=True)
+def lookup_lotz_factors(cfg, shellorder):
+    """
+    Analyses the shell structure of each charge state and looks up the correct factors for
+    the Lotz formula.
+
+    This function is primarily meant for internal use inside the ebisim.get_element() function.
+
+    Parameters
+    ----------
+    cfg : numpy.ndarray
+        Matrix holding the number of electrons in each shell.
+        The row index corresponds to the charge state, the columns to different subshells
+    shellorder : numpy.ndarray
+        Tuple containing the names of all shells in the same order as they appear in 'cfg'
+
+    Returns
+    -------
+    lotz_a : numpy.ndarray
+        Array holding 'Lotz' factor 'a' for each occupied shell in 'cfg'
+    lotz_b : numpy.ndarray
+        Array holding 'Lotz' factor 'b' for each occupied shell in 'cfg'
+    lotz_b : numpy.ndarray
+        Array holding 'Lotz' factor 'c' for each occupied shell in 'cfg'
+
+    """
+    lotz_a = np.zeros_like(cfg)
+    lotz_b = np.zeros_like(cfg)
+    lotz_c = np.zeros_like(cfg)
+
+    for i in range(cfg.shape[1]):
+        # We need to determine, for each column, whether the electrons in another column
+        # also need to be counted
+
+        shell = shellorder[i]
+        n = int(shell[0]) # main quantum number
+        l = shell[1] # angular momentum character
+        s = shell[2] if len(shell) > 2 else None
+        shell_stub = shell[:2]
+
+        if l == "s":
+            i2 = None
+        elif s == "-":
+            if shell_stub == "7p": #7p+ does not exist in currently used data
+                i2 = None
+            else:
+                i2 = shellorder.index(shell_stub + "+")
+        elif s == "+":
+            i2 = shellorder.index(shell_stub + "-")
+
+        for cs in range(cfg.shape[0]):
+            n_e = cfg[cs, i]
+            if n_e == 0:
+                a = b = c = 0
+            else:
+                if i2 and i2 < cfg.shape[1]:
+                    n_e += cfg[cs, i2]
+
+                if (l in ["s", "p"] and n > 3) or (l == "d" and n > 4) or (l == "f"):
+                    nstr = "n"
+                else:
+                    nstr = "" + str(int(n))
+                a, b, c = _LOTZ_TABLE[nstr + l + str(int(n_e))]
+
+            lotz_a[cs, i] = a * 1.0e-18
+            lotz_b[cs, i] = b
+            lotz_c[cs, i] = c
+    lotz_a.setflags(write=False)
+    lotz_b.setflags(write=False)
+    lotz_c.setflags(write=False)
+    return lotz_a, lotz_b, lotz_c
 
 
 @numba.njit(cache=True)
