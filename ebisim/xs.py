@@ -7,7 +7,7 @@ import math
 import numpy as np
 import numba
 
-from .physconst import RY_EV, ALPHA, PI, COMPT_E_RED
+from .physconst import RY_EV, ALPHA, PI, COMPT_E_RED, M_E_EV
 
 @numba.njit(cache=True)
 def _normpdf(x, mu, sigma):
@@ -69,20 +69,24 @@ def eixs_vec(element, e_kin):
     shells = element.e_bind.shape[1]
     avail_factors = element.lotz_a.shape[0]
     xs_vec = np.zeros(css + 1)
+    t = e_kin / M_E_EV
     for cs in range(css):
         xs = 0
         for shell in range(shells):
             e = element.e_bind[cs, shell]
             n = element.cfg[cs, shell]
             if n > 0 and e_kin > e:
+                i = e / M_E_EV
+                grys_fact = (2+i)/(2+t) * ((1+t) / (1+i))**2 \
+                            * (((i+t) * (2+t) * (1+i)**2) / (t * (2+t) * (1+i)**2 + i * (2+i)))**1.5
                 if cs < avail_factors:
                     a = element.lotz_a[cs, shell]
                     b = element.lotz_b[cs, shell]
                     c = element.lotz_c[cs, shell]
-                    xs += a * n * math.log(e_kin / e) / (e_kin * e) \
+                    xs += grys_fact * a * n * math.log(e_kin / e) / (e_kin * e) \
                           * (1 - b*np.exp(-c*(e_kin/e - 1)))
                 else:
-                    xs += 4.5e-18 * n * math.log(e_kin / e) / (e_kin * e)
+                    xs += grys_fact * 4.5e-18 * n * math.log(e_kin / e) / (e_kin * e)
         xs_vec[cs] = xs
     return xs_vec
 
