@@ -3,14 +3,11 @@ This module contains functions to compute the cross sections for various ionisat
 recombination processes.
 """
 
-# from functools import lru_cache
 import math
 import numpy as np
 import numba
 
-from .physconst import RY_EV, ALPHA, PI, COMPT_E_RED
-
-# XS_CACHE_MAXSIZE = 1024 # The max number of cached cross section results per function
+from .physconst import RY_EV, ALPHA, PI, COMPT_E_RED, M_E_EV
 
 @numba.njit(cache=True)
 def _normpdf(x, mu, sigma):
@@ -70,16 +67,27 @@ def eixs_vec(element, e_kin):
     """
     css = element.e_bind.shape[0]
     shells = element.e_bind.shape[1]
+    avail_factors = element.lotz_a.shape[0]
     xs_vec = np.zeros(css + 1)
+    t = e_kin / M_E_EV
     for cs in range(css):
         xs = 0
         for shell in range(shells):
             e = element.e_bind[cs, shell]
             n = element.cfg[cs, shell]
-            if e_kin > e and n > 0:
-                xs += n * math.log(e_kin / e) / (e_kin * e)
+            if n > 0 and e_kin > e:
+                i = e / M_E_EV
+                grys_fact = (2+i)/(2+t) * ((1+t) / (1+i))**2 \
+                            * (((i+t) * (2+t) * (1+i)**2) / (t * (2+t) * (1+i)**2 + i * (2+i)))**1.5
+                if cs < avail_factors:
+                    a = element.lotz_a[cs, shell]
+                    b = element.lotz_b[cs, shell]
+                    c = element.lotz_c[cs, shell]
+                    xs += grys_fact * a * n * math.log(e_kin / e) / (e_kin * e) \
+                          * (1 - b*np.exp(-c*(e_kin/e - 1)))
+                else:
+                    xs += grys_fact * 4.5e-18 * n * math.log(e_kin / e) / (e_kin * e)
         xs_vec[cs] = xs
-    xs_vec *= 4.5e-18
     return xs_vec
 
 
@@ -293,7 +301,7 @@ def precompute_rr_quantities(cfg, shell_n):
     as required for the computation of radiative recombinations cross sections.
     According to the procedure described in [1]_.
 
-    This function is primarily meant for internal use inside the ebisim.Element class.
+    This function is primarily meant for internal use inside the ebisim.get_element() function.
 
     Parameters
     ----------
@@ -348,6 +356,107 @@ def precompute_rr_quantities(cfg, shell_n):
     z_eff = (z + np.arange(z + 1)) / 2
 
     return z_eff, n_0_eff
+
+
+def lookup_lotz_factors(cfg, shellorder):
+    """
+    Analyses the shell structure of each charge state and looks up the correct factors for
+    the Lotz formula.
+
+    This function is primarily meant for internal use inside the ebisim.get_element() function
+    and the results are consumed during the Electron Ionisation (EI) cross section computations.
+
+    Parameters
+    ----------
+    cfg : numpy.ndarray
+        Matrix holding the number of electrons in each shell.
+        The row index corresponds to the charge state, the columns to different subshells
+    shellorder : numpy.ndarray
+        Tuple containing the names of all shells in the same order as they appear in 'cfg'
+
+    Returns
+    -------
+    lotz_a : numpy.ndarray
+        Array holding 'Lotz' factor 'a' for each occupied shell in 'cfg' up to a certain
+        charge state.
+    lotz_b : numpy.ndarray
+        Array holding 'Lotz' factor 'b' for each occupied shell in 'cfg' up to a certain
+        charge state.
+    lotz_b : numpy.ndarray
+        Array holding 'Lotz' factor 'c' for each occupied shell in 'cfg' up to a certain
+        charge state.
+
+    See Also
+    --------
+    ebisim.xs.eixs_vec
+    ebisim.xs.eixs_mat
+
+    """
+    z = cfg.shape[0]
+    cols = cfg.shape[1]
+
+    if z > 20: # No specific data available, use factors for neutral to 1+ ionisation
+        lotz_a = np.zeros((1, cols))
+        lotz_b = np.zeros((1, cols))
+        lotz_c = np.zeros((1, cols))
+
+        for i in range(cols):
+            shell = shellorder[i]
+            n = int(shell[0]) # main quantum number
+            l = shell[1] # angular momentum character
+            s = shell[2] if len(shell) > 2 else None
+            shell_stub = shell[:2]
+
+            # We need to determine, for each column, whether the electrons in another column
+            # also need to be counted because they have the same n and l
+            if l == "s":
+                i2 = None
+            elif s == "-":
+                if shell_stub == "7p": #7p+ does not exist in currently used data
+                    i2 = None
+                else:
+                    i2 = shellorder.index(shell_stub + "+")
+            elif s == "+":
+                i2 = shellorder.index(shell_stub + "-")
+
+            n_e = cfg[0, i]
+            if i2 and i2 < cols:
+                n_e += cfg[0, i2]
+
+            if n_e == 0:
+                a = b = c = 0
+            else:
+                if (l in ["s", "p"] and n > 3) or (l == "d" and n > 4) or (l == "f"):
+                    nstr = "n"
+                else:
+                    nstr = "" + str(int(n))
+                a, b, c = _LOTZ_NEUTRAL_TABLE[nstr + l + str(int(n_e))]
+
+            lotz_a[0, i] = a * 1.0e-18
+            lotz_b[0, i] = b
+            lotz_c[0, i] = c
+
+    else:
+        table = _LOTZ_ADVANCED_TABLE[z]
+        ncs = len(table.keys())
+        lotz_a = np.ones((ncs, cols)) * 4.5e-18
+        lotz_b = np.zeros((ncs, cols))
+        lotz_c = np.zeros((ncs, cols))
+
+        for cs in range(ncs):
+            for i in range(cols):
+                shell_stub = shellorder[i][:2]
+
+                if shell_stub in table[cs]:
+                    a, b, c = table[cs][shell_stub]
+                    lotz_a[cs, i] = a * 1.0e-18
+                    lotz_b[cs, i] = b
+                    lotz_c[cs, i] = c
+
+    lotz_a.setflags(write=False)
+    lotz_b.setflags(write=False)
+    lotz_c.setflags(write=False)
+    return lotz_a, lotz_b, lotz_c
 
 
 @numba.njit(cache=True)
@@ -539,3 +648,201 @@ def drxs_energyscan(element, fwhm, e_kin=None, n=1000):
     for ind, ek in enumerate(e_samp):
         xs_scan[:, ind] = drxs_vec(element, ek, fwhm)
     return e_samp, xs_scan
+
+
+##### Tables with factors for LOTZ formula
+#: Dictionary with the Lotz formula factors for different shells, a in units of <1.0e-14cm**2/eV>
+#: These values are relevant for computing the ionisation of neutral atoms only
+_LOTZ_NEUTRAL_TABLE = {
+    "1s1" : (4.00, 0.60, 0.56),
+    "1s2" : (4.00, 0.75, 0.50),
+    "2p1" : (3.80, 0.60, 0.40),
+    "2p2" : (3.50, 0.70, 0.30),
+    "2p3" : (3.20, 0.80, 0.25),
+    "2p4" : (3.00, 0.85, 0.22),
+    "2p5" : (2.80, 0.90, 0.20),
+    "2p6" : (2.60, 0.92, 0.19),
+    "3d1" : (3.70, 0.60, 0.40),
+    "3d2" : (3.40, 0.70, 0.30),
+    "3d3" : (3.10, 0.80, 0.25),
+    "3d4" : (2.80, 0.85, 0.20),
+    "3d5" : (2.50, 0.90, 0.18),
+    "3d6" : (2.20, 0.92, 0.17),
+    "3d7" : (2.00, 0.93, 0.16),
+    "3d8" : (1.80, 0.94, 0.15),
+    "3d9" : (1.60, 0.95, 0.14),
+    "3d10": (1.40, 0.96, 0.13),
+    "2s1" : (4.00, 0.30, 0.60),
+    "2s2" : (4.00, 0.50, 0.60),
+    "3p1" : (4.00, 0.35, 0.60),
+    "3p2" : (4.00, 0.40, 0.60),
+    "3p3" : (4.00, 0.45, 0.60),
+    "3p4" : (4.00, 0.50, 0.50),
+    "3p5" : (4.00, 0.55, 0.45),
+    "3p6" : (4.00, 0.60, 0.40),
+    "4d1" : (4.00, 0.30, 0.60),
+    "4d2" : (3.80, 0.45, 0.50),
+    "4d3" : (3.50, 0.60, 0.40),
+    "4d4" : (3.20, 0.70, 0.30),
+    "4d5" : (3.00, 0.80, 0.25),
+    "4d6" : (2.80, 0.85, 0.20),
+    "4d7" : (2.60, 0.90, 0.18),
+    "4d8" : (2.40, 0.92, 0.17),
+    "4d9" : (2.20, 0.93, 0.16),
+    "4d10": (2.00, 0.94, 0.15),
+    "3s1" : (4.00, 0.00, 0.00),
+    "3s2" : (4.00, 0.30, 0.60),
+    "np1" : (4.00, 0.00, 0.00),
+    "np2" : (4.00, 0.00, 0.00),
+    "np3" : (4.00, 0.20, 0.60),
+    "np4" : (4.00, 0.30, 0.60),
+    "np5" : (4.00, 0.40, 0.60),
+    "np6" : (4.00, 0.50, 0.50),
+    "nd1" : (4.00, 0.00, 0.00),
+    "nd2" : (4.00, 0.20, 0.60),
+    "nd3" : (3.80, 0.30, 0.60),
+    "nd4" : (3.60, 0.45, 0.50),
+    "nd5" : (3.40, 0.60, 0.40),
+    "nd6" : (3.20, 0.70, 0.30),
+    "nd7" : (3.00, 0.80, 0.25),
+    "nd8" : (2.80, 0.85, 0.20),
+    "nd9" : (2.60, 0.90, 0.18),
+    "nd10": (2.40, 0.92, 0.17),
+    "ns1" : (4.00, 0.00, 0.00),
+    "ns2" : (4.00, 0.00, 0.00),
+    "nf1" : (3.70, 0.60, 0.40),
+    "nf2" : (3.40, 0.70, 0.30),
+    "nf3" : (3.10, 0.80, 0.25),
+    "nf4" : (2.80, 0.85, 0.20),
+    "nf5" : (2.50, 0.90, 0.18),
+    "nf6" : (2.20, 0.92, 0.17),
+    "nf7" : (2.00, 0.93, 0.16),
+    "nf8" : (1.80, 0.94, 0.15),
+    "nf9" : (1.60, 0.95, 0.14),
+    "nf10": (1.40, 0.96, 0.13),
+    "nf11": (1.30, 0.96, 0.12),
+    "nf12": (1.20, 0.97, 0.12),
+    "nf13": (1.10, 0.97, 0.11),
+    "nf14": (1.00, 0.97, 0.11)
+}
+
+#: Dictionary with the Lotz formula factors for different shells, a in units of <1.0e-14cm**2/eV>
+#: These values are relevant for computing the ionisation elements up to Z=20 and rank over
+#: the _LOTZ_NEUTRAL_TABLE
+#: The nested dictionary is arranged as [Z][cs][shell]
+_LOTZ_ADVANCED_TABLE = {
+    1:{
+        0:{"1s":(4.00, 0.60, 0.56)}
+    },
+    2:{
+        0:{"1s":(4.00, 0.75, 0.46)},
+        1:{"1s":(4.40, 0.38, 0.60)}
+    },
+    3:{
+        0:{"2s":(4.00, 0.70, 2.4), "1s":(4.20, 0.60, 0.60)},
+        1:{"1s":(4.00, 0.48, 0.60)},
+        2:{"1s":(4.50, 0.20, 0.60)}
+    },
+    4:{
+        0:{"2s":(4.00, 0.70, 0.50), "1s":(4.20, 0.60, 0.60)},
+        1:{"2s":(4.40, 0.00, 0.00), "1s":(4.40, 0.40, 0.60)},
+        2:{"1s":(4.50, 0.30, 0.60)},
+        3:{"1s":(4.50, 0.00, 0.00)}
+    },
+    5:{
+        0:{"2p":(3.80, 0.70, 0.40), "2s":(4.00, 0.70, 0.50)},
+        1:{"2s":(4.40, 0.40, 0.60), "1s":(4.40, 0.40, 0.60)},
+        2:{"2s":(4.50, 0.00, 0.00), "1s":(4.50, 0.20, 0.60)},
+        3:{"1s":(4.50, 0.00, 0.00)}
+    },
+    6:{
+        0:{"2p":(3.50, 0.70, 0.40), "2s":(4.00, 0.70, 0.50)},
+        1:{"2p":(4.20, 0.40, 0.60), "2s":(4.40, 0.40, 0.60)},
+        2:{"2s":(4.50, 0.20, 0.60), "1s":(4.50, 0.20, 0.60)},
+        3:{"2s":(4.50, 0.00, 0.00), "1s":(4.50, 0.00, 0.00)}
+    },
+    7:{
+        0:{"2p":(3.20, 0.83, 0.22), "2s":(4.00, 0.70, 0.50)},
+        1:{"2p":(3.90, 0.46, 0.62), "2s":(4.40, 0.40, 0.60)},
+        2:{"2p":(4.50, 0.20, 0.60), "2s":(4.50, 0.20, 0.60)},
+        3:{"2s":(4.50, 0.00, 0.00), "1s":(4.50, 0.00, 0.00)}
+    },
+    8:{
+        0:{"2p":(2.80, 0.74, 0.24), "2s":(4.00, 0.70, 0.50)},
+        1:{"2p":(3.70, 0.60, 0.60), "2s":(4.40, 0.40, 0.60)},
+        2:{"2p":(4.50, 0.30, 0.60), "2s":(4.50, 0.20, 0.60)},
+        3:{"2p":(4.50, 0.00, 0.00), "2s":(4.50, 0.00, 0.00)}
+    },
+    9:{
+        0:{"2p":(2.70, 0.90, 0.20), "2s":(4.00, 0.70, 0.50)},
+        1:{"2p":(3.50, 0.70, 0.50), "2s":(4.40, 0.40, 0.60)},
+        2:{"2p":(4.50, 0.40, 0.60), "2s":(4.50, 0.20, 0.60)},
+        3:{"2p":(4.50, 0.00, 0.00), "2s":(4.50, 0.00, 0.00)}
+    },
+    10:{
+        0:{"2p":(2.60, 0.92, 0.19), "2s":(4.00, 0.70, 0.50)},
+        1:{"2p":(3.20, 0.83, 0.48), "2s":(4.40, 0.40, 0.60)},
+        2:{"2p":(4.20, 0.50, 0.60), "2s":(4.50, 0.20, 0.60)},
+        3:{"2p":(4.50, 0.20, 0.60), "2s":(4.50, 0.00, 0.00)}
+    },
+    11:{
+        0:{"3s":(4.00, 0.00, 0.00), "2p":(3.00, 0.90, 0.20), "2s":(4.00, 0.70, 0.50)},
+        1:{"2p":(3.40, 0.84, 0.32), "2s":(4.40, 0.40, 0.60)},
+        2:{"2p":(4.00, 0.60, 0.50), "2s":(4.50, 0.20, 0.60)},
+        3:{"2p":(4.50, 0.20, 0.60), "2s":(4.50, 0.00, 0.00)}
+    },
+    12:{
+        0:{"3s":(4.00, 0.40, 0.60), "2p":(3.00, 0.90, 0.20), "2s":(4.00, 0.70, 0.50)},
+        1:{"3s":(4.40, 0.00, 0.00), "2p":(3.70, 0.80, 0.40), "2s":(4.40, 0.40, 0.60)},
+        2:{"2p":(4.00, 0.60, 0.50), "2s":(4.50, 0.20, 0.60)},
+        3:{"2p":(4.50, 0.30, 0.60), "2s":(4.50, 0.00, 0.00)}
+    },
+    13:{
+        0:{"3p":(4.00, 0.30, 0.60), "3s":(4.00, 0.40, 0.60), "2p":(3.00, 0.90, 0.20)},
+        1:{"3s":(4.40, 0.20, 0.60), "2p":(3.70, 0.80, 0.40), "2s":(4.40, 0.40, 0.60)},
+        2:{"3s":(4.50, 0.00, 0.00), "2p":(4.20, 0.60, 0.50), "2s":(4.50, 0.20, 0.60)},
+        3:{"2p":(4.50, 0.30, 0.60), "2s":(4.50, 0.00, 0.00)}
+    },
+    14:{
+        0:{"3p":(4.00, 0.30, 0.60), "3s":(4.00, 0.40, 0.60), "2p":(3.00, 0.90, 0.20)},
+        1:{"3p":(4.40, 0.20, 0.60), "3s":(4.40, 0.20, 0.60), "2p":(3.70, 0.80, 0.40)},
+        2:{"3s":(4.50, 0.00, 0.00), "2p":(4.20, 0.60, 0.50), "2s":(4.50, 0.20, 0.60)},
+        3:{"3s":(4.50, 0.00, 0.00), "2p":(4.50, 0.30, 0.60), "2s":(4.50, 0.00, 0.00)}
+    },
+    15:{
+        0:{"3p":(4.00, 0.40, 0.60), "3s":(4.00, 0.40, 0.60), "2p":(3.00, 0.90, 0.20)},
+        1:{"3p":(4.40, 0.20, 0.60), "3s":(4.40, 0.20, 0.60), "2p":(3.70, 0.80, 0.40)},
+        2:{"3p":(4.50, 0.00, 0.00), "3s":(4.50, 0.00, 0.00), "2p":(4.20, 0.60, 0.50)},
+        3:{"3s":(4.50, 0.00, 0.00), "2p":(4.50, 0.30, 0.60), "2s":(4.50, 0.00, 0.00)}
+    },
+    16:{
+        0:{"3p":(4.00, 0.40, 0.60), "3s":(4.00, 0.40, 0.60), "2p":(3.00, 0.90, 0.20)},
+        1:{"3p":(4.40, 0.30, 0.60), "3s":(4.40, 0.20, 0.60), "2p":(3.70, 0.80, 0.40)},
+        2:{"3p":(4.50, 0.00, 0.00), "3s":(4.50, 0.00, 0.00), "2p":(4.20, 0.60, 0.50)},
+        3:{"3p":(4.50, 0.00, 0.00), "3s":(4.50, 0.00, 0.00), "2p":(4.50, 0.30, 0.60)}
+    },
+    17:{
+        0:{"3p":(4.00, 0.50, 0.50), "3s":(4.00, 0.40, 0.60), "2p":(3.00, 0.90, 0.20)},
+        1:{"3p":(4.40, 0.30, 0.60), "3s":(4.40, 0.20, 0.60), "2p":(3.70, 0.80, 0.40)},
+        2:{"3p":(4.50, 0.20, 0.60), "3s":(4.50, 0.00, 0.00), "2p":(4.20, 0.60, 0.50)},
+        3:{"3p":(4.50, 0.00, 0.00), "3s":(4.50, 0.00, 0.00), "2p":(4.50, 0.30, 0.60)}
+    },
+    18:{
+        0:{"3p":(4.00, 0.62, 0.40), "3s":(4.00, 0.40, 0.60), "2p":(3.00, 0.90, 0.20)},
+        1:{"3p":(4.20, 0.30, 0.60), "3s":(4.40, 0.20, 0.60), "2p":(3.70, 0.80, 0.40)},
+        2:{"3p":(4.50, 0.20, 0.60), "3s":(4.50, 0.00, 0.00), "2p":(4.20, 0.60, 0.50)},
+        3:{"3p":(4.50, 0.00, 0.00), "3s":(4.50, 0.00, 0.00), "2p":(4.50, 0.30, 0.60)}
+    },
+    19:{
+        0:{"4s":(4.00, 0.00, 0.00), "3p":(4.00, 0.60, 0.40), "3s":(4.00, 0.40, 0.60)},
+        1:{"3p":(4.00, 0.30, 0.60), "3s":(4.40, 0.20, 0.60), "2p":(3.70, 0.80, 0.40)},
+        2:{"3p":(4.50, 0.20, 0.60), "3s":(4.50, 0.00, 0.00), "2p":(4.20, 0.60, 0.50)},
+        3:{"3p":(4.50, 0.00, 0.00), "3s":(4.50, 0.00, 0.00), "2p":(4.50, 0.30, 0.60)}
+    },
+    20:{
+        0:{"4s":(4.00, 0.40, 0.60), "3p":(4.00, 0.60, 0.40), "3s":(4.00, 0.40, 0.60)},
+        1:{"4s":(4.40, 0.00, 0.00), "3p":(4.40, 0.30, 0.60), "3s":(4.40, 0.20, 0.60)},
+        2:{"3p":(4.50, 0.20, 0.60), "3s":(4.50, 0.00, 0.00), "2p":(4.20, 0.60, 0.50)},
+        3:{"3p":(4.50, 0.00, 0.00), "3s":(4.50, 0.00, 0.00), "2p":(4.50, 0.30, 0.60)}
+    }
+}

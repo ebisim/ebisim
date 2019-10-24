@@ -97,7 +97,10 @@ _ElementSpec = namedtuple(
         "n_0_eff",
         "dr_cs",
         "dr_e_res",
-        "dr_strength"
+        "dr_strength",
+        "lotz_a",
+        "lotz_b",
+        "lotz_c"
     ]
 )
 
@@ -151,6 +154,9 @@ Element.n_0_eff.__doc__ = "Numpy array of effective valence shell numbers for RR
 Element.dr_cs.__doc__ = "Numpy array of charge states for DR cross sections."
 Element.dr_e_res.__doc__ = "Numpy array of resonance energies for DR cross sections."
 Element.dr_strength.__doc__ = "Numpy array of transition strengths for DR cross sections."
+Element.lotz_a.__doc__ = "Numpy array of precomputed Lotz factor \"a\" for each entry of \"cfg\"."
+Element.lotz_b.__doc__ = "Numpy array of precomputed Lotz factor \"b\" for each entry of \"cfg\"."
+Element.lotz_c.__doc__ = "Numpy array of precomputed Lotz factor \"c\" for each entry of \"cfg\"."
 
 def get_element(element_id, a=None):
     """
@@ -209,6 +215,9 @@ def get_element(element_id, a=None):
     dr_e_res = _DR_DATA[z]["dr_e_res"]
     dr_strength = _DR_DATA[z]["dr_strength"]
 
+    # Precompute the factors for the Lotz formula for EI cross section
+    lotz_a, lotz_b, lotz_c = xs.lookup_lotz_factors(cfg, _SHELLORDER)
+
     return Element(
         z,
         symbol,
@@ -220,5 +229,8 @@ def get_element(element_id, a=None):
         n_0_eff,
         dr_cs,
         dr_e_res,
-        dr_strength
+        dr_strength,
+        lotz_a,
+        lotz_b,
+        lotz_c
     )
