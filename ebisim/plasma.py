@@ -64,7 +64,7 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
         Ion electron coulomb logarithm.
 
     """
-    Ni *= 1e-6 # go from 1/m**3 to 1/cm**3
+    Ni *= 1e-6 # go from 1/m**3 to 1/cm**3 # BE CAREFUL WITH EXTENDING THIS TO ARRAYS (MUTATING)
     Ne *= 1e-6
     Mi = Ai * M_P
     if   qi*qi*10 >= kbTe >= kbTi * M_E / Mi:
