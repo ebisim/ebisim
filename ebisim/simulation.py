@@ -52,9 +52,6 @@ class Result:
         An array holding the occupancy of each charge state at a given time, by default None.
     kbT : numpy.array, optional
         An array holding the temperature of each charge state at a given time, by default None.
-    N_is_density : bool, optional
-        Indicates whether N describes the occupany in abstract terms or as an actual density.
-        This has an influence on some default plot labels, by default False.
     ode_res : optional
         The result object returned by scipy.integrate.solve_ivp. This can contain useful
         information about the solver performance etc. Refer to scipy documentation for details,
@@ -65,13 +62,11 @@ class Result:
 
     """
 
-    def __init__(self, param=None, t=None, N=None, kbT=None, N_is_density=False, ode_res=None,
-                 rates=None):
+    def __init__(self, param=None, t=None, N=None, kbT=None, ode_res=None, rates=None):
         self.param = param
         self.t = t
         self.N = N
         self.kbT = kbT
-        self.N_is_density = N_is_density
         self.ode_res = ode_res
         self.rates = rates
 
@@ -174,10 +169,10 @@ class Result:
         kwargs.setdefault("yscale", "linear")
         kwargs.setdefault("plot_total", True)
 
-        if self.N_is_density and not relative:
-            kwargs.setdefault("ylabel", "Density (m$^{-3}$)")
-        else:
+        if relative or self.kbT is None: # Hack to determine whether basic or advanced sim
             kwargs.setdefault("ylabel", "Relative Abundance")
+        else:
+            kwargs.setdefault("ylabel", "Density (m$^{-3}$)")
 
         if relative:
             kwargs["ylim"] = (0, 1.1)
@@ -593,7 +588,6 @@ def advanced_simulation(element, j, e_kin, t_max,
         t=res.t,
         N=res.y[:element.z + 1, :],
         kbT=res.y[element.z + 1:, :],
-        N_is_density=True,
         ode_res=res,
         rates=rates
         )
