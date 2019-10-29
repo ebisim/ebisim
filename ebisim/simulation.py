@@ -155,6 +155,7 @@ class Result:
             kwargs.setdefault("ylabel", "Relative Abundance")
 
         if relative:
+            kwargs["ylim"] = (0, 1.1)
             fig = plotting.plot_generic_evolution(self.t, self.N/np.sum(self.N, axis=0), **kwargs)
         else:
             fig = plotting.plot_generic_evolution(self.t, self.N, **kwargs)
