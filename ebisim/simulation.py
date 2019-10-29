@@ -52,7 +52,7 @@ class Result:
         An array holding the occupancy of each charge state at a given time, by default None.
     kbT : numpy.array, optional
         An array holding the temperature of each charge state at a given time, by default None.
-    ode_res : optional
+    res : optional
         The result object returned by scipy.integrate.solve_ivp. This can contain useful
         information about the solver performance etc. Refer to scipy documentation for details,
         by default None.
@@ -62,12 +62,12 @@ class Result:
 
     """
 
-    def __init__(self, param=None, t=None, N=None, kbT=None, ode_res=None, rates=None):
+    def __init__(self, param=None, t=None, N=None, kbT=None, res=None, rates=None):
         self.param = param
         self.t = t
         self.N = N
         self.kbT = kbT
-        self.ode_res = ode_res
+        self.res = res
         self.rates = rates
 
 
@@ -102,8 +102,8 @@ class Result:
             Abundance of each charge state, array index corresponds to charge state.
 
         """
-        if self.ode_res and self.ode_res.sol:
-            return self.ode_res.sol(t)
+        if self.res and self.res.sol:
+            return self.res.sol(t)
         interp = scipy.interpolate.interp1d(self.t, self.N)
         return interp(t)
 
@@ -170,7 +170,7 @@ class Result:
         kwargs.setdefault("plot_total", True)
 
         if relative or self.kbT is None: # Hack to determine whether basic or advanced sim
-            kwargs.setdefault("ylabel", "Relative Abundance")
+            kwargs.setdefault("ylabel", "Relative abundance")
         else:
             kwargs.setdefault("ylabel", "Density (m$^{-3}$)")
 
@@ -403,7 +403,7 @@ def basic_simulation(element, j, e_kin, t_max,
         dNdt = lambda _, N: _jac.dot(N)
 
     res = scipy.integrate.solve_ivp(dNdt, (0, t_max), N_initial, jac=jac, **solver_kwargs)
-    return Result(param=param, t=res.t, N=res.y, ode_res=res)
+    return Result(param=param, t=res.t, N=res.y, res=res)
 
 
 def advanced_simulation(element, j, e_kin, t_max,
@@ -576,7 +576,7 @@ def advanced_simulation(element, j, e_kin, t_max,
     # the solver approximating the jacobian and calling rhs with bogus values).
     nt = res.t.size
     poll = dict()
-    _ = rhs(res.t[0], res.y[:,0], rates=poll)
+    _ = rhs(res.t[0], res.y[:, 0], rates=poll)
     rates = {k:np.zeros((poll[k].size, nt)) for k in poll}
     for idx in range(nt):
         _ = rhs(res.t[idx], res.y[:, idx], rates=poll)
@@ -588,7 +588,7 @@ def advanced_simulation(element, j, e_kin, t_max,
         t=res.t,
         N=res.y[:element.z + 1, :],
         kbT=res.y[element.z + 1:, :],
-        ode_res=res,
+        res=res,
         rates=rates
         )
 
