@@ -16,6 +16,25 @@ from . import plasma
 from .physconst import Q_E, M_P, PI
 from .physconst import MINIMAL_DENSITY, MINIMAL_KBT
 
+
+_RATE_NAMES = dict(
+    R_ei="Electron ionisation",
+    R_rr="Radiative recombination",
+    R_dr="Dielectronic recombination",
+    R_cx="Charge exchange",
+    R_ax="Axial losses",
+    R_ra="Radial losses",
+    S_ei="Electron ionisation",
+    S_rr="Radiative recombination",
+    S_dr="Dielectronic recombination",
+    S_cx="Charge exchange",
+    S_ax="Axial losses",
+    S_ra="Radial losses",
+    S_eh="Electron heating",
+    S_tr="Heat transfer"
+) #: Rates names for plot annotation
+
+
 class Result:
     """
     Instances of this class are containers for the results of ebisim simulations and contain a
@@ -38,17 +57,23 @@ class Result:
         This has an influence on some default plot labels, by default False.
     ode_res : optional
         The result object returned by scipy.integrate.solve_ivp. This can contain useful
-        information about the solver performance etc. Refer to scipy documentation for details.
+        information about the solver performance etc. Refer to scipy documentation for details,
+        by default None.
+    rates : dict, optional
+        A dictionary containing the different breeding rates in arrays shaped like N,
+        by default None.
 
     """
 
-    def __init__(self, param=None, t=None, N=None, kbT=None, N_is_density=False, ode_res=None):
+    def __init__(self, param=None, t=None, N=None, kbT=None, N_is_density=False, ode_res=None,
+                 rates=None):
         self.param = param
         self.t = t
         self.N = N
         self.kbT = kbT
         self.N_is_density = N_is_density
         self.ode_res = ode_res
+        self.rates = rates
 
 
     def times_of_highest_abundance(self):
@@ -240,6 +265,51 @@ class Result:
         return fig
 
 
+    def plot_rate(self, rate_key, **kwargs):
+        """
+        Plots the requested ionisation- or energy flow rates.
+
+        Parameters
+        ----------
+        rate_key : str
+            The key identifying the rate to be plotted.
+            Valid keys are:
+            R_ei, R_rr, R_dr, R_cx, R_ax, R_ra, S_ei, S_rr, S_dr, S_cx, S_ax, S_ra, S_eh, S_tr.
+
+        Returns
+        -------
+        matplotlib.Figure
+            Figure handle of the generated plot
+
+        Raises
+        ------
+        ValueError
+            If the required data (self.rates) is not available, or an invalid key is requested.
+
+        """
+        if self.rates is None:
+            raise ValueError("Rates are not available for this result.")
+        if rate_key not in self.rates:
+            raise ValueError(
+                f"The requested rate_key does not exist. Available rates are {self.rates.keys()}."
+            )
+
+        rate = self.rates[rate_key]
+
+        kwargs.setdefault("xlim", (1e-4, self.t.max()))
+        kwargs.setdefault("title", self._param_title(_RATE_NAMES[rate_key]))
+        kwargs.setdefault("yscale", "linear")
+        kwargs.setdefault("plot_total", True)
+
+        if rate_key.startswith("R"):
+            kwargs.setdefault("ylabel", "Number density flow (m$^{-3}$ s$^{-1}$)")
+        if rate_key.startswith("S"):
+            kwargs.setdefault("ylabel", "Energy density flow (eV m$^{-3}$ s$^{-1}$)")
+
+        fig = plotting.plot_generic_evolution(self.t, rate, **kwargs)
+        return fig
+
+
 def basic_simulation(element, j, e_kin, t_max,
                      dr_fwhm=None, N_initial=None, CNI=False,
                      solver_kwargs=None):
@@ -248,7 +318,7 @@ def basic_simulation(element, j, e_kin, t_max,
 
     These simulations only include the most important effects, i.e. electron ionisation,
     radiative recombination and optionally dielectronic recombination (for those transitions whose
-    data is available in the resource directory). All other effects are not ignored.
+    data is available in the resource directory). All other effects are ignored.
 
     Continuous Neutral Injection (CNI) can be activated on demand.
 
@@ -427,7 +497,7 @@ def advanced_simulation(element, j, e_kin, t_max,
     # save adjusted call parameters for passing on to Result
     param = locals().copy()
 
-    def rhs(_, y):
+    def rhs(_, y, rates=None):
         ve = plasma.electron_velocity(e_kin)
         je = j / Q_E * 1e4
         Ne = je / ve
@@ -487,16 +557,45 @@ def advanced_simulation(element, j, e_kin, t_max,
         Q_tot = (S_tot - kbT * R_tot) / N
         Q_tot[N <= MINIMAL_DENSITY] = 0 ### Freeze temperature if density is low (-> not meaningful)
 
+        if isinstance(rates, dict):
+            rates["R_ei"] = R_ei
+            rates["R_rr"] = R_rr
+            rates["R_dr"] = R_dr
+            rates["R_cx"] = R_cx
+            rates["R_ax"] = R_ax
+            rates["R_ra"] = R_ra
+            rates["S_ei"] = S_ei
+            rates["S_rr"] = S_rr
+            rates["S_dr"] = S_dr
+            rates["S_cx"] = S_cx
+            rates["S_ax"] = S_ax
+            rates["S_ra"] = S_ra
+            rates["S_eh"] = S_eh
+            rates["S_tr"] = S_tr
+
         return np.concatenate((R_tot, Q_tot))
 
     res = scipy.integrate.solve_ivp(rhs, (0, t_max), N_kbT_initial, **solver_kwargs)
+
+    # Recompute rates for final solution (this cannot be done parasitically due to
+    # the solver approximating the jacobian and calling rhs with bogus values).
+    nt = res.t.size
+    poll = dict()
+    _ = rhs(res.t[0], res.y[:,0], rates=poll)
+    rates = {k:np.zeros((poll[k].size, nt)) for k in poll}
+    for idx in range(nt):
+        _ = rhs(res.t[idx], res.y[:, idx], rates=poll)
+        for key, val in poll.items():
+            rates[key][:, idx] = val
+
     return Result(
         param=param,
         t=res.t,
         N=res.y[:element.z + 1, :],
         kbT=res.y[element.z + 1:, :],
         N_is_density=True,
-        ode_res=res
+        ode_res=res,
+        rates=rates
         )
 
 
