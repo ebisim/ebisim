@@ -33,7 +33,7 @@ def load_element_info():
     """
     with open_text(_resources, "ElementInfo.json") as f:
         data = json.load(f)
-    return tuple(map(tuple, [data["z"], data["es"], data["name"], data["a"]]))
+    return tuple(map(tuple, [data["z"], data["es"], data["name"], data["a"], data["ip"]]))
 
 
 def load_electron_info():

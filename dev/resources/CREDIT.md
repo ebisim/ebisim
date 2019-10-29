@@ -2,6 +2,11 @@
 
 Some of the data used within the ebisim package has been provided by 3rd parties.
 
+## Ionisation Potentials
+
+The values for the ionisation potentials were retrieved from the
+NIST Atomic Spectra Database.
+
 ## Binding Energies
 
 The tables for the binding energies and the electron configuration of ions in different charge

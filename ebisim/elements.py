@@ -12,7 +12,7 @@ import numpy as np
 from . import utils
 from . import xs
 
-_ELEM_Z, _ELEM_ES, _ELEM_NAME, _ELEM_A = utils.load_element_info()
+_ELEM_Z, _ELEM_ES, _ELEM_NAME, _ELEM_A, _ELEM_IP = utils.load_element_info()
 _ELECTRON_INFO, _SHELLORDER = utils.load_electron_info()
 _SHELL_N = np.array(list(map(int, [s[0] for s in _SHELLORDER])))
 # _SHELLORDER is a tuple containing the names of all shells in order
@@ -91,6 +91,7 @@ _ElementSpec = namedtuple(
         "symbol",
         "name",
         "a",
+        "ip",
         "cfg",
         "e_bind",
         "z_eff",
@@ -143,6 +144,7 @@ Element.z.__doc__ = "Atomic number"
 Element.symbol.__doc__ = "Element symbol e.g. H, He, Li"
 Element.name.__doc__ = "Element name"
 Element.a.__doc__ = "Mass number"
+Element.ip.__doc__ = "Ionisation potential"
 Element.cfg.__doc__ = f"""Numpy array of electron configuration in different charge states.
 The index of each row corresponds to the charge state.
 The columns are the subshells sorted as in {_SHELLORDER}."""
@@ -193,9 +195,10 @@ def get_element(element_id, a=None):
         raise ValueError(f"Unable to interpret element_id = {element_id}, " \
             "ebisim only supports elements up to Z = 105.")
 
-    # Mass number
+    # Mass number and ionisation potential
+    idx = _ELEM_Z.index(z)
+    ip = _ELEM_IP[idx]
     if a is None:
-        idx = _ELEM_Z.index(z)
         a = _ELEM_A[idx]
     if a <= 0:
         raise ValueError("Mass number 'a' cannot be smaller than 1.")
@@ -223,6 +226,7 @@ def get_element(element_id, a=None):
         symbol,
         name,
         a,
+        ip,
         cfg,
         e_bind,
         z_eff,
