@@ -92,16 +92,16 @@ _ElementSpec = namedtuple(
         "name",
         "a",
         "ip",
-        "cfg",
+        "e_cfg",
         "e_bind",
-        "z_eff",
-        "n_0_eff",
+        "rr_z_eff",
+        "rr_n_0_eff",
         "dr_cs",
         "dr_e_res",
         "dr_strength",
-        "lotz_a",
-        "lotz_b",
-        "lotz_c"
+        "ei_lotz_a",
+        "ei_lotz_b",
+        "ei_lotz_c"
     ]
 )
 
@@ -145,20 +145,20 @@ Element.symbol.__doc__ = "Element symbol e.g. H, He, Li"
 Element.name.__doc__ = "Element name"
 Element.a.__doc__ = "Mass number"
 Element.ip.__doc__ = "Ionisation potential"
-Element.cfg.__doc__ = f"""Numpy array of electron configuration in different charge states.
+Element.e_cfg.__doc__ = f"""Numpy array of electron configuration in different charge states.
 The index of each row corresponds to the charge state.
 The columns are the subshells sorted as in {_SHELLORDER}."""
 Element.e_bind.__doc__ = f"""Numpy array of binding energies associated with electron subshells.
 The index of each row corresponds to the charge state.
 The columns are the subshells sorted as in {_SHELLORDER}."""
-Element.z_eff.__doc__ = "Numpy array of effective nuclear charges for RR cross sections."
-Element.n_0_eff.__doc__ = "Numpy array of effective valence shell numbers for RR cross sections."
+Element.rr_z_eff.__doc__ = "Numpy array of effective nuclear charges for RR cross sections."
+Element.rr_n_0_eff.__doc__ = "Numpy array of effective valence shell numbers for RR cross sections."
 Element.dr_cs.__doc__ = "Numpy array of charge states for DR cross sections."
 Element.dr_e_res.__doc__ = "Numpy array of resonance energies for DR cross sections."
 Element.dr_strength.__doc__ = "Numpy array of transition strengths for DR cross sections."
-Element.lotz_a.__doc__ = "Numpy array of precomputed Lotz factor \"a\" for each entry of \"cfg\"."
-Element.lotz_b.__doc__ = "Numpy array of precomputed Lotz factor \"b\" for each entry of \"cfg\"."
-Element.lotz_c.__doc__ = "Numpy array of precomputed Lotz factor \"c\" for each entry of \"cfg\"."
+Element.ei_lotz_a.__doc__ = "Numpy array of precomputed Lotz factor \"a\" for each entry of \"e_cfg\"."
+Element.ei_lotz_b.__doc__ = "Numpy array of precomputed Lotz factor \"b\" for each entry of \"e_cfg\"."
+Element.ei_lotz_c.__doc__ = "Numpy array of precomputed Lotz factor \"c\" for each entry of \"e_cfg\"."
 
 def get_element(element_id, a=None):
     """
@@ -204,14 +204,14 @@ def get_element(element_id, a=None):
         raise ValueError("Mass number 'a' cannot be smaller than 1.")
 
     # Electron configuration and shell binding energies
-    cfg = _ELECTRON_INFO[z]["cfg"]
+    e_cfg = _ELECTRON_INFO[z]["cfg"]
     e_bind = _ELECTRON_INFO[z]["ebind"]
 
     # Precomputations for radiative recombination
     # set write protection flags here since precompute_rr_quantities is compiled and cannot do this
-    z_eff, n_0_eff = xs.precompute_rr_quantities(cfg, _SHELL_N)
-    n_0_eff.setflags(write=False)
-    z_eff.setflags(write=False)
+    rr_z_eff, rr_n_0_eff = xs.precompute_rr_quantities(e_cfg, _SHELL_N)
+    rr_n_0_eff.setflags(write=False)
+    rr_z_eff.setflags(write=False)
 
     # Data for computations of dielectronic recombination cross sections
     dr_cs = _DR_DATA[z]["dr_cs"]
@@ -219,7 +219,7 @@ def get_element(element_id, a=None):
     dr_strength = _DR_DATA[z]["dr_strength"]
 
     # Precompute the factors for the Lotz formula for EI cross section
-    lotz_a, lotz_b, lotz_c = xs.lookup_lotz_factors(cfg, _SHELLORDER)
+    ei_lotz_a, ei_lotz_b, ei_lotz_c = xs.lookup_lotz_factors(e_cfg, _SHELLORDER)
 
     return Element(
         z,
@@ -227,14 +227,14 @@ def get_element(element_id, a=None):
         name,
         a,
         ip,
-        cfg,
+        e_cfg,
         e_bind,
-        z_eff,
-        n_0_eff,
+        rr_z_eff,
+        rr_n_0_eff,
         dr_cs,
         dr_e_res,
         dr_strength,
-        lotz_a,
-        lotz_b,
-        lotz_c
+        ei_lotz_a,
+        ei_lotz_b,
+        ei_lotz_c
     )
