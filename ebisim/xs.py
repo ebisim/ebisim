@@ -67,22 +67,22 @@ def eixs_vec(element, e_kin):
     """
     css = element.e_bind.shape[0]
     shells = element.e_bind.shape[1]
-    avail_factors = element.lotz_a.shape[0]
+    avail_factors = element.ei_lotz_a.shape[0]
     xs_vec = np.zeros(css + 1)
     t = e_kin / M_E_EV
     for cs in range(css):
         xs = 0
         for shell in range(shells):
             e = element.e_bind[cs, shell]
-            n = element.cfg[cs, shell]
+            n = element.e_cfg[cs, shell]
             if n > 0 and e_kin > e:
                 i = e / M_E_EV
                 grys_fact = (2+i)/(2+t) * ((1+t) / (1+i))**2 \
                             * (((i+t) * (2+t) * (1+i)**2) / (t * (2+t) * (1+i)**2 + i * (2+i)))**1.5
                 if cs < avail_factors:
-                    a = element.lotz_a[cs, shell]
-                    b = element.lotz_b[cs, shell]
-                    c = element.lotz_c[cs, shell]
+                    a = element.ei_lotz_a[cs, shell]
+                    b = element.ei_lotz_b[cs, shell]
+                    c = element.ei_lotz_c[cs, shell]
                     xs += grys_fact * a * n * math.log(e_kin / e) / (e_kin * e) \
                           * (1 - b*np.exp(-c*(e_kin/e - 1)))
                 else:
@@ -164,9 +164,9 @@ def rrxs_vec(element, e_kin):
     ebisim.xs.rrxs_mat : Similar method with different output format.
 
     """
-    chi = 2 * element.z_eff**2 * RY_EV / e_kin
+    chi = 2 * element.rr_z_eff**2 * RY_EV / e_kin
     xs = 8 * PI * ALPHA / (3 * np.sqrt(3)) * COMPT_E_RED**2 * \
-            chi * np.log(1 + chi/(2 * element.n_0_eff**2))
+            chi * np.log(1 + chi/(2 * element.rr_n_0_eff**2))
     xs[0] = 0
     return xs
 
@@ -295,7 +295,7 @@ def drxs_mat(element, e_kin, fwhm):
 
 
 @numba.njit(cache=True)
-def precompute_rr_quantities(cfg, shell_n):
+def precompute_rr_quantities(e_cfg, shell_n):
     """
     Precomputes the effective valence shell and nuclear charge for all charge states,
     as required for the computation of radiative recombinations cross sections.
@@ -305,18 +305,18 @@ def precompute_rr_quantities(cfg, shell_n):
 
     Parameters
     ----------
-    cfg : numpy.ndarray
+    e_cfg : numpy.ndarray
         Matrix holding the number of electrons in each shell.
         The row index corresponds to the charge state, the columns to different subshells
     shell_n : numpy.ndarray
-        Array holding the main quantum number n corresponding to each shell listed in cfg
+        Array holding the main quantum number n corresponding to each shell listed in e_cfg
 
     Returns
     -------
-    z_eff : numpy.ndarray
+    rr_z_eff : numpy.ndarray
         Array holding the effective nuclear charge for each charge state,
         where the array-index corresponds to the charge state.
-    n_0_eff : numpy.ndarray
+    rr_n_0_eff : numpy.ndarray
         Array holding the effective valence shell number for each charge state,
         where the array-index corresponds to the charge state.
 
@@ -334,8 +334,8 @@ def precompute_rr_quantities(cfg, shell_n):
     ebisim.xs.rrxs_mat
 
     """
-    z = cfg.shape[0]
-    shell_n = shell_n[:cfg.shape[1]] # Crop shell_n to the shells described in cfg
+    z = e_cfg.shape[0]
+    shell_n = shell_n[:e_cfg.shape[1]] # Crop shell_n to the shells described in e_cfg
 
     n_0 = np.zeros(z + 1)
     occup = np.zeros(z + 1)
@@ -347,18 +347,18 @@ def precompute_rr_quantities(cfg, shell_n):
     occup[z] = 0
     # All other charge states
     for cs in range(z):
-        conf = cfg[cs, :]
+        conf = e_cfg[cs, :]
         n_0[cs] = np.max(shell_n[np.nonzero(conf)])
         occup[cs] = np.sum(np.extract((shell_n == n_0[cs]), conf))
 
     w_n0 = (2 * n_0**2 - occup) / (2 * n_0**2)
-    n_0_eff = n_0 + (1 - w_n0) - 0.3
-    z_eff = (z + np.arange(z + 1)) / 2
+    rr_n_0_eff = n_0 + (1 - w_n0) - 0.3
+    rr_z_eff = (z + np.arange(z + 1)) / 2
 
-    return z_eff, n_0_eff
+    return rr_z_eff, rr_n_0_eff
 
 
-def lookup_lotz_factors(cfg, shellorder):
+def lookup_lotz_factors(e_cfg, shellorder):
     """
     Analyses the shell structure of each charge state and looks up the correct factors for
     the Lotz formula.
@@ -368,22 +368,22 @@ def lookup_lotz_factors(cfg, shellorder):
 
     Parameters
     ----------
-    cfg : numpy.ndarray
+    e_cfg : numpy.ndarray
         Matrix holding the number of electrons in each shell.
         The row index corresponds to the charge state, the columns to different subshells
     shellorder : numpy.ndarray
-        Tuple containing the names of all shells in the same order as they appear in 'cfg'
+        Tuple containing the names of all shells in the same order as they appear in 'e_cfg'
 
     Returns
     -------
-    lotz_a : numpy.ndarray
-        Array holding 'Lotz' factor 'a' for each occupied shell in 'cfg' up to a certain
+    ei_lotz_a : numpy.ndarray
+        Array holding 'Lotz' factor 'a' for each occupied shell in 'e_cfg' up to a certain
         charge state.
-    lotz_b : numpy.ndarray
-        Array holding 'Lotz' factor 'b' for each occupied shell in 'cfg' up to a certain
+    ei_lotz_b : numpy.ndarray
+        Array holding 'Lotz' factor 'b' for each occupied shell in 'e_cfg' up to a certain
         charge state.
-    lotz_b : numpy.ndarray
-        Array holding 'Lotz' factor 'c' for each occupied shell in 'cfg' up to a certain
+    ei_lotz_b : numpy.ndarray
+        Array holding 'Lotz' factor 'c' for each occupied shell in 'e_cfg' up to a certain
         charge state.
 
     See Also
@@ -392,13 +392,13 @@ def lookup_lotz_factors(cfg, shellorder):
     ebisim.xs.eixs_mat
 
     """
-    z = cfg.shape[0]
-    cols = cfg.shape[1]
+    z = e_cfg.shape[0]
+    cols = e_cfg.shape[1]
 
     if z > 20: # No specific data available, use factors for neutral to 1+ ionisation
-        lotz_a = np.zeros((1, cols))
-        lotz_b = np.zeros((1, cols))
-        lotz_c = np.zeros((1, cols))
+        ei_lotz_a = np.zeros((1, cols))
+        ei_lotz_b = np.zeros((1, cols))
+        ei_lotz_c = np.zeros((1, cols))
 
         for i in range(cols):
             shell = shellorder[i]
@@ -419,9 +419,9 @@ def lookup_lotz_factors(cfg, shellorder):
             elif s == "+":
                 i2 = shellorder.index(shell_stub + "-")
 
-            n_e = cfg[0, i]
+            n_e = e_cfg[0, i]
             if i2 and i2 < cols:
-                n_e += cfg[0, i2]
+                n_e += e_cfg[0, i2]
 
             if n_e == 0:
                 a = b = c = 0
@@ -432,16 +432,16 @@ def lookup_lotz_factors(cfg, shellorder):
                     nstr = "" + str(int(n))
                 a, b, c = _LOTZ_NEUTRAL_TABLE[nstr + l + str(int(n_e))]
 
-            lotz_a[0, i] = a * 1.0e-18
-            lotz_b[0, i] = b
-            lotz_c[0, i] = c
+            ei_lotz_a[0, i] = a * 1.0e-18
+            ei_lotz_b[0, i] = b
+            ei_lotz_c[0, i] = c
 
     else:
         table = _LOTZ_ADVANCED_TABLE[z]
         ncs = len(table.keys())
-        lotz_a = np.ones((ncs, cols)) * 4.5e-18
-        lotz_b = np.zeros((ncs, cols))
-        lotz_c = np.zeros((ncs, cols))
+        ei_lotz_a = np.ones((ncs, cols)) * 4.5e-18
+        ei_lotz_b = np.zeros((ncs, cols))
+        ei_lotz_c = np.zeros((ncs, cols))
 
         for cs in range(ncs):
             for i in range(cols):
@@ -449,14 +449,14 @@ def lookup_lotz_factors(cfg, shellorder):
 
                 if shell_stub in table[cs]:
                     a, b, c = table[cs][shell_stub]
-                    lotz_a[cs, i] = a * 1.0e-18
-                    lotz_b[cs, i] = b
-                    lotz_c[cs, i] = c
+                    ei_lotz_a[cs, i] = a * 1.0e-18
+                    ei_lotz_b[cs, i] = b
+                    ei_lotz_c[cs, i] = c
 
-    lotz_a.setflags(write=False)
-    lotz_b.setflags(write=False)
-    lotz_c.setflags(write=False)
-    return lotz_a, lotz_b, lotz_c
+    ei_lotz_a.setflags(write=False)
+    ei_lotz_b.setflags(write=False)
+    ei_lotz_c.setflags(write=False)
+    return ei_lotz_a, ei_lotz_b, ei_lotz_c
 
 
 @numba.njit(cache=True)
