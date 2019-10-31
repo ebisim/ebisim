@@ -156,9 +156,9 @@ Element.rr_n_0_eff.__doc__ = "Numpy array of effective valence shell numbers for
 Element.dr_cs.__doc__ = "Numpy array of charge states for DR cross sections."
 Element.dr_e_res.__doc__ = "Numpy array of resonance energies for DR cross sections."
 Element.dr_strength.__doc__ = "Numpy array of transition strengths for DR cross sections."
-Element.ei_lotz_a.__doc__ = "Numpy array of precomputed Lotz factor \"a\" for each entry of \"e_cfg\"."
-Element.ei_lotz_b.__doc__ = "Numpy array of precomputed Lotz factor \"b\" for each entry of \"e_cfg\"."
-Element.ei_lotz_c.__doc__ = "Numpy array of precomputed Lotz factor \"c\" for each entry of \"e_cfg\"."
+Element.ei_lotz_a.__doc__ = "Numpy array of precomputed Lotz factor 'a' for each entry of 'e_cfg'."
+Element.ei_lotz_b.__doc__ = "Numpy array of precomputed Lotz factor 'b' for each entry of 'e_cfg'."
+Element.ei_lotz_c.__doc__ = "Numpy array of precomputed Lotz factor 'c' for each entry of 'e_cfg'."
 
 def get_element(element_id, a=None):
     """
