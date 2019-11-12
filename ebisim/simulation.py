@@ -9,6 +9,7 @@ from collections import namedtuple
 import numpy as np
 import scipy.integrate
 import scipy.interpolate
+import numba
 
 from . import plotting
 from . import xs
@@ -446,6 +447,61 @@ def get_ion_target(element, N, kbT=0.025, q=1):
 
 Device = namedtuple("Device", ["j", "e_kin", "current", "r_e", "v_ax", "v_ra", "b_ax", "r_dt"])
 
+@numba.njit()
+def rk4_step(fun, t, y, h, funargs):
+    k1 = h * fun(t, y, *funargs)
+    k2 = h * fun(t + h/2, y + k1/2, *funargs)
+    k3 = h * fun(t + h/2, y + k2/2, *funargs)
+    k4 = h * fun(t + h, y + k3, *funargs)
+    return (t+h), (y + 1/6*(k1 + 2*k2 + 2*k3 + k4))
+
+@numba.njit()
+def rk4(fun, t0, t1, h, y0, funargs):
+    nt = int((t1 - t0)/h + 1)
+    t = np.empty(nt)
+    y = np.empty((y0.shape[0], nt))
+    t[0] = t0
+    y[:, 0] = y0
+    for k in range(1, nt-1):
+        t[k], y[:, k] = rk4_step(fun, t[k-1], y[:, k-1], h, funargs)
+    t[nt-1], y[:, nt-1] = rk4_step(fun, t[nt-2], y[:, nt-2], t1-t[nt-2], funargs)
+    return t, y
+
+@numba.njit()
+def _dpot(x, y, current, e_kin, r_e, q, N, kbT):
+    rho_e = -current / (plasma.electron_velocity(e_kin)*r_e**2*PI) * np.exp(-(x/r_e)**2)
+    rho_p = Q_E*q * N * np.exp(-q * y[0]/kbT)
+    # print(type(rho_p))
+    rho_p = np.sum(rho_p)
+    ypp = -(rho_e + rho_p)/EPS_0
+    # ypp = -(rho_e)/EPS_0
+    if y[1] > 0:
+        ypp -= y[1]/x
+    return np.array([y[1], ypp])
+
+@numba.njit()
+def compute_potential(device, q, N, kbT):
+    r_e = .81 * device.r_e
+    sc_post = 1
+    sc_pre = 0
+    n = 0
+    while np.abs(1 - sc_pre / sc_post) > 0.01 and n<10:
+        n = n+1
+    # for _ in range(3):
+        sc_pre = sc_post
+        # fun = lambda x, y: _dpot(x, y, device.current, device.e_kin - sc_post, r_e, q, N, kbT)
+        # res = scipy.integrate.solve_ivp(fun, (0, device.r_dt), np.array([0, 0]), t_eval=rs)
+        x, y = rk4(
+            _dpot,
+            0,
+            device.r_dt,
+            device.r_e/50,
+            np.zeros(2),
+            (device.current, device.e_kin-sc_post, device.r_e, q, N, kbT)
+        )
+        sc_post = y[0, -1]
+    return x, y[0] - sc_post
+
 def advanced_simulation(device, target, t_max, dr_fwhm=None, solver_kwargs=None):
     """
     !!!UNDER ACTIVE DEVELOPMENT!!! - API not stable!
@@ -515,6 +571,7 @@ def advanced_simulation(device, target, t_max, dr_fwhm=None, solver_kwargs=None)
     ## electrons
     ve = plasma.electron_velocity(device.e_kin)
     je = device.j / Q_E * 1e4
+    je = device.current / Q_E / PI / device.r_e**2
     Ne = je / ve
     on_ax_sc = device.current/(4 * PI * EPS_0 * ve) * (2*np.log(device.r_e/device.r_dt)-1)
     ## ions
@@ -530,18 +587,35 @@ def advanced_simulation(device, target, t_max, dr_fwhm=None, solver_kwargs=None)
     else:
         drxs = np.zeros(element.z + 1)
 
-    def rhs(_, y, rates=None):
+
+    # rs = np.linspace(0, device.r_dt, 1000)
+    rs, phi_empty = compute_potential(device, q, np.zeros_like(q), np.ones_like(q))
+    on_ax_sc_empty = phi_empty[0]
+
+    def rhs(t, y, rates=None):
 
         ### Split y vector into density and temperature
         N = y[:element.z + 1]
         kbT = y[element.z + 1:]
         # E = N * kbT # Not currently needed
 
+        # Ion cloud
+        # print(_, phi[0])
+        # on_ax_sc = phi[0]
+
         # Compensation
         comp = np.sum(q*N)/Ne
+        # if comp > 0.0:
+        #     rs, phi = compute_potential(device, q, N, kbT)
+            # print(comp, _, phi[0])
         mean_ion_heat = 1/2 * device.current/(4 * PI * EPS_0 * ve) * (1-comp)
         v_trap_rad = -1 * on_ax_sc * (1-comp)
         v_trap_ax = device.v_ax + comp * on_ax_sc
+        if v_trap_ax < 0:
+            v_trap_ax = 1e-16
+        if v_trap_rad < 0:
+            v_trap_rad = 1e-16
+
 
         # precompute collision rates
         rij = plasma.ion_coll_rate_mat(N, N, kbT, kbT, A, A)
@@ -575,7 +649,7 @@ def advanced_simulation(device, target, t_max, dr_fwhm=None, solver_kwargs=None)
         # Ionisation heating
         S_ih = np.zeros_like(S_eh)
         S_ih[1:] = R_ei[:-1] * mean_ion_heat
-        S_ih[:-1] -= (R_rr + R_dr + R_cx)[1:] * mean_ion_heat
+        # S_ih[:-1] -= (R_rr + R_dr + R_cx)[1:] * mean_ion_heat
 
 
         ### Construct rhs for N (density)
@@ -584,7 +658,7 @@ def advanced_simulation(device, target, t_max, dr_fwhm=None, solver_kwargs=None)
         R_tot[:-1] += R_rr[1:] + R_dr[1:] + R_cx[1:]
 
         ### Construct rates for energy density flow
-        S_tot = -(S_ei + S_rr + S_dr + S_cx) + S_eh + S_tr - (S_ax + S_ra)
+        S_tot = -(S_ei + S_rr + S_dr + S_cx) + S_eh + S_tr + S_ih - (S_ax + S_ra)
         S_tot[1:] += S_ei[:-1]
         S_tot[:-1] += S_rr[1:] + S_dr[1:] + S_cx[1:]
 
