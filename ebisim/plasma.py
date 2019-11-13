@@ -202,7 +202,7 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     """
     # Artifically clamp collision rate to zero if either density is very small
     # This is a reasonable assumption and prevents instabilities when calling the coulomb logarithm
-    if Ni < MINIMAL_DENSITY or Nj < MINIMAL_DENSITY or kbTi < 0 or kbTj < 0:
+    if Ni <= MINIMAL_DENSITY or Nj <= MINIMAL_DENSITY or kbTi <= 0 or kbTj <= 0:
         return 0
     clog = clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj)
     kbTi_SI = kbTi * Q_E
@@ -333,7 +333,7 @@ def energy_transfer_vec(Ni, Nj, kbTi, kbTj, Ai, Aj, rij):
     trans_i = np.zeros(ni)
     for qi in range(1, ni):
         for qj in range(1, nj):
-            if kbTi[qi] < 0 or kbTj[qj] < 0:
+            if kbTi[qi] <= 0 or kbTj[qj] <= 0:
                 trans_i[qi] += 0
             else:
                 trans_i[qi] += 2 * rij[qi, qj] * Ni[qi] * Ai/Aj * (kbTj[qj] - kbTi[qi]) / \
