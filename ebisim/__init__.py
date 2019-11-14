@@ -63,7 +63,11 @@ from .simulation import (
     advanced_simulation,
     energy_scan,
     Result,
-    EnergyScanResult
+    EnergyScanResult,
+    Device,
+    Target,
+    get_gas_target,
+    get_ion_target
 )
 
 from .physconst import (
