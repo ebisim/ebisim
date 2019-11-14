@@ -7,7 +7,29 @@ import scipy.integrate
 import scipy.interpolate
 
 from .. import plotting
-from ._advanced import _RATE_NAMES
+
+
+_RATE_NAMES = dict(
+    R_ei="Electron ionisation",
+    R_rr="Radiative recombination",
+    R_dr="Dielectronic recombination",
+    R_cx="Charge exchange",
+    R_ax="Axial losses",
+    R_ra="Radial losses",
+    S_ei="Electron ionisation",
+    S_rr="Radiative recombination",
+    S_dr="Dielectronic recombination",
+    S_cx="Charge exchange",
+    S_ax="Axial losses",
+    S_ra="Radial losses",
+    S_eh="Electron heating",
+    S_tr="Heat transfer",
+    S_ih="Ionisation heating",
+    V_ii="Self collision rate",
+    V_it="Total collision rate",
+    Comp="Charge compensation"
+) #: Rates names for plot annotation
+
 
 class Result:
     """

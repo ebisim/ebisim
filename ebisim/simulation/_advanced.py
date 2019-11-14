@@ -15,27 +15,6 @@ from ..physconst import Q_E, M_P, PI, EPS_0
 from ..physconst import MINIMAL_DENSITY, MINIMAL_KBT
 from ._result import Result
 
-_RATE_NAMES = dict(
-    R_ei="Electron ionisation",
-    R_rr="Radiative recombination",
-    R_dr="Dielectronic recombination",
-    R_cx="Charge exchange",
-    R_ax="Axial losses",
-    R_ra="Radial losses",
-    S_ei="Electron ionisation",
-    S_rr="Radiative recombination",
-    S_dr="Dielectronic recombination",
-    S_cx="Charge exchange",
-    S_ax="Axial losses",
-    S_ra="Radial losses",
-    S_eh="Electron heating",
-    S_tr="Heat transfer",
-    S_ih="Ionisation heating",
-    V_ii="Self collision rate",
-    V_it="Total collision rate",
-    Comp="Charge compensation"
-) #: Rates names for plot annotation
-
 Target = namedtuple("Target", ["element", "N", "kbT", "cni", "cx"])
 
 def get_gas_target(element, N, kbT=0.025, cni=True, cx=True):
