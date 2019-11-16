@@ -39,7 +39,7 @@ def get_ion_target(element, N, kbT=0.025, q=1):
 
 Device = namedtuple("Device", ["j", "e_kin", "current", "r_e", "v_ax", "v_ra", "b_ax", "r_dt"])
 
-@numba.njit()
+@numba.njit(cache=True)
 def rk4_step(fun, t, y, h, funargs):
     k1 = h * fun(t, y, *funargs)
     k2 = h * fun(t + h/2, y + k1/2, *funargs)
@@ -47,7 +47,7 @@ def rk4_step(fun, t, y, h, funargs):
     k4 = h * fun(t + h, y + k3, *funargs)
     return (t+h), (y + 1/6*(k1 + 2*k2 + 2*k3 + k4))
 
-@numba.njit()
+@numba.njit(cache=True)
 def rk4(fun, t0, t1, h, y0, funargs):
     nt = int((t1 - t0)/h + 1)
     t = np.empty(nt)
@@ -59,7 +59,7 @@ def rk4(fun, t0, t1, h, y0, funargs):
     t[nt-1], y[:, nt-1] = rk4_step(fun, t[nt-2], y[:, nt-2], t1-t[nt-2], funargs)
     return t, y
 
-@numba.njit()
+@numba.njit(cache=True)
 def _dpot(x, y, current, e_kin, r_e, q, N, kbT):
     rho_e = -current / (plasma.electron_velocity(e_kin)*r_e**2*PI) * np.exp(-(x/r_e)**2)
     rho_p = Q_E*q * N * np.exp(-q * y[0]/kbT)
@@ -71,7 +71,7 @@ def _dpot(x, y, current, e_kin, r_e, q, N, kbT):
         ypp -= y[1]/x
     return np.array([y[1], ypp])
 
-@numba.njit()
+@numba.njit(cache=True)
 def compute_potential(device, q, N, kbT):
     r_e = .81 * device.r_e
     sc_post = 1
@@ -95,7 +95,7 @@ def compute_potential(device, q, N, kbT):
     return x, y[0] - sc_post
 
 
-@numba.njit()
+@numba.njit(cache=True)
 def _rhs(t, y, device, target, rates=None):
 
     # prepare rhs
@@ -220,12 +220,12 @@ def _rhs(t, y, device, target, rates=None):
         rates["S_ih"] = S_ih
         rates["V_ii"] = np.diag(rij)
         rates["V_it"] = ri
-        rates["Comp"] = comp
+        # rates["Comp"] = comp
 
     return np.concatenate((R_tot, Q_tot))
 
 
-@numba.njit(parallel=True)
+@numba.njit(parallel=True, cache=True)
 def _rhs_vectorised(t, y, device, target, rates=None):
     out = np.empty_like(y)
     for k in range(y.shape[1]):
@@ -303,14 +303,17 @@ def advanced_simulation(device, target, t_max, dr_fwhm=None, solver_kwargs=None)
 
     # Recompute rates for final solution (this cannot be done parasitically due to
     # the solver approximating the jacobian and calling rhs with bogus values).
-    # nt = res.t.size
-    # poll = dict()
-    # _ = rhs(res.t[0], res.y[:, 0], rates=poll)
-    # rates = {k:np.zeros((poll[k].size, nt)) for k in poll}
-    # for idx in range(nt):
-    #     _ = rhs(res.t[idx], res.y[:, idx], rates=poll)
-    #     for key, val in poll.items():
-    #         rates[key][:, idx] = val
+    nt = res.t.size
+    poll = numba.typed.Dict.empty(
+        key_type=numba.types.unicode_type,
+        value_type=numba.types.float64[:]
+    )
+    _ = _rhs(res.t[0], res.y[:, 0], device, target, rates=poll)
+    rates = {k:np.zeros((poll[k].size, nt)) for k in poll}
+    for idx in range(nt):
+        _ = _rhs(res.t[idx], res.y[:, idx], device, target, rates=poll)
+        for key, val in poll.items():
+            rates[key][:, idx] = val
 
     return Result(
         param=param,
@@ -318,5 +321,5 @@ def advanced_simulation(device, target, t_max, dr_fwhm=None, solver_kwargs=None)
         N=res.y[:target.element.z + 1, :],
         kbT=res.y[target.element.z + 1:, :],
         res=res,
-        rates=None
+        rates=rates
         )
