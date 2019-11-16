@@ -94,6 +94,144 @@ def compute_potential(device, q, N, kbT):
         sc_post = y[0, -1]
     return x, y[0] - sc_post
 
+
+@numba.njit()
+def _rhs(t, y, device, target, rates=None):
+
+    # prepare rhs
+    ## electrons
+    ve = plasma.electron_velocity(device.e_kin)
+    je = device.j / Q_E * 1e4
+    je = device.current / Q_E / PI / device.r_e**2
+    Ne = je / ve
+    on_ax_sc = device.current/(4 * PI * EPS_0 * ve) * (2*np.log(device.r_e/device.r_dt)-1)
+    ## ions
+    element = target.element
+    q = np.arange(element.z + 1)
+    A = element.a
+    ## cross sections
+    eixs = xs.eixs_vec(element, device.e_kin)
+    rrxs = xs.rrxs_vec(element, device.e_kin)
+    cxxs = 1.43e-16 * q**1.17 * element.ip**-2.76
+    if False:#dr_fwhm is not None:
+        drxs = xs.drxs_vec(element, device.e_kin, dr_fwhm)
+    else:
+        drxs = np.zeros(element.z + 1)
+
+
+    # rs = np.linspace(0, device.r_dt, 1000)
+    # rs, phi_empty = compute_potential(device, q, np.zeros_like(q), np.ones_like(q))
+    # on_ax_sc_empty = phi_empty[0]
+
+    ### Split y vector into density and temperature
+    N = y[:element.z + 1]
+    kbT = y[element.z + 1:]
+    kbT_clip = kbT[:]
+    kbT_clip[kbT_clip < 0] = 0
+    # E = N * kbT # Not currently needed
+
+    # Ion cloud
+    # print(_, phi[0])
+    # on_ax_sc = phi[0]
+
+    # Compensation
+    comp = np.sum(q*N)/Ne
+    # if comp > 0.0:
+    #     rs, phi = compute_potential(device, q, N, kbT)
+        # print(comp, _, phi[0])
+    mean_ion_heat = 1/2 * device.current/(4 * PI * EPS_0 * ve) * (1-comp)
+    v_trap_rad = -1 * on_ax_sc * (1-comp)
+    v_trap_ax = device.v_ax + comp * on_ax_sc
+    if v_trap_ax < 0:
+        v_trap_ax = 1e-16
+    if v_trap_rad < 0:
+        v_trap_rad = 1e-16
+
+
+    # precompute collision rates
+    rij = plasma.ion_coll_rate_mat(N, N, kbT, kbT, A, A)
+    ri = np.sum(rij, axis=1)
+
+    ### Particle density rates
+    R_ei = je * N * eixs
+    R_rr = je * N * rrxs
+    R_dr = je * N * drxs
+
+    if target.cx:
+        R_cx = N * N[0] * np.sqrt(8 * Q_E * kbT_clip/(PI * A * M_P)) * cxxs
+        R_cx[1] = R_cx[1] - np.sum(R_cx[2:])
+    else:
+        R_cx = np.zeros_like(R_ei)
+    R_ax = plasma.escape_rate_axial(N, kbT, ri, v_trap_ax)
+    R_ra = plasma.escape_rate_radial(N, kbT, ri, A, v_trap_rad, device.b_ax, device.r_dt)
+
+    ### Energy density rates
+    S_ei = R_ei * kbT
+    S_rr = R_rr * kbT
+    S_dr = R_dr * kbT
+    S_cx = R_cx * kbT
+    S_ax = R_ax * (kbT + q * v_trap_ax)
+    S_ra = R_ra * (kbT + q * (v_trap_rad + device.r_dt * device.b_ax * \
+                                np.sqrt(2 * Q_E * kbT_clip / (3 * A *M_P))))
+    # Electron heating
+    S_eh = plasma.electron_heating_vec(N, Ne, kbT, device.e_kin, A)
+    # Energy transfer between charge states within same "species"
+    S_tr = plasma.energy_transfer_vec(N, N, kbT, kbT, A, A, rij)
+    # Ionisation heating
+    S_ih = np.zeros_like(S_eh)
+    S_ih[1:] = R_ei[:-1] * mean_ion_heat
+    # S_ih[:-1] -= (R_rr + R_dr + R_cx)[1:] * mean_ion_heat
+
+
+    ### Construct rhs for N (density)
+    R_tot = -(R_ei + R_rr + R_dr + R_cx) - (R_ax + R_ra)
+    R_tot[1:] += R_ei[:-1]
+    R_tot[:-1] += R_rr[1:] + R_dr[1:] + R_cx[1:]
+
+    ### Construct rates for energy density flow
+    S_tot = -(S_ei + S_rr + S_dr + S_cx) + S_eh + S_tr + S_ih - (S_ax + S_ra)
+    S_tot[1:] += S_ei[:-1]
+    S_tot[:-1] += S_rr[1:] + S_dr[1:] + S_cx[1:]
+
+    if target.cni:
+        R_tot[0] = 0
+        S_tot[0] = 0
+
+    ### Deduce temperature flow -> Integrating temperature instead of energy has proven more
+    ### numerically stable
+    Q_tot = (S_tot - kbT * R_tot) / N
+    Q_tot[N <= MINIMAL_DENSITY] = 0 ### Freeze temperature if density is low (-> not meaningful)
+
+    if rates is not None:
+        rates["R_ei"] = R_ei
+        rates["R_rr"] = R_rr
+        rates["R_dr"] = R_dr
+        rates["R_cx"] = R_cx
+        rates["R_ax"] = R_ax
+        rates["R_ra"] = R_ra
+        rates["S_ei"] = S_ei
+        rates["S_rr"] = S_rr
+        rates["S_dr"] = S_dr
+        rates["S_cx"] = S_cx
+        rates["S_ax"] = S_ax
+        rates["S_ra"] = S_ra
+        rates["S_eh"] = S_eh
+        rates["S_tr"] = S_tr
+        rates["S_ih"] = S_ih
+        rates["V_ii"] = np.diag(rij)
+        rates["V_it"] = ri
+        rates["Comp"] = comp
+
+    return np.concatenate((R_tot, Q_tot))
+
+
+@numba.njit(parallel=True)
+def _rhs_vectorised(t, y, device, target, rates=None):
+    out = np.empty_like(y)
+    for k in range(y.shape[1]):
+        out[:, k] = _rhs(t, y[:, k], device, target, rates)
+    return out
+
 def advanced_simulation(device, target, t_max, dr_fwhm=None, solver_kwargs=None):
     """
     !!!UNDER ACTIVE DEVELOPMENT!!! - API not stable!
@@ -159,150 +297,26 @@ def advanced_simulation(device, target, t_max, dr_fwhm=None, solver_kwargs=None)
     # save adjusted call parameters for passing on to Result
     param = locals().copy()
 
-    # prepare rhs
-    ## electrons
-    ve = plasma.electron_velocity(device.e_kin)
-    je = device.j / Q_E * 1e4
-    je = device.current / Q_E / PI / device.r_e**2
-    Ne = je / ve
-    on_ax_sc = device.current/(4 * PI * EPS_0 * ve) * (2*np.log(device.r_e/device.r_dt)-1)
-    ## ions
-    element = target.element
-    q = np.arange(element.z + 1)
-    A = element.a
-    ## cross sections
-    eixs = xs.eixs_vec(element, device.e_kin)
-    rrxs = xs.rrxs_vec(element, device.e_kin)
-    cxxs = 1.43e-16 * q**1.17 * element.ip**-2.76
-    if dr_fwhm is not None:
-        drxs = xs.drxs_vec(element, device.e_kin, dr_fwhm)
-    else:
-        drxs = np.zeros(element.z + 1)
 
-
-    # rs = np.linspace(0, device.r_dt, 1000)
-    rs, phi_empty = compute_potential(device, q, np.zeros_like(q), np.ones_like(q))
-    on_ax_sc_empty = phi_empty[0]
-
-    def rhs(t, y, rates=None):
-
-        ### Split y vector into density and temperature
-        N = y[:element.z + 1]
-        kbT = y[element.z + 1:]
-        # E = N * kbT # Not currently needed
-
-        # Ion cloud
-        # print(_, phi[0])
-        # on_ax_sc = phi[0]
-
-        # Compensation
-        comp = np.sum(q*N)/Ne
-        # if comp > 0.0:
-        #     rs, phi = compute_potential(device, q, N, kbT)
-            # print(comp, _, phi[0])
-        mean_ion_heat = 1/2 * device.current/(4 * PI * EPS_0 * ve) * (1-comp)
-        v_trap_rad = -1 * on_ax_sc * (1-comp)
-        v_trap_ax = device.v_ax + comp * on_ax_sc
-        if v_trap_ax < 0:
-            v_trap_ax = 1e-16
-        if v_trap_rad < 0:
-            v_trap_rad = 1e-16
-
-
-        # precompute collision rates
-        rij = plasma.ion_coll_rate_mat(N, N, kbT, kbT, A, A)
-        ri = np.sum(rij, axis=1)
-
-        ### Particle density rates
-        R_ei = je * N * eixs
-        R_rr = je * N * rrxs
-        R_dr = je * N * drxs
-
-        if target.cx:
-            R_cx = N * N[0] * np.sqrt(8 * Q_E * np.clip(kbT, 0, None)/(PI * A * M_P)) * cxxs
-            R_cx[1] = R_cx[1] - np.sum(R_cx[2:])
-        else:
-            R_cx = np.zeros_like(R_ei)
-        R_ax = plasma.escape_rate_axial(N, kbT, ri, v_trap_ax)
-        R_ra = plasma.escape_rate_radial(N, kbT, ri, A, v_trap_rad, device.b_ax, device.r_dt)
-
-        ### Energy density rates
-        S_ei = R_ei * kbT
-        S_rr = R_rr * kbT
-        S_dr = R_dr * kbT
-        S_cx = R_cx * kbT
-        S_ax = R_ax * (kbT + q * v_trap_ax)
-        S_ra = R_ra * (kbT + q * (v_trap_rad + device.r_dt * device.b_ax * \
-                                  np.sqrt(2 * Q_E * np.clip(kbT, 0, None) / (3 * A *M_P))))
-        # Electron heating
-        S_eh = plasma.electron_heating_vec(N, Ne, kbT, device.e_kin, A)
-        # Energy transfer between charge states within same "species"
-        S_tr = plasma.energy_transfer_vec(N, N, kbT, kbT, A, A, rij)
-        # Ionisation heating
-        S_ih = np.zeros_like(S_eh)
-        S_ih[1:] = R_ei[:-1] * mean_ion_heat
-        # S_ih[:-1] -= (R_rr + R_dr + R_cx)[1:] * mean_ion_heat
-
-
-        ### Construct rhs for N (density)
-        R_tot = -(R_ei + R_rr + R_dr + R_cx) - (R_ax + R_ra)
-        R_tot[1:] += R_ei[:-1]
-        R_tot[:-1] += R_rr[1:] + R_dr[1:] + R_cx[1:]
-
-        ### Construct rates for energy density flow
-        S_tot = -(S_ei + S_rr + S_dr + S_cx) + S_eh + S_tr + S_ih - (S_ax + S_ra)
-        S_tot[1:] += S_ei[:-1]
-        S_tot[:-1] += S_rr[1:] + S_dr[1:] + S_cx[1:]
-
-        if target.cni:
-            R_tot[0] = 0
-            S_tot[0] = 0
-
-        ### Deduce temperature flow -> Integrating temperature instead of energy has proven more
-        ### numerically stable
-        Q_tot = (S_tot - kbT * R_tot) / N
-        Q_tot[N <= MINIMAL_DENSITY] = 0 ### Freeze temperature if density is low (-> not meaningful)
-
-        if rates is not None:
-            rates["R_ei"] = R_ei
-            rates["R_rr"] = R_rr
-            rates["R_dr"] = R_dr
-            rates["R_cx"] = R_cx
-            rates["R_ax"] = R_ax
-            rates["R_ra"] = R_ra
-            rates["S_ei"] = S_ei
-            rates["S_rr"] = S_rr
-            rates["S_dr"] = S_dr
-            rates["S_cx"] = S_cx
-            rates["S_ax"] = S_ax
-            rates["S_ra"] = S_ra
-            rates["S_eh"] = S_eh
-            rates["S_tr"] = S_tr
-            rates["S_ih"] = S_ih
-            rates["V_ii"] = np.diag(rij)
-            rates["V_it"] = ri
-            rates["Comp"] = comp
-
-        return np.concatenate((R_tot, Q_tot))
-
-    res = scipy.integrate.solve_ivp(rhs, (0, t_max), N_kbT_initial, **solver_kwargs)
+    rhs = lambda t, y: _rhs_vectorised(t, y, device, target)
+    res = scipy.integrate.solve_ivp(rhs, (0, t_max), N_kbT_initial, vectorized=True, **solver_kwargs)
 
     # Recompute rates for final solution (this cannot be done parasitically due to
     # the solver approximating the jacobian and calling rhs with bogus values).
-    nt = res.t.size
-    poll = dict()
-    _ = rhs(res.t[0], res.y[:, 0], rates=poll)
-    rates = {k:np.zeros((poll[k].size, nt)) for k in poll}
-    for idx in range(nt):
-        _ = rhs(res.t[idx], res.y[:, idx], rates=poll)
-        for key, val in poll.items():
-            rates[key][:, idx] = val
+    # nt = res.t.size
+    # poll = dict()
+    # _ = rhs(res.t[0], res.y[:, 0], rates=poll)
+    # rates = {k:np.zeros((poll[k].size, nt)) for k in poll}
+    # for idx in range(nt):
+    #     _ = rhs(res.t[idx], res.y[:, idx], rates=poll)
+    #     for key, val in poll.items():
+    #         rates[key][:, idx] = val
 
     return Result(
         param=param,
         t=res.t,
-        N=res.y[:element.z + 1, :],
-        kbT=res.y[element.z + 1:, :],
+        N=res.y[:target.element.z + 1, :],
+        kbT=res.y[target.element.z + 1:, :],
         res=res,
-        rates=rates
+        rates=None
         )
