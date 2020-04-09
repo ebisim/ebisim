@@ -4,51 +4,13 @@ simulation code, e.g. loading resources. These functions are meant for internal 
 have no real use outside this scope.
 """
 
-import json
 try:
     from importlib.resources import open_text # py>=3.7
 except ImportError:
     from importlib_resources import open_text # py<3.7
 import numpy as np
 
-from . import resources as _resources
 from .resources import drdata as _drdata
-
-
-def load_electron_info():
-    """
-    Loads the electron configurations and subshell binding energies for all elements into a
-    convenient data structure
-
-    Returns
-    -------
-    electron_info : dict of dicts
-        A dictiomary with the proton number as dict-keys.
-        Each value is another dictionary with the items "cfg" (electron configuration) and
-        "ebind" (binding energy of the subshells).
-        The values are 2D numpy arrays with the charge states as the rows and the subshells in the
-        columns.
-    shellorder : tuple of strings
-        Subshell names in the order they appear in electron info.
-
-    """
-    with open_text(_resources, "BindingEnergies.json") as f:
-        data = json.load(f)
-
-    shellorder = tuple(data[0])
-    data = data[1]
-
-    electron_info = {}
-    for key, data in data.items():
-        new_key = int(key) #Cast String type key to int (this is Z of the element)
-        new_cfg = _nparray_from_jagged_list(data["cfg"])
-        new_cfg.setflags(write=False)
-        new_ebind = _nparray_from_jagged_list(data["ebind"])
-        new_ebind.setflags(write=False)
-
-        electron_info[new_key] = dict(cfg=new_cfg, ebind=new_ebind)
-
-    return electron_info, shellorder
 
 
 def load_dr_data():
