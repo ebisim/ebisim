@@ -34,7 +34,8 @@ def main():
     out = dict(Z=z[:105], A=a[:105], ES=es[:105], NAME=name[:105], IP=ip[:105])
 
     DOC = '"""This module contains several tuples used by the elements module in ebisim"""\n\n'
-    lines = list(DOC)
+    AUTO = "# This file is generated automatically, do not edit it manually!\n\n"
+    lines = list((DOC, AUTO))
     for k, v in out.items():
         lines.append(f"{k} = (\n")
         for e in v:
