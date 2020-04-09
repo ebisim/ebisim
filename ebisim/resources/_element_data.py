@@ -1,5 +1,7 @@
 """This module contains several tuples used by the elements module in ebisim"""
 
+# This file is generated automatically, do not edit it manually!
+
 Z = (
     1,
     2,

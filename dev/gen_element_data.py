@@ -8,14 +8,14 @@ from shutil import move
 
 def main():
     print(30*"~")
-    print("element_info.py running...")
+    print(f"{__name__} running...")
 
     CWD = os.getcwd()
     TWD = os.path.dirname(os.path.realpath(__file__))
     print(f"Switching into {TWD}")
     os.chdir(TWD)
 
-    print("Loading data from ChemichalElements.csv")
+    print("Loading data from ChemicalElements.csv")
     z = [] # Atomic Number
     es = [] # Element Symbol
     name = [] # Element Name
@@ -45,12 +45,12 @@ def main():
     lines.pop(-1) # discard trailing newline
 
     print("Writing output file.")
-    with open("temp_element_info.py", "w") as f:
+    with open("temp_element_data.py", "w") as f:
         f.writelines(lines)
 
     print("Peforming test import.")
     start = time.time()
-    from temp_element_info import Z, ES, NAME, A, IP
+    from temp_element_data import Z, ES, NAME, A, IP
     print(f"Test import took {time.time() - start} s.")
 
     valid = all([
@@ -63,7 +63,7 @@ def main():
     print("Test import valid!" if valid else "Test import invalid!")
 
     print("Moving output file to target location ebisim/resources.")
-    move("temp_element_info.py", "../ebisim/resources/element_info.py")
+    move("temp_element_data.py", "../ebisim/resources/_element_data.py")
 
     print(f"Returning into {CWD}")
     os.chdir(CWD)
