@@ -2,16 +2,24 @@
 Reads atomic number Z, symbol, and name information from ChemicalElements.csv and
 writes a json resource
 """
-import json
+import os
 import time
+from shutil import move
 
 def main():
+    print(30*"~")
     print("element_info.py running...")
 
+    CWD = os.getcwd()
+    TWD = os.path.dirname(os.path.realpath(__file__))
+    print(f"Switching into {TWD}")
+    os.chdir(TWD)
+
+    print("Loading data from ChemichalElements.csv")
     z = [] # Atomic Number
-    a = [] # Mass Number
     es = [] # Element Symbol
     name = [] # Element Name
+    a = [] # Mass Number
     ip = []
     with open("./resources/ChemicalElements.csv") as f:
         f.readline() # skip header line
@@ -23,18 +31,44 @@ def main():
             a.append(int(data[3].strip()))
             ip.append(float(data[4].strip()))
 
-    out = dict(z=z[:105], a=a[:105], es=es[:105], name=name[:105], ip=ip[:105])
+    out = dict(Z=z[:105], A=a[:105], ES=es[:105], NAME=name[:105], IP=ip[:105])
 
-    with open("../ebisim/resources/ElementInfo.json", "w") as f:
-        json.dump(out, f)
+    DOC = '"""This module contains several tuples used by the elements module in ebisim"""\n\n'
+    lines = list(DOC)
+    for k, v in out.items():
+        lines.append(f"{k} = (\n")
+        for e in v:
+            lines.append(f"    {repr(e)},\n")
+        lines.append(")\n")
+        lines.append("\n")
+    lines.pop(-1) # discard trailing newline
 
+    print("Writing output file.")
+    with open("temp_element_info.py", "w") as f:
+        f.writelines(lines)
+
+    print("Peforming test import.")
     start = time.time()
-    with open("../ebisim/resources/ElementInfo.json", "r") as f:
-        val = json.load(f)
-    print(f"Loading took {time.time() - start} s.")
+    from temp_element_info import Z, ES, NAME, A, IP
+    print(f"Test import took {time.time() - start} s.")
 
-    print("json.load() valid" if out == val else "json.load() invalid")
+    valid = all([
+        tuple(z) == Z,
+        tuple(es) == ES,
+        tuple(name) == NAME,
+        tuple(a) == A,
+        tuple(ip) == IP
+    ])
+    print("Test import valid!" if valid else "Test import invalid!")
+
+    print("Moving output file to target location ebisim/resources.")
+    move("temp_element_info.py", "../ebisim/resources/element_info.py")
+
+    print(f"Returning into {CWD}")
+    os.chdir(CWD)
+
     print("element_info.py done.")
+    print(30*"~")
 
 if __name__ == "__main__":
     main()
