@@ -7,7 +7,6 @@ The original data was computed by Robert Mertzig using the Flexible Atomic Code
 (https://github.com/flexible-atomic-code/fac)
 """
 import os
-import json
 import time
 from shutil import move
 from string import Template
@@ -100,56 +99,11 @@ def load_energies(z):
             e_bind.append(line)
     return e_bind
 
-
-
-def main():
-    print(30*"~")
-    print(f"{__name__} running...")
-
-    CWD = os.getcwd()
-    TWD = os.path.dirname(os.path.realpath(__file__))
-    print(f"Switching into {TWD}")
-    os.chdir(TWD)
-
-    blocks = []
-    print("Loading data from electron configuration files.")
-    out = {}
-    for z in range(1, 106):
-        data = {}
-        data["ebind"] = load_energies(z)
-        data["cfg"] = load_conf(z)
-        out[str(z)] = data # json keys are always strings
-        blocks.append(
-            BLOCKTEMPLATE.substitute(z=z, ebind=repr(data["ebind"]), cfg=repr(data["cfg"]))
-            )
-
-    ORDER = tuple(reorder(SHELLS_IN))
-    N = tuple((map(int, [s[0] for s in ORDER])))
-
-    out = FILETEMPLATE.substitute(order=repr(ORDER), data="".join(blocks), n=N)
-    # Write file
-    print("Writing output file.")
-    with open("temp_shell_data.py", "w") as f:
-        f.write(out)
-
-    # Check if json load correctly restores the output
-    # print("Peforming test import.")
-    # start = time.time()
-    # with open("../ebisim/resources/BindingEnergies.json", "r") as f:
-    #     val = json.load(f)[1]
-    # print(f"Test import took {time.time() - start} s.")
-
-
-    # print("Test import valid!" if valid else "Test import invalid!")
-
-    print("Moving output file to target location ebisim/resources.")
-    move("temp_shell_data.py", "../ebisim/resources/_shell_data.py")
-
-    print(f"Returning into {CWD}")
-    os.chdir(CWD)
-
-    print("binding_energies.py done.")
-    print(30*"~")
+def lol_to_str(lol, indent):
+    out = ""
+    for l in lol:
+        out += indent*" " + repr(l) + ",\n"
+    return out[:-1]
 
 FILETEMPLATE = Template('''"""
 This module contains data concerning the electron configuration and binding energies used all
@@ -163,17 +117,71 @@ ORDER = $order
 N = $n
 
 DATA = {
-$data
-}
+$data}
 ''')
 
 BLOCKTEMPLATE = Template('''    $z:{
-        "ebind":$ebind,
-        "cfg":$cfg,
+        "ebind":[
+$ebind
+        ],
+        "cfg":[
+$cfg
+        ],
     },
 ''')
 
+def main():
+    CWD = os.getcwd()
+    TWD = os.path.dirname(os.path.realpath(__file__))
+    print(30*"~")
+    print(f"{__name__} running...")
+    print(f"Switching into {TWD}")
+    os.chdir(TWD)
 
+    print("Loading data from electron configuration files.")
+    blocks = []
+    data = {}
+    for z in range(1, 106):
+        e_data = {}
+        e_data["ebind"] = load_energies(z)
+        e_data["cfg"] = load_conf(z)
+        data[z] = e_data
+        blocks.append(
+            BLOCKTEMPLATE.substitute(
+                z=z, ebind=lol_to_str(e_data["ebind"], 12), cfg=lol_to_str(e_data["cfg"], 12))
+            )
+
+    order = tuple(reorder(SHELLS_IN))
+    n = tuple((map(int, [s[0] for s in order])))
+    out = FILETEMPLATE.substitute(order=repr(order), data="".join(blocks), n=repr(n))
+
+    # Write file
+    print("Writing output file.")
+    with open("temp_shell_data.py", "w") as f:
+        f.write(out)
+
+    print("Peforming test import.")
+    start = time.time()
+    from temp_shell_data import ORDER, N, DATA
+    print(f"Test import took {time.time() - start} s.")
+
+    # print(data[1], DATA[1])
+    valid = all([
+        n == N,
+        order == ORDER,
+        data == DATA
+    ])
+
+    print("Test import valid!" if valid else "Test import invalid!")
+
+    print("Moving output file to target location ebisim/resources.")
+    move("temp_shell_data.py", "../ebisim/resources/_shell_data.py")
+
+    print(f"Returning into {CWD}")
+    os.chdir(CWD)
+
+    print(f"{__name__} done.")
+    print(30*"~")
 
 if __name__ == "__main__":
     main()
