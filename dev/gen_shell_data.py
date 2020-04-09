@@ -10,6 +10,7 @@ import os
 import time
 from shutil import move
 from string import Template
+import numpy as np
 
 
 # From Roberts readme:
@@ -74,6 +75,12 @@ def reorder(l):
         out[REDICT[i]] = val
     return out
 
+def unjag(lol):
+    ncols = max(map(len, lol))
+    for irow, data in enumerate(lol):
+        lol[irow] = data + (ncols-len(data))*[0,]
+    return lol
+
 def load_conf(z):
     # Import Electron Configurations for each charge state
     # list of lists where each sublist hold the configuration for on charge state
@@ -84,7 +91,7 @@ def load_conf(z):
             line = line.split()
             line = reorder([int(elem.strip()) for elem in line])
             cfg.append(line)
-    return cfg
+    return unjag(cfg)
 
 def load_energies(z):
     # Load required data from resource files, can set further fields
@@ -97,7 +104,7 @@ def load_energies(z):
             line = line.split()
             line = reorder([float(elem.strip()) for elem in line])
             e_bind.append(line)
-    return e_bind
+    return unjag(e_bind)
 
 def lol_to_str(lol, indent):
     out = ""
@@ -112,22 +119,27 @@ throughout ebisim
 
 # This file is generated automatically, do not edit it manually!
 
+import numpy as np
+
 ORDER = $order
 
-N = $n
+N = np.array($n)
 
-DATA = {
-$data}
+CFG = {
+$cfg}
+
+EBIND = {
+$ebind}
+
+N.setflags(write=False)
+for z in CFG.keys():
+    CFG[z].setflags(write=False)
+    EBIND[z].setflags(write=False)
 ''')
 
-BLOCKTEMPLATE = Template('''    $z:{
-        "ebind":[
-$ebind
-        ],
-        "cfg":[
-$cfg
-        ],
-    },
+BLOCKTEMPLATE = Template('''    $z:np.array([
+$data
+    ]),
 ''')
 
 def main():
@@ -139,21 +151,25 @@ def main():
     os.chdir(TWD)
 
     print("Loading data from electron configuration files.")
-    blocks = []
-    data = {}
+    s_ebind = ""
+    s_cfg = ""
+    d_ebind = {}
+    d_cfg = {}
     for z in range(1, 106):
-        e_data = {}
-        e_data["ebind"] = load_energies(z)
-        e_data["cfg"] = load_conf(z)
-        data[z] = e_data
-        blocks.append(
-            BLOCKTEMPLATE.substitute(
-                z=z, ebind=lol_to_str(e_data["ebind"], 12), cfg=lol_to_str(e_data["cfg"], 12))
-            )
+        ebind_raw = load_energies(z)
+        cfg_raw = load_conf(z)
+        d_ebind[z] = np.array(ebind_raw)
+        d_cfg[z] = np.array(cfg_raw)
+        s_ebind += BLOCKTEMPLATE.substitute(
+            z=z, data=lol_to_str(ebind_raw, 8)
+        )
+        s_cfg += BLOCKTEMPLATE.substitute(
+            z=z, data=lol_to_str(cfg_raw, 8)
+        )
 
     order = tuple(reorder(SHELLS_IN))
-    n = tuple((map(int, [s[0] for s in order])))
-    out = FILETEMPLATE.substitute(order=repr(order), data="".join(blocks), n=repr(n))
+    n = list((map(int, [s[0] for s in order])))
+    out = FILETEMPLATE.substitute(order=repr(order), cfg=s_cfg, ebind=s_ebind, n=repr(n))
 
     # Write file
     print("Writing output file.")
@@ -162,16 +178,16 @@ def main():
 
     print("Peforming test import.")
     start = time.time()
-    from temp_shell_data import ORDER, N, DATA
+    from temp_shell_data import ORDER, N, CFG, EBIND
     print(f"Test import took {time.time() - start} s.")
 
-    # print(data[1], DATA[1])
     valid = all([
-        n == N,
         order == ORDER,
-        data == DATA
+        np.all(n == N),
     ])
-
+    for z in range(1, 106):
+        valid = valid and np.allclose(d_cfg[z], CFG[z]),
+        valid = valid and np.allclose(d_ebind[z], EBIND[z]),
     print("Test import valid!" if valid else "Test import invalid!")
 
     print("Moving output file to target location ebisim/resources.")
