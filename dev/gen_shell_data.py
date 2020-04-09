@@ -6,9 +6,11 @@ into the ebisim package.
 The original data was computed by Robert Mertzig using the Flexible Atomic Code
 (https://github.com/flexible-atomic-code/fac)
 """
-
-import json
+import os
 import time
+from shutil import move
+from string import Template
+import numpy as np
 
 
 # From Roberts readme:
@@ -73,6 +75,12 @@ def reorder(l):
         out[REDICT[i]] = val
     return out
 
+def unjag(lol):
+    ncols = max(map(len, lol))
+    for irow, data in enumerate(lol):
+        lol[irow] = data + (ncols-len(data))*[0,]
+    return lol
+
 def load_conf(z):
     # Import Electron Configurations for each charge state
     # list of lists where each sublist hold the configuration for on charge state
@@ -83,7 +91,7 @@ def load_conf(z):
             line = line.split()
             line = reorder([int(elem.strip()) for elem in line])
             cfg.append(line)
-    return cfg
+    return unjag(cfg)
 
 def load_energies(z):
     # Load required data from resource files, can set further fields
@@ -96,34 +104,100 @@ def load_energies(z):
             line = line.split()
             line = reorder([float(elem.strip()) for elem in line])
             e_bind.append(line)
-    return e_bind
+    return unjag(e_bind)
 
+def lol_to_str(lol, indent):
+    out = ""
+    for l in lol:
+        out += indent*" " + repr(l) + ",\n"
+    return out[:-1]
 
+FILETEMPLATE = Template('''"""
+This module contains data concerning the electron configuration and binding energies used all
+throughout ebisim
+"""
+
+# This file is generated automatically, do not edit it manually!
+
+import numpy as np
+
+ORDER = $order
+
+N = np.array($n)
+
+CFG = {
+$cfg}
+
+EBIND = {
+$ebind}
+
+N.setflags(write=False)
+for z in CFG.keys():
+    CFG[z].setflags(write=False)
+    EBIND[z].setflags(write=False)
+''')
+
+BLOCKTEMPLATE = Template('''    $z:np.array([
+$data
+    ]),
+''')
 
 def main():
-    print("binding_energies.py running...")
-    SHELLS_OUT = reorder(SHELLS_IN)
+    CWD = os.getcwd()
+    TWD = os.path.dirname(os.path.realpath(__file__))
+    print(30*"~")
+    print(f"{__name__} running...")
+    print(f"Switching into {TWD}")
+    os.chdir(TWD)
 
-    out = {}
+    print("Loading data from electron configuration files.")
+    s_ebind = ""
+    s_cfg = ""
+    d_ebind = {}
+    d_cfg = {}
     for z in range(1, 106):
-        data = {}
-        data["ebind"] = load_energies(z)
-        data["cfg"] = load_conf(z)
-        out[str(z)] = data # json keys are always strings
+        ebind_raw = load_energies(z)
+        cfg_raw = load_conf(z)
+        d_ebind[z] = np.array(ebind_raw)
+        d_cfg[z] = np.array(cfg_raw)
+        s_ebind += BLOCKTEMPLATE.substitute(
+            z=z, data=lol_to_str(ebind_raw, 8)
+        )
+        s_cfg += BLOCKTEMPLATE.substitute(
+            z=z, data=lol_to_str(cfg_raw, 8)
+        )
 
-    out = (SHELLS_OUT, out)
+    order = tuple(reorder(SHELLS_IN))
+    n = list((map(int, [s[0] for s in order])))
+    out = FILETEMPLATE.substitute(order=repr(order), cfg=s_cfg, ebind=s_ebind, n=repr(n))
+
     # Write file
-    with open("../ebisim/resources/BindingEnergies.json", "w") as f:
-        json.dump(out, f)
+    print("Writing output file.")
+    with open("temp_shell_data.py", "w") as f:
+        f.write(out)
 
-    # Check if json load correctly restores the output
+    print("Peforming test import.")
     start = time.time()
-    with open("../ebisim/resources/BindingEnergies.json", "r") as f:
-        val = json.load(f)[1]
-    print(f"Loading took {time.time() - start} s.")
+    from temp_shell_data import ORDER, N, CFG, EBIND
+    print(f"Test import took {time.time() - start} s.")
 
-    print("json.load() valid" if out[1] == val else "json.load() invalid")
-    print("binding_energies.py done.")
+    valid = all([
+        order == ORDER,
+        np.all(n == N),
+    ])
+    for z in range(1, 106):
+        valid = valid and np.allclose(d_cfg[z], CFG[z]),
+        valid = valid and np.allclose(d_ebind[z], EBIND[z]),
+    print("Test import valid!" if valid else "Test import invalid!")
+
+    print("Moving output file to target location ebisim/resources.")
+    move("temp_shell_data.py", "../ebisim/resources/_shell_data.py")
+
+    print(f"Returning into {CWD}")
+    os.chdir(CWD)
+
+    print(f"{__name__} done.")
+    print(30*"~")
 
 if __name__ == "__main__":
     main()

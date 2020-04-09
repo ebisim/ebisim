@@ -2,12 +2,12 @@
 Run all resource generating scripts
 """
 
-import binding_energies
-import element_info
+import gen_shell_data
+import gen_element_data
 
 def main():
-    binding_energies.main()
-    element_info.main()
+    gen_shell_data.main()
+    gen_element_data.main()
 
 if __name__ == "__main__":
     main()

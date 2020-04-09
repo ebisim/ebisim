@@ -7,16 +7,21 @@ which may offer convenience to the user.
 """
 
 from collections import namedtuple
-import numpy as np
 
 from . import utils
 from . import xs
+from .resources import (
+    ELEMENT_Z    as _ELEM_Z,
+    ELEMENT_ES   as _ELEM_ES,
+    ELEMENT_NAME as _ELEM_NAME,
+    ELEMENT_A    as _ELEM_A,
+    ELEMENT_IP   as _ELEM_IP,
+    SHELL_ORDER  as _SHELLORDER,
+    SHELL_N      as _SHELL_N,
+    SHELL_CFG    as _SHELL_CFG,
+    SHELL_EBIND  as _SHELL_EBIND
+)
 
-_ELEM_Z, _ELEM_ES, _ELEM_NAME, _ELEM_A, _ELEM_IP = utils.load_element_info()
-_ELECTRON_INFO, _SHELLORDER = utils.load_electron_info()
-_SHELL_N = np.array(list(map(int, [s[0] for s in _SHELLORDER])))
-# _SHELLORDER is a tuple containing the names of all shells in order
-# _SHELL_N is an array of the main quantum number of each shell in order
 _DR_DATA = utils.load_dr_data()
 
 
@@ -204,8 +209,8 @@ def get_element(element_id, a=None):
         raise ValueError("Mass number 'a' cannot be smaller than 1.")
 
     # Electron configuration and shell binding energies
-    e_cfg = _ELECTRON_INFO[z]["cfg"]
-    e_bind = _ELECTRON_INFO[z]["ebind"]
+    e_cfg = _SHELL_CFG[z]
+    e_bind = _SHELL_EBIND[z]
 
     # Precomputations for radiative recombination
     # set write protection flags here since precompute_rr_quantities is compiled and cannot do this
