@@ -6,9 +6,11 @@ into the ebisim package.
 The original data was computed by Robert Mertzig using the Flexible Atomic Code
 (https://github.com/flexible-atomic-code/fac)
 """
-
+import os
 import json
 import time
+from shutil import move
+from string import Template
 
 
 # From Roberts readme:
@@ -101,29 +103,77 @@ def load_energies(z):
 
 
 def main():
-    print("binding_energies.py running...")
-    SHELLS_OUT = reorder(SHELLS_IN)
+    print(30*"~")
+    print(f"{__name__} running...")
 
+    CWD = os.getcwd()
+    TWD = os.path.dirname(os.path.realpath(__file__))
+    print(f"Switching into {TWD}")
+    os.chdir(TWD)
+
+    blocks = []
+    print("Loading data from electron configuration files.")
     out = {}
     for z in range(1, 106):
         data = {}
         data["ebind"] = load_energies(z)
         data["cfg"] = load_conf(z)
         out[str(z)] = data # json keys are always strings
+        blocks.append(
+            BLOCKTEMPLATE.substitute(z=z, ebind=repr(data["ebind"]), cfg=repr(data["cfg"]))
+            )
 
-    out = (SHELLS_OUT, out)
+    ORDER = tuple(reorder(SHELLS_IN))
+    N = tuple((map(int, [s[0] for s in ORDER])))
+
+    out = FILETEMPLATE.substitute(order=repr(ORDER), data="".join(blocks), n=N)
     # Write file
-    with open("../ebisim/resources/BindingEnergies.json", "w") as f:
-        json.dump(out, f)
+    print("Writing output file.")
+    with open("temp_shell_data.py", "w") as f:
+        f.write(out)
 
     # Check if json load correctly restores the output
-    start = time.time()
-    with open("../ebisim/resources/BindingEnergies.json", "r") as f:
-        val = json.load(f)[1]
-    print(f"Loading took {time.time() - start} s.")
+    # print("Peforming test import.")
+    # start = time.time()
+    # with open("../ebisim/resources/BindingEnergies.json", "r") as f:
+    #     val = json.load(f)[1]
+    # print(f"Test import took {time.time() - start} s.")
 
-    print("json.load() valid" if out[1] == val else "json.load() invalid")
+
+    # print("Test import valid!" if valid else "Test import invalid!")
+
+    print("Moving output file to target location ebisim/resources.")
+    move("temp_shell_data.py", "../ebisim/resources/_shell_data.py")
+
+    print(f"Returning into {CWD}")
+    os.chdir(CWD)
+
     print("binding_energies.py done.")
+    print(30*"~")
+
+FILETEMPLATE = Template('''"""
+This module contains data concerning the electron configuration and binding energies used all
+throughout ebisim
+"""
+
+# This file is generated automatically, do not edit it manually!
+
+ORDER = $order
+
+N = $n
+
+DATA = {
+$data
+}
+''')
+
+BLOCKTEMPLATE = Template('''    $z:{
+        "ebind":$ebind,
+        "cfg":$cfg,
+    },
+''')
+
+
 
 if __name__ == "__main__":
     main()
