@@ -7,11 +7,10 @@ import time
 from shutil import move
 
 def main():
-    print(30*"~")
-    print(f"{__name__} running...")
-
     CWD = os.getcwd()
     TWD = os.path.dirname(os.path.realpath(__file__))
+    print(30*"~")
+    print(f"{__name__} running...")
     print(f"Switching into {TWD}")
     os.chdir(TWD)
 
@@ -68,7 +67,7 @@ def main():
     print(f"Returning into {CWD}")
     os.chdir(CWD)
 
-    print("element_info.py done.")
+    print(f"{__name__} done.")
     print(30*"~")
 
 if __name__ == "__main__":
