@@ -11,8 +11,14 @@ import numpy as np
 
 from . import utils
 from . import xs
+from .resources import (
+    ELEMENT_Z as _ELEM_Z,
+    ELEMENT_ES as _ELEM_ES,
+    ELEMENT_NAME as _ELEM_NAME,
+    ELEMENT_A as _ELEM_A,
+    ELEMENT_IP as _ELEM_IP
+)
 
-_ELEM_Z, _ELEM_ES, _ELEM_NAME, _ELEM_A, _ELEM_IP = utils.load_element_info()
 _ELECTRON_INFO, _SHELLORDER = utils.load_electron_info()
 _SHELL_N = np.array(list(map(int, [s[0] for s in _SHELLORDER])))
 # _SHELLORDER is a tuple containing the names of all shells in order

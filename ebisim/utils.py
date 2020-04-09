@@ -15,27 +15,6 @@ from . import resources as _resources
 from .resources import drdata as _drdata
 
 
-def load_element_info():
-    """
-    Loads the basic information about chemical elements from a json resource
-
-    Returns
-    -------
-    z : tuple of ints
-        Atomic numbers
-    es : tuple of strings
-        Element symbol, eg 'H'
-    name : tuple of str
-        Element name
-    a : tuple of ints
-        Naturally abundant / typical mass number
-
-    """
-    with open_text(_resources, "ElementInfo.json") as f:
-        data = json.load(f)
-    return tuple(map(tuple, [data["z"], data["es"], data["name"], data["a"], data["ip"]]))
-
-
 def load_electron_info():
     """
     Loads the electron configurations and subshell binding energies for all elements into a
