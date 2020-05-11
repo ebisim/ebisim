@@ -221,7 +221,7 @@ def _plot_xs(e_samp, xs_scan, fig=None, ls="-", **kwargs):
     kwargs.setdefault("xscale", "log")
     kwargs.setdefault("yscale", "log")
     kwargs.setdefault("xlabel", "Electron kinetic energy (eV)")
-    kwargs.setdefault("ylabel", "Cross section (cm$^2$)")
+    kwargs.setdefault("ylabel", "Cross section ($\\mathsf{cm^2}$)")
     kwargs.setdefault("legend", False)
     kwargs.setdefault("label_lines", True)
     kwargs.setdefault("grid", True)

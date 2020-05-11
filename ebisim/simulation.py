@@ -125,7 +125,7 @@ class Result:
         """
         if self.param:
             title = f"{self.param['element'].latex_isotope()} {stub.lower()} " \
-                    f"($j = {self.param['j']:0.1f}$ A/cm$^2$, " \
+                    f"($j = {self.param['j']:0.1f}$ $\mathsf{{A/cm^2}}$, " \
                     f"$E_{{e}} = {self.param['e_kin']:0.1f}$ eV)"
             if "fwhm" in self.param:
                 title = title[:-1] + f", FWHM = {self.param['fwhm']:0.1f} eV)"
@@ -172,7 +172,7 @@ class Result:
         if relative or self.kbT is None: # Hack to determine whether basic or advanced sim
             kwargs.setdefault("ylabel", "Relative Abundance")
         else:
-            kwargs.setdefault("ylabel", "Density (m$^{-3}$)")
+            kwargs.setdefault("ylabel", "Density ($\\mathsf{m^{-3}}$)")
 
         if relative:
             kwargs["ylim"] = (0, 1.1)
@@ -218,7 +218,7 @@ class Result:
         kwargs.setdefault("xlim", (1e-4, self.t.max()))
         kwargs.setdefault("ylim", (ymin, ymax))
         kwargs.setdefault("title", self._param_title("Energy density"))
-        kwargs.setdefault("ylabel", "Energy density (eV / m$^{-3}$)")
+        kwargs.setdefault("ylabel", "Energy density ($\\mathsf{eV / m^{-3}$)")
         kwargs.setdefault("plot_total", True)
 
         fig = plotting.plot_generic_evolution(self.t, e_den, **kwargs)
@@ -297,9 +297,9 @@ class Result:
         kwargs.setdefault("plot_total", True)
 
         if rate_key.startswith("R"):
-            kwargs.setdefault("ylabel", "Number density flow (m$^{-3}$ s$^{-1}$)")
+            kwargs.setdefault("ylabel", "Number density flow ($\\mathsf{m^{-3} s^{-1}}$)")
         if rate_key.startswith("S"):
-            kwargs.setdefault("ylabel", "Energy density flow (eV m$^{-3}$ s$^{-1}$)")
+            kwargs.setdefault("ylabel", "Energy density flow ($\\mathsf{ {eV} m^{-3} s^{-1}}$)")
 
         fig = plotting.plot_generic_evolution(self.t, rate, **kwargs)
         return fig
@@ -830,7 +830,7 @@ class EnergyScanResult:
         """
         energies, times, abundance = self.abundance_of_cs(cs)
         kwargs.setdefault("title",
-                          f"Abundance of {self._element.latex_isotope()}$^{{{cs}+}}$")
+                          f"Abundance of {self._element.latex_isotope()}$\mathsf{{^{{{cs}+}} }}$")
         return plotting.plot_energy_time_scan(
             energies=energies,
             times=times,
