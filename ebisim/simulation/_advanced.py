@@ -15,7 +15,7 @@ from ..physconst import Q_E, M_P, PI, EPS_0
 from ..physconst import MINIMAL_DENSITY, MINIMAL_KBT
 from ._result import Result
 
-Target = namedtuple("Target", ["element", "N", "kbT", "cni", "cx"])
+Target = namedtuple("Target", elements.Element._fields + ("N", "kbT", "cni", "cx"))
 
 def get_gas_target(element, N, kbT=0.025, cni=True, cx=True):
     # cast element to Element if necessary
@@ -25,7 +25,7 @@ def get_gas_target(element, N, kbT=0.025, cni=True, cx=True):
     _kbT = np.ones(element.z + 1) * MINIMAL_KBT
     _N[0] = N
     _kbT[0] = kbT
-    return Target(element, _N, _kbT, cni, cx)
+    return Target(*element, _N, _kbT, cni, cx)
 
 def get_ion_target(element, N, kbT=0.025, q=1):
     # cast element to Element if necessary
@@ -35,7 +35,7 @@ def get_ion_target(element, N, kbT=0.025, q=1):
     _kbT = np.ones(element.z + 1) * MINIMAL_KBT
     _N[q] = N
     _kbT[q] = kbT
-    return Target(element, _N, _kbT, cni=False, cx=False)
+    return Target(*element, _N, _kbT, cni=False, cx=False)
 
 Device = namedtuple("Device", ["j", "e_kin", "current", "r_e", "v_ax", "v_ra", "b_ax", "r_dt"])
 
@@ -106,7 +106,7 @@ def _rhs(t, y, device, target, rates=None):
     Ne = je / ve
     on_ax_sc = device.current/(4 * PI * EPS_0 * ve) * (2*np.log(device.r_e/device.r_dt)-1)
     ## ions
-    element = target.element
+    element = target
     q = np.arange(element.z + 1)
     A = element.a
     ## cross sections
@@ -225,7 +225,7 @@ def _rhs(t, y, device, target, rates=None):
     return np.concatenate((R_tot, Q_tot))
 
 
-@numba.njit(parallel=True, cache=True)
+@numba.njit(parallel=True, cache=True, nogil=True)
 def _rhs_vectorised(t, y, device, target, rates=None):
     out = np.empty_like(y)
     for k in range(y.shape[1]):
@@ -318,8 +318,8 @@ def advanced_simulation(device, target, t_max, dr_fwhm=None, solver_kwargs=None)
     return Result(
         param=param,
         t=res.t,
-        N=res.y[:target.element.z + 1, :],
-        kbT=res.y[target.element.z + 1:, :],
+        N=res.y[:target.z + 1, :],
+        kbT=res.y[target.z + 1:, :],
         res=res,
         rates=rates
         )
