@@ -221,7 +221,7 @@ def _plot_xs(e_samp, xs_scan, fig=None, ls="-", **kwargs):
     kwargs.setdefault("xscale", "log")
     kwargs.setdefault("yscale", "log")
     kwargs.setdefault("xlabel", "Electron kinetic energy (eV)")
-    kwargs.setdefault("ylabel", "Cross section (cm$^2$)")
+    kwargs.setdefault("ylabel", "Cross section ($\\mathsf{cm^2}$)")
     kwargs.setdefault("legend", False)
     kwargs.setdefault("label_lines", True)
     kwargs.setdefault("grid", True)
@@ -256,7 +256,7 @@ def plot_eixs(element, **kwargs):
 
     e_samp, xs_scan = xs.eixs_energyscan(element)
 
-    kwargs.setdefault("title", f"EI cross sections of {element.latex_isotope()}")
+    kwargs.setdefault("title", f"{element.latex_isotope()} - EI")
 
     return _plot_xs(e_samp, xs_scan, **kwargs)
 
@@ -287,7 +287,7 @@ def plot_rrxs(element, **kwargs):
 
     e_samp, xs_scan = xs.rrxs_energyscan(element)
 
-    kwargs.setdefault("title", f"RR cross sections of {element.latex_isotope()}")
+    kwargs.setdefault("title", f"{element.latex_isotope()} - RR")
 
     return _plot_xs(e_samp, xs_scan, **kwargs)
 
@@ -328,7 +328,7 @@ def plot_drxs(element, fwhm, **kwargs):
     kwargs.setdefault("label_lines", False)
     kwargs.setdefault(
         "title",
-        f"DR cross sections of {element.latex_isotope()} (Electron beam FWHM = {fwhm:0.1f} eV)"
+        f"{element.latex_isotope()} - DR (FWHM = {fwhm:0.1f} eV)"
     )
 
     return _plot_xs(e_samp, xs_scan, **kwargs)
@@ -367,8 +367,8 @@ def plot_combined_xs(element, fwhm, **kwargs):
     kwargs.setdefault("legend", True)
     kwargs.setdefault(
         "title",
-        f"Combined cross sections of {element.latex_isotope()} " \
-        f"(Electron beam FWHM = {fwhm:0.1f} eV)"
+        f"{element.latex_isotope()} - EI / RR / DR " \
+        f"(FWHM = {fwhm:0.1f} eV)"
     )
     kwargs.setdefault("label_lines", True)
 

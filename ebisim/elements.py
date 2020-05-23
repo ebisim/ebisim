@@ -136,7 +136,7 @@ class Element(_ElementSpec):
         str
             LaTeX formatted string describing the isotope.
         """
-        return f"$^{{{self.a}}}_{{{self.z}}}${self.symbol}"
+        return f"$\mathsf{{^{{{self.a}}}_{{{self.z}}}{self.symbol}}}$"
 
     def __repr__(self):
         return f"Element('{self.symbol}', a={self.a})"
