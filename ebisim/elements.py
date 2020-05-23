@@ -215,8 +215,6 @@ def get_element(element_id, a=None):
     # Precomputations for radiative recombination
     # set write protection flags here since precompute_rr_quantities is compiled and cannot do this
     rr_z_eff, rr_n_0_eff = xs.precompute_rr_quantities(e_cfg, _SHELL_N)
-    rr_n_0_eff.setflags(write=False)
-    rr_z_eff.setflags(write=False)
 
     # Data for computations of dielectronic recombination cross sections
     dr_cs = _DR_DATA[z]["dr_cs"]
@@ -225,6 +223,18 @@ def get_element(element_id, a=None):
 
     # Precompute the factors for the Lotz formula for EI cross section
     ei_lotz_a, ei_lotz_b, ei_lotz_c = xs.lookup_lotz_factors(e_cfg, _SHELLORDER)
+
+    # Make sure that all arrays are readonly - better safe than sorry
+    e_cfg.setflags(write=False)
+    e_bind.setflags(write=False)
+    rr_z_eff.setflags(write=False)
+    rr_n_0_eff.setflags(write=False)
+    dr_cs.setflags(write=False)
+    dr_e_res.setflags(write=False)
+    dr_strength.setflags(write=False)
+    ei_lotz_a.setflags(write=False)
+    ei_lotz_b.setflags(write=False)
+    ei_lotz_c.setflags(write=False)
 
     return Element(
         z,
