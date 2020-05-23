@@ -209,17 +209,17 @@ def get_element(element_id, a=None):
         raise ValueError("Mass number 'a' cannot be smaller than 1.")
 
     # Electron configuration and shell binding energies
-    e_cfg = _SHELL_CFG[z]
-    e_bind = _SHELL_EBIND[z]
+    e_cfg = _SHELL_CFG[z].copy()
+    e_bind = _SHELL_EBIND[z].copy()
 
     # Precomputations for radiative recombination
     # set write protection flags here since precompute_rr_quantities is compiled and cannot do this
     rr_z_eff, rr_n_0_eff = xs.precompute_rr_quantities(e_cfg, _SHELL_N)
 
     # Data for computations of dielectronic recombination cross sections
-    dr_cs = _DR_DATA[z]["dr_cs"]
-    dr_e_res = _DR_DATA[z]["dr_e_res"]
-    dr_strength = _DR_DATA[z]["dr_strength"]
+    dr_cs = _DR_DATA[z]["dr_cs"].copy()
+    dr_e_res = _DR_DATA[z]["dr_e_res"].copy()
+    dr_strength = _DR_DATA[z]["dr_strength"].copy()
 
     # Precompute the factors for the Lotz formula for EI cross section
     ei_lotz_a, ei_lotz_b, ei_lotz_c = xs.lookup_lotz_factors(e_cfg, _SHELLORDER)
