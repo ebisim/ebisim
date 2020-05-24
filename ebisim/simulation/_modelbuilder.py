@@ -27,39 +27,57 @@ class AdvancedModel:
         self.device = device
         self.targets = targets
         self.bg_gases = bg_gases
+        self._halflen = 0
+        for trgt in self.targets:
+            self._halflen += trgt.z + 1
 
         # Determine array bounds for differential equation
-        self.lb = np.zeros(len(targets), dtype=np.int32)
-        self.mb = np.zeros(len(targets), dtype=np.int32)
-        self.ub = np.zeros(len(targets), dtype=np.int32)
+        # and define a convenience vector holding the mass
+        self.nlb = np.zeros(len(targets), dtype=np.int32)
+        self.nub = np.zeros(len(targets), dtype=np.int32)
+        self.tlb = np.zeros(len(targets), dtype=np.int32)
+        self.tub = np.zeros(len(targets), dtype=np.int32)
+        self._av = np.ones(self._halflen, dtype=np.int32)
         offset = 0
         for i, trgt in enumerate(targets):
-            self.lb[i] = offset
-            self.mb[i] = self.lb[i] + trgt.z + 1
-            self.ub[i] = self.mb[i] + trgt.z + 1
-            offset = self.ub[i]
+            self.nlb[i] = offset
+            self.nub[i] = self.nlb[i] + trgt.z + 1
+            self.tlb[i] = offset + self._halflen
+            self.tub[i] = self.tlb[i] + trgt.z + 1
+            offset = self.nub[i]
+            self._av[self.nlb[i]:self.nub[i]] *= trgt.a
 
 
     def rhs(self, t, y):
         # pylint: disable=bad-whitespace
         # Preallocate output
-        dn_out = np.zeros(y.size//2)
-        dkT_out = np.zeros(y.size//2)
+        _dn = np.zeros(self._halflen)
+        _dkT = np.zeros(self._halflen)
 
         # Compute some electron beam quantities
         je = self.device.j / Q_E # electron number current density
         ve = plasma.electron_velocity(self.device.e_kin)
         ne = je/ve # Electron density
 
+        # Collision rate matrix
+        _n = y[:self._halflen]
+        _kT = y[self._halflen:]
+        _rij = plasma.ion_coll_rate_mat(_n, _n, _kT, _kT, self._av, self._av)
+        _ri = np.sum(_rij, axis=-1)
+
+        # Ion-ion heat transfer (collisional thermalisation)
+        _dkT += plasma.energy_transfer_vec(_n, _n, _kT, _kT, self._av, self._av, _rij)
 
         # Loop through targets
         for i, trgt in enumerate(self.targets):
             # Extract relevant state from y
-            lb = self.lb[i]
-            mb = self.mb[i]
-            ub = self.ub[i]
-            n = y[lb:mb]
-            kT = y[mb:ub]
+            nlb = self.nlb[i]
+            nub = self.nub[i]
+            tlb = self.tlb[i]
+            tub = self.tub[i]
+            n = y[nlb:nub]
+            kT = y[tlb:tub]
+            ri = _ri[nlb:ntb]
             kT[kT < MINIMAL_KBT] = MINIMAL_KBT # Make sure T is positive
 
             # and allocate arrays for rates and other useful stuff
@@ -75,6 +93,7 @@ class AdvancedModel:
             dn       -= R_ei
             dn[1:]   += R_ei[:-1]
             dkT[1:]  += R_ei[:-1] / n[1:] * (kT[:-1] - kT[1:])
+            #TODO: Ionisation Heating
 
 
             # RR
@@ -83,6 +102,7 @@ class AdvancedModel:
             dn       -= R_rr
             dn[:-1]  += R_rr[1:]
             dkT[:-1] += R_rr[1:] / n[:-1] * (kT[1:] - kT[:-1])
+            #TODO: RR cooling
 
 
             # DR
@@ -91,6 +111,7 @@ class AdvancedModel:
             dn       -= R_dr
             dn[:-1]  += R_dr[1:]
             dkT[:-1] += R_dr[1:] / n[:-1] * (kT[1:] - kT[:-1])
+            #TODO: DR cooling
 
 
             # CX
@@ -101,23 +122,25 @@ class AdvancedModel:
             for j, jtrgt in enumerate(self.targets):
                 if jtrgt.cx: # Only compute cx with target gas if wished by user
                     cxxs  = 1.43e-16 * q**1.17 * jtrgt.ip**-2.76
-                    R_cx += cxxs * n * v_th * y[self.lb[j]]
+                    R_cx += cxxs * n * v_th * y[self.nlb[j]]
             dn       -= R_cx
             dn[:-1]  += R_cx[1:]
             dkT[:-1] += R_cx[1:] / n[:-1] * (kT[1:] - kT[:-1])
+            #TODO: CX cooling
+
 
 
             # Axial escape
-            # TODO: Check axial energy escapre rate
-            R_ax      = plasma.escape_rate_axial(n, kT, _RI, self.device.v_ax)
+            # TODO: Check axial energy escape rate
+            R_ax      = plasma.escape_rate_axial(n, kT, ri, self.device.v_ax)
             dn       -= R_ax
             dkT      -= R_ax / n * q * self.device.v_ax
 
 
             # Radial escape
-            # TODO: Check radial energy escapre rate
+            # TODO: Check radial energy escape rate
             R_ra      = plasma.escape_rate_radial(
-                n, kT, _RI, trgt.A, self.device.v_rad, self.device.b_ax, self.device.r_dt
+                n, kT, ri, trgt.A, self.device.v_rad, self.device.b_ax, self.device.r_dt
             )
             dn       -= R_ra
             dkT      -= R_ra / n * q * (
@@ -137,9 +160,9 @@ class AdvancedModel:
 
 
             # Fill rates into output vectors
-            dn_out[lb, mb] = dn
-            dkT_out[mb, ub] = dkT
-        return np.concatenate((dn_out, dkT_out))
+            _dn[nlb, nub] = dn[:]
+            _dkT[tlb, tub] = dkT[:]
+        return np.concatenate((_dn, _dkT))
 
     def jac(self, t, y):
         pass
