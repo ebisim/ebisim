@@ -71,7 +71,12 @@ class AdvancedModel:
         ne = je/ve # Electron number density
 
         # Collision rates
-        rij = plasma.ion_coll_rate_mat(n, n, kT, kT, self._a, self._a)
+        rij = plasma.ion_coll_rate(
+            n[:, np.newaxis], n,
+            kT[:, np.newaxis], kT,
+            self._a[:, np.newaxis], self._a,
+            self._q[:, np.newaxis], self._q
+        )
         ri  = np.sum(rij, axis=-1)
         # Thermal velocities
         v_th = np.sqrt(8 * Q_E * kT/(PI * self._a * M_P))
@@ -104,16 +109,18 @@ class AdvancedModel:
 
 
         # Electron heating / Spitzer heating
-        dkT      += plasma.electron_heating_vec(n, ne, kT, self.device.e_kin, trgt.A)
+        dkT      += plasma.electron_heating(n, ne, kT, self.device.e_kin, self._a, self._q)
 
 
         # Ion-ion heat transfer (collisional thermalisation)
-        dkT      += plasma.energy_transfer_vec(n, n, kT, kT, self._a, self._a, rij)
+        dkT      += np.sum(plasma.energy_transfer(
+            n[:, np.newaxis], n, kT[:, np.newaxis], kT, self._a[:, np.newaxis], self._a, rij
+        ), axis=-1)
 
 
         # Axial escape
         # TODO: Check axial energy escape rate
-        R_ax      = plasma.escape_rate_axial(n, kT, ri, self.device.v_ax)
+        R_ax      = plasma.escape_rate_axial(n, kT, self._q, ri, self.device.v_ax)
         dn       -= R_ax
         dkT      -= R_ax / n * self._q * self.device.v_ax
 
@@ -121,11 +128,12 @@ class AdvancedModel:
         # Radial escape
         # TODO: Check radial energy escape rate
         R_ra      = plasma.escape_rate_radial(
-            n, kT, ri, trgt.A, self.device.v_rad, self.device.b_ax, self.device.r_dt
+            n, kT, self._q, ri, self._a, self.device.v_rad, self.device.b_ax, self.device.r_dt
         )
         dn       -= R_ra
-        dkT      -= R_ra / n * self._q * (self.device.v_ra
-            + self.device.r_dt * self.device.b_ax * np.sqrt(2 * Q_E * kT / (3 * self._a *M_P))
+        dkT      -= R_ra / n * self._q * (
+            self.device.v_ra + self.device.r_dt * self.device.b_ax
+            * np.sqrt(2 * Q_E * kT / (3 * self._a *M_P))
         )
 
 
