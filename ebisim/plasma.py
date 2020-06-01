@@ -54,7 +54,7 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
         Electron temperature.
     Ai : float or int
         Ion mass number.
-    qi : float or int
+    qi : int
         Ion charge state.
 
     Returns
@@ -65,24 +65,26 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
     """
     Ni = Ni * 1e-6 # go from 1/m**3 to 1/cm**3
     Ne = Ne * 1e-6
-    Mi = Ai * M_P
     qqten = qi * qi * 10
-    redkbTi = kbTi * M_E / Mi
-    if   qqten >= kbTe >= redkbTi:
+    redkbTi = kbTi * M_E / (Ai * M_P)
+    if   redkbTi <= kbTe  <= qqten:
         return 23. - np.log(Ne**0.5 * qi * kbTe**-1.5)
-    elif kbTe >= qqten >= redkbTi:
+    elif redkbTi <= qqten <= kbTe:
         return 24. - np.log(Ne**0.5 / kbTe)
     elif kbTe <= redkbTi:
         return 16. - np.log(Ni**0.5 * kbTi**-1.5 * qi * qi * Ai)
     # The next case should not usually arise in any realistic situation but the solver may probe it
     # Hence it is purely a rough guess
-    elif qqten <= redkbTi <= kbTe:
+    else: #(if qqten <= redkbTi <= kbTe)
         return 24. - np.log(Ne**0.5 / kbTe)
 
 
-@vectorize([float64(float64, float64, float64, float64, float64, float64, int64, int64)], cache=True, nopython=True)
+@vectorize(
+    [float64(float64, float64, float64, float64, float64, float64, int64, int64)],
+    cache=True, nopython=True
+)
 def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
-    """
+    r"""
     The coulomb logarithm for ion ion collisions.
 
     Parameters
@@ -103,9 +105,9 @@ def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
         Ion species "i" mass number.
     Aj : float or int
         Ion species "j" mass number.
-    qi : float or int
+    qi : int
         Ion species "i" charge state.
-    qj : float or int
+    qj : int
         Ion species "j" charge state.
 
     Returns
@@ -113,15 +115,20 @@ def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     float
         Ion ion coulomb logarithm.
 
+    Notes
+    -----
+    .. math::
+
+        \lambda_{ij} = \lambda_{ji} = 23 - \ln \left(
+            \frac{q_i q_j(\mu_i+\mu_j)}{\mu_i T_j+\mu_j T_i} \left(
+                \frac{n_i q_i^2}{T_i} + \frac{n_j q_j^2}{T_j}
+            \right)^{1/2}
+        \right)
+
     """
-    Ni = Ni * 1e-6 # go from 1/m**3 to 1/cm**3
-    Nj = Nj * 1e-6
     A = qi * qj * (Ai + Aj) / (Ai * kbTj + Aj * kbTi)
-    B = Ni * qi * qi / kbTi + Nj * qj * qj / kbTj
-    clog = 23 - np.log(A * B**0.5)
-    if clog < 0:
-        clog = 0.
-    return clog
+    B = (Ni * qi * qi / kbTi + Nj * qj * qj / kbTj) * 1e-6 # go from 1/m**3 to 1/cm**3
+    return 23 - np.log(A * B**0.5)
 
 
 @vectorize([float64(float64, float64, float64, float64, float64, int64)], cache=True, nopython=True)
@@ -145,7 +152,7 @@ def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
         Electron kinetic energy.
     Ai : float or int
         Ion mass number.
-    qi : float or int
+    qi : int
         Ion charge state.
 
     Returns
@@ -162,7 +169,10 @@ def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
     return 4 * PI * (qi * Q_E * Q_E / (4 * PI * EPS_0 * M_E))**2 * clog / v_e**4
 
 
-@vectorize([float64(float64, float64, float64, float64, float64, float64, int64, int64)], cache=True, nopython=True)
+@vectorize(
+    [float64(float64, float64, float64, float64, float64, float64, int64, int64)],
+    cache=True, nopython=True
+)
 def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     """
     Collision rates for ions species "i" and target species "j"
@@ -185,9 +195,9 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
         Ion species "i" mass number.
     Aj : float or int
         Ion species "j" mass number.
-    qi : float or int
+    qi : int
         Ion species "i" charge state.
-    qj : float or int
+    qj : int
         Ion species "j" charge state.
 
     Returns
@@ -214,8 +224,11 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     return const * Nj * (qi * qj * Q_E * Q_E / Mi)**2 * (Mi/kbTi_SI)**1.5 * clog
 
 
-@vectorize([float64(float64, float64, float64, float64, float64, int64)], cache=True, nopython=True)
-def electron_heating(Ni, Ne, kbTi, Ee, Ai, qi):
+@vectorize(
+    [float64(float64, float64, float64, float64, float64, int64)],
+    cache=True, nopython=True
+)
+def spitzer_heating(Ni, Ne, kbTi, Ee, Ai, qi):
     """
     Computes the heating rates due to elastic electron ion collisions ('Spitzer Heating')
 
@@ -239,29 +252,26 @@ def electron_heating(Ni, Ne, kbTi, Ee, Ai, qi):
     Returns
     -------
     numpy.ndarray
-        <eV/m^3/s>
-        Vector of electron heating rate for each charge state.
+        <eV/s>
+        Vector of electron heating rate (temperature increase) for each charge state.
 
     """
     if Ni < MINIMAL_DENSITY:
         return 0.
     return Ne * electron_velocity(Ee) * 2 * M_E / (Ai * M_P) * Ee \
-           * Ni * coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi)
+           * coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi)
 
 
-@vectorize([float64(float64, float64, float64, float64, float64, float64, float64)], cache=True, nopython=True)
-def energy_transfer(Ni, Nj, kbTi, kbTj, Ai, Aj, rij):
+@vectorize(
+    [float64(float64, float64, float64, float64, float64)],
+    cache=True, nopython=True
+)
+def collisional_thermalisation(kbTi, kbTj, Ai, Aj, rij):
     """
     Computes the collisional energy transfer rates for species "i" with respect to species "j".
 
     Parameters
     ----------
-    Ni : numpy.ndarray
-        <1/m^3>
-        Vector of ion species "i" densities.
-    Nj : numpy.ndarray
-        <1/m^3>
-        Vector of ion species "j" densities.
     kbTi : numpy.ndarray
         <eV>
         Vector of ion species "i" temperatures.
@@ -279,14 +289,14 @@ def energy_transfer(Ni, Nj, kbTi, kbTj, Ai, Aj, rij):
     Returns
     -------
     numpy.ndarray
-        <eV/m^3/s>
-        Vector of energy transfer rate for each charge state.
+        <eV/s>
+        Vector of temperature change rate for each charge state.
 
     """
     if kbTi <= 0 or kbTj <= 0:
         return 0
     else:
-        return 2 * rij * Ni * Ai/Aj * (kbTj - kbTi) / \
+        return 2 * rij * Ai/Aj * (kbTj - kbTi) / \
                         (1 + (Ai * kbTj) / (Aj * kbTi))**1.5
 
 
@@ -300,7 +310,7 @@ def loss_frequency_axial(kbTi, qi, V):
     kbTi : numpy.ndarray
         <eV>
         Vector of ion temperatures.
-    qi : float or int
+    qi : int
         Ion species "i" charge state.
     V : float or int
         <V>
@@ -329,7 +339,7 @@ def loss_frequency_radial(kbTi, qi, Ai, V, B, r_dt):
     kbTi : numpy.ndarray
         <eV>
         Vector of ion temperatures.
-    qi : float or int
+    qi : int
         Ion species "i" charge state.
     Ai : float or int
         Ion mass number.
@@ -354,6 +364,36 @@ def loss_frequency_radial(kbTi, qi, Ai, V, B, r_dt):
         return np.inf # fake value for neutrals -> essentially infinite trap
     else:
         return qi * (V + B * r_dt * np.sqrt(2 * kbTi * Q_E /(3*M_P*Ai))) / kbTi
+
+
+@vectorize([float64(float64, float64, float64)], cache=True, nopython=True)
+def escape_rate(Ni, ri, w):
+    """
+    Generic escape rate - to be called by axial and radial escape
+
+    Parameters
+    ----------
+    Ni : numpy.ndarray
+        <1/m^3>
+        Vector of ion densities.
+    ri : numpy.ndarray
+        <1/s>
+        Vector of total ion ion collision rates for each charge state.
+    w : numpy.ndarray
+        <1/s>
+        Vector of trap (loss) frequencies.
+
+    Returns
+    -------
+    numpy.ndarray
+        <1/s>
+        Vector of ion loss rates for each charge state.
+
+    """
+    esc = 3 / np.sqrt(2) * Ni * ri * np.exp(-w) / w
+    if esc < 0 or Ni < MINIMAL_DENSITY:
+        esc = 0.
+    return esc
 
 
 @vectorize([float64(float64, float64, int64, float64, float64)], cache=True, nopython=True)
@@ -389,7 +429,10 @@ def escape_rate_axial(Ni, kbTi, qi, ri, V):
     return escape_rate(Ni, ri, w)
 
 
-@vectorize([float64(float64, float64, int64, float64, float64, float64, float64, float64)], cache=True, nopython=True)
+@vectorize(
+    [float64(float64, float64, int64, float64, float64, float64, float64, float64)],
+    cache=True, nopython=True
+)
 def escape_rate_radial(Ni, kbTi, qi, ri, Ai, V, B, r_dt):
     """
     Computes the radial ion escape rates.
@@ -402,7 +445,7 @@ def escape_rate_radial(Ni, kbTi, qi, ri, Ai, V, B, r_dt):
     kbTi : numpy.ndarray
         <eV>
         Vector of ion temperatures.
-    qi : float or int
+    qi : int
         Ion species "i" charge state.
     ri : numpy.ndarray
         <1/s>
@@ -428,33 +471,3 @@ def escape_rate_radial(Ni, kbTi, qi, ri, Ai, V, B, r_dt):
     """
     w = loss_frequency_radial(kbTi, qi, Ai, V, B, r_dt)
     return escape_rate(Ni, ri, w)
-
-
-@vectorize([float64(float64, float64, float64)], cache=True, nopython=True)
-def escape_rate(Ni, ri, w):
-    """
-    Generic escape rate - to be called by axial and radial escape
-
-    Parameters
-    ----------
-    Ni : numpy.ndarray
-        <1/m^3>
-        Vector of ion densities.
-    ri : numpy.ndarray
-        <1/s>
-        Vector of total ion ion collision rates for each charge state.
-    w : numpy.ndarray
-        <1/s>
-        Vector of trap (loss) frequencies.
-
-    Returns
-    -------
-    numpy.ndarray
-        <1/s>
-        Vector of ion loss rates for each charge state.
-
-    """
-    esc = 3 / np.sqrt(2) * Ni * ri * np.exp(-w) / w
-    if esc < 0 or Ni < MINIMAL_DENSITY:
-        esc = 0.
-    return esc
