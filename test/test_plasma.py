@@ -10,9 +10,9 @@ from ebisim.plasma import (
     clog_ei,
     clog_ii,
     coulomb_xs,
-    # ion_coll_rate,
-    electron_heating,
-    energy_transfer,
+    ion_coll_rate,
+    spitzer_heating,
+    collisional_thermalisation,
     loss_frequency_axial,
     loss_frequency_radial
 )
@@ -73,10 +73,10 @@ def test_clog_ii():
 # def test_ion_coll_rate():
 #     raise NotImplementedError
 
-# def test_electron_heating():
+# def test_spitzer_heating():
 #     raise NotImplementedError
 
-# def test_energy_transfer():
+# def test_collisional_thermalisation():
 #     raise NotImplementedError
 
 # def test_loss_frequency_axial():
