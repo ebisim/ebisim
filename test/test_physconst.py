@@ -1,9 +1,11 @@
 """
 Tests for ebisim.physconst
 """
+# pylint: disable=missing-function-docstring
+
+import pytest
 
 import ebisim.physconst
-import pytest
 
 def test_elementary_charge():
     assert ebisim.physconst.Q_E == pytest.approx(1.60217662e-19)
