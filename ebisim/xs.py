@@ -26,11 +26,32 @@ def _normpdf(x, mu, sigma):
 
     Returns
     -------
-    out : numpy.ndarray
+    numpy.ndarray
         Value of the normal PDF evaluated elementwise on the input arrays
     """
     return np.exp(-(x - mu)**2 / (2 * sigma**2)) / (2 * PI * sigma**2)**0.5
 
+
+@numba.njit(cache=True)
+def cxxs(q, ip):
+    """
+    Single charge exchange cross section according to the Mueller Salzborn formula
+
+    Parameters
+    ----------
+    q : int
+        Charge state of the colliding ion
+    ip : float
+        <eV>
+        Ionisation potential of the collision partner (neutral gas)
+
+    Returns
+    -------
+    float
+        <m^2>
+        Charge exchange cross section
+    """
+    return 1.43e-16 * q**1.17 * ip**-2.76
 
 @numba.njit(cache=True)
 def eixs_vec(element, e_kin):
@@ -48,7 +69,7 @@ def eixs_vec(element, e_kin):
 
     Returns
     -------
-    out : numpy.ndarray
+    numpy.ndarray
         <m^2>
         The cross sections for each individual charge state, where the array-index corresponds
         to the charge state, i.e. out[q] ~ cross section of q+ ion.
@@ -107,7 +128,7 @@ def eixs_mat(element, e_kin):
 
     Returns
     -------
-    out : numpy.array
+    numpy.array
         <m^2>
         The cross sections for each individual charge state, arranged in a matrix suitable
         for implementation of a rate equation like dN/dt = j * xs_matrix dot N.
@@ -146,7 +167,7 @@ def rrxs_vec(element, e_kin):
 
     Returns
     -------
-    out : numpy.ndarray
+    numpy.ndarray
         <m^2>
         The cross sections for each individual charge state, where the array-index corresponds
         to the charge state, i.e. out[q] ~ cross section of q+ ion.
@@ -187,7 +208,7 @@ def rrxs_mat(element, e_kin):
 
     Returns
     -------
-    out : numpy.array
+    numpy.array
         <m^2>
         The cross sections for each individual charge state, arranged in a matrix suitable
         for implementation of a rate equation like dN/dt = j * xs_matrix dot N.
@@ -234,7 +255,7 @@ def drxs_vec(element, e_kin, fwhm):
 
     Returns
     -------
-    out : numpy.ndarray
+    numpy.ndarray
         <m^2>
         The cross sections for each individual charge state, where the array-index corresponds
         to the charge state, i.e. out[q] ~ cross section of q+ ion.
@@ -278,7 +299,7 @@ def drxs_mat(element, e_kin, fwhm):
 
     Returns
     -------
-    out : numpy.array
+    numpy.array
         <m^2>
         The cross sections for each individual charge state, arranged in a matrix suitable
         for implementation of a rate equation like dN/dt = j * xs_matrix dot N.
@@ -571,9 +592,9 @@ def _eirr_e_samp(element, e_kin, n):
 
     Returns
     -------
-    e_samp : numpy.ndarray
+    numpy.ndarray
         <eV>
-        Array with sampling energies
+        Array of sampling energies
     """
     if e_kin is None:
         e_min = 100.0
