@@ -2,237 +2,294 @@
 This module contains the advanced simulation method and related resources.
 """
 
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 import numpy as np
 import scipy.integrate
 import scipy.interpolate
 import numba
 
 from .. import xs
-from .. import elements
 from .. import plasma
-from ..physconst import Q_E, M_P, PI, EPS_0
+from ..elements import Element
+from ..physconst import Q_E, M_P, PI, EPS_0, K_B
 from ..physconst import MINIMAL_DENSITY, MINIMAL_KBT
 from ._result import Result
 
-Target = namedtuple("Target", elements.Element._fields + ("N", "kbT", "cni", "cx"))
 
-def get_gas_target(element, N, kbT=0.025, cni=True, cx=True):
-    # cast element to Element if necessary
-    if not isinstance(element, elements.Element):
-        element = elements.get_element(element)
-    _N = np.ones(element.z + 1) * MINIMAL_DENSITY
-    _kbT = np.ones(element.z + 1) * MINIMAL_KBT
-    _N[0] = N
-    _kbT[0] = kbT
-    return Target(*element, _N, _kbT, cni, cx)
+class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
+    __slots__ = ()
 
-def get_ion_target(element, N, kbT=0.025, q=1):
-    # cast element to Element if necessary
-    if not isinstance(element, elements.Element):
-        element = elements.get_element(element)
-    _N = np.ones(element.z + 1) * MINIMAL_DENSITY
-    _kbT = np.ones(element.z + 1) * MINIMAL_KBT
-    _N[q] = N
-    _kbT[q] = kbT
-    return Target(*element, _N, _kbT, cni=False, cx=False)
+    @classmethod
+    def get_gas(cls, element, p, T=300, cni=True, cx=True):
+        # cast element to Element if necessary
+        element = Element.as_element(element)
+        _n = np.full(element.z + 1, MINIMAL_DENSITY, dtype=np.float64)
+        _kT = np.full(element.z + 1, MINIMAL_KBT, dtype=np.float64)
+        _n[0] = (p * 100) / (K_B * T) #Convert from mbar to Pa and compute density at Temp
+        _kT[0] = K_B * T / Q_E
+        return cls(*element, n=_n, kT=_kT, cni=cni, cx=cx)
 
-Device = namedtuple("Device", ["j", "e_kin", "current", "r_e", "v_ax", "v_ra", "b_ax", "r_dt"])
+    @classmethod
+    def get_ions(cls, element, n, kT=0.025, q=1):
+        # cast element to Element if necessary
+        element = Element.as_element(element)
+        _n = np.full(element.z + 1, MINIMAL_DENSITY, dtype=np.float64)
+        _kT = np.full(element.z + 1, MINIMAL_KBT, dtype=np.float64)
+        _n[q] = n
+        _kT[q] = kT
+        return cls(*element, n=_n, kT=_kT, cni=False, cx=False)
 
-@numba.njit(cache=True)
-def rk4_step(fun, t, y, h, funargs):
-    k1 = h * fun(t, y, *funargs)
-    k2 = h * fun(t + h/2, y + k1/2, *funargs)
-    k3 = h * fun(t + h/2, y + k2/2, *funargs)
-    k4 = h * fun(t + h, y + k3, *funargs)
-    return (t+h), (y + 1/6*(k1 + 2*k2 + 2*k3 + k4))
 
-@numba.njit(cache=True)
-def rk4(fun, t0, t1, h, y0, funargs):
-    nt = int((t1 - t0)/h + 1)
-    t = np.empty(nt)
-    y = np.empty((y0.shape[0], nt))
-    t[0] = t0
-    y[:, 0] = y0
-    for k in range(1, nt-1):
-        t[k], y[:, k] = rk4_step(fun, t[k-1], y[:, k-1], h, funargs)
-    t[nt-1], y[:, nt-1] = rk4_step(fun, t[nt-2], y[:, nt-2], t1-t[nt-2], funargs)
-    return t, y
+class BackgroundGas(namedtuple("BackgroundGas", "ip, n0")):
+    __slots__ = ()
 
-@numba.njit(cache=True)
-def _dpot(x, y, current, e_kin, r_e, q, N, kbT):
-    rho_e = -current / (plasma.electron_velocity(e_kin)*r_e**2*PI) * np.exp(-(x/r_e)**2)
-    rho_p = Q_E*q * N * np.exp(-q * y[0]/kbT)
-    # print(type(rho_p))
-    rho_p = np.sum(rho_p)
-    ypp = -(rho_e + rho_p)/EPS_0
-    # ypp = -(rho_e)/EPS_0
-    if y[1] > 0:
-        ypp -= y[1]/x
-    return np.array([y[1], ypp])
+    @classmethod
+    def get(cls, element, p, T=300):
+        return cls(
+            Element.as_element(element).ip,
+            (p * 100) / (K_B * T) #Convert from mbar to Pa and compute density at Temp
+            )
 
-@numba.njit(cache=True)
-def compute_potential(device, q, N, kbT):
-    r_e = .81 * device.r_e
-    sc_post = 1
-    sc_pre = 0
-    n = 0
-    while np.abs(1 - sc_pre / sc_post) > 0.01 and n<10:
-        n = n+1
-    # for _ in range(3):
-        sc_pre = sc_post
-        # fun = lambda x, y: _dpot(x, y, device.current, device.e_kin - sc_post, r_e, q, N, kbT)
-        # res = scipy.integrate.solve_ivp(fun, (0, device.r_dt), np.array([0, 0]), t_eval=rs)
-        x, y = rk4(
-            _dpot,
-            0,
-            device.r_dt,
-            device.r_e/50,
-            np.zeros(2),
-            (device.current, device.e_kin-sc_post, device.r_e, q, N, kbT)
+
+Device = namedtuple(
+    "Device",
+    ("j", "e_kin", "current", "r_e", "drfwhm", "v_ax", "v_ra", "b_ax", "r_dt")
+)
+
+
+_MODEL_OPTIONS_DEFAULTS = OrderedDict(
+    EI=True, RR=True, CX=True, DR=False,
+    SPITZER_HEATING=True, COLLISIONAL_THERMALISATION=True,
+    ESCAPE_AXIAL=True, ESCAPE_RADIAL=True,
+    RECOMPUTE_CROSS_SECTIONS=False
+)
+ModelOptions = namedtuple(
+    "ModelOptions", _MODEL_OPTIONS_DEFAULTS.keys(), defaults=_MODEL_OPTIONS_DEFAULTS.values()
+)
+DEFAULT_MODEL_OPTIONS = ModelOptions()
+
+
+# Typedefs for AdvancedModel
+_T_DEVICE = numba.typeof(Device(0., 0., 0., 0., 0., 0., 0., 0., 0.))
+_T_TARGET = numba.typeof(Target.get_ions("He", 0., 0., 1))
+_T_BG_GAS = numba.typeof(BackgroundGas.get("He", 1e-8))
+_T_MODEL_OPTIONS = numba.typeof(DEFAULT_MODEL_OPTIONS)
+_T_TARGET_LIST = numba.types.ListType(_T_TARGET)
+_T_BG_GAS_LIST = numba.types.ListType(_T_BG_GAS)
+_T_F8_ARRAY = numba.float64[:] #Cannot be called in jitted code so need to predefine
+_T_I4_ARRAY = numba.int32[:]
+
+
+_ADVMDLSPEC = OrderedDict(
+    device=_T_DEVICE,
+    targets=_T_TARGET_LIST,
+    bg_gases=_T_BG_GAS_LIST,
+    options=_T_MODEL_OPTIONS,
+    lb=_T_I4_ARRAY,
+    ub=_T_I4_ARRAY,
+    nq=numba.int32,
+    _q=_T_I4_ARRAY,
+    _a=_T_I4_ARRAY,
+    _eixs=_T_F8_ARRAY,
+    _rrxs=_T_F8_ARRAY,
+    _drxs=_T_F8_ARRAY,
+    _cxxs_bggas=numba.types.ListType(_T_F8_ARRAY),
+    _cxxs_trgts=numba.types.ListType(_T_F8_ARRAY),
+)
+@numba.experimental.jitclass(_ADVMDLSPEC)
+class AdvancedModel:
+    def __init__(self, device, targets, bg_gases=None, options=DEFAULT_MODEL_OPTIONS):
+        # Bind parameters
+        self.device = device
+        self.targets = targets
+        self.bg_gases = bg_gases if bg_gases is not None else numba.typed.List.empty_list(_T_BG_GAS)
+        self.options = options
+
+
+        # Determine array bounds for different targets in state vector
+        self.lb = np.zeros(len(targets), dtype=np.int32)
+        self.ub = np.zeros(len(targets), dtype=np.int32)
+        offset = 0
+        for i, trgt in enumerate(targets):
+            self.lb[i] = offset
+            self.ub[i] = self.lb[i] + trgt.z + 1
+            offset = self.ub[i]
+
+
+        # Compute total number of charge states for all targets (len of "n" or "kT" state vector)
+        self.nq = self.ub[-1]
+
+
+        # Define vectors listing the charge state and mass for each state
+        self._q = np.zeros(self.nq, dtype=np.int32)
+        self._a = np.zeros(self.nq, dtype=np.int32)
+        for i, trgt in enumerate(self.targets):
+            self._q[self.lb[i]:self.ub[i]] = np.arange(trgt.z + 1, dtype=np.int32)
+            self._a[self.lb[i]:self.ub[i]] = np.full(trgt.z + 1, trgt.a, dtype=np.int32)
+
+
+        # Initialise cross section vectors
+        self._eixs = np.zeros(self.nq)
+        self._rrxs = np.zeros(self.nq)
+        self._drxs = np.zeros(self.nq)
+        self._update_eirrdrxs(self.device.e_kin, self.device.drfwhm)
+        # Precompute CX cross sections (invariant)
+        self._cxxs_bggas = numba.typed.List.empty_list(_T_F8_ARRAY)
+        self._cxxs_trgts = numba.typed.List.empty_list(_T_F8_ARRAY)
+        for gas in self.bg_gases:
+            self._cxxs_bggas.append(xs.cxxs(self._q, gas.ip))
+        for trgt in self.targets:
+            self._cxxs_trgts.append(xs.cxxs(self._q, trgt.ip))
+
+
+
+    def _update_eirrdrxs(self, e_kin, drfwhm):
+        for i, trgt in enumerate(self.targets):
+            if self.options.EI:
+                self._eixs[self.lb[i]:self.ub[i]] = xs.eixs_vec(trgt, e_kin)
+            if self.options.RR:
+                self._rrxs[self.lb[i]:self.ub[i]] = xs.rrxs_vec(trgt, e_kin)
+            if self.options.DR:
+                self._drxs[self.lb[i]:self.ub[i]] = xs.drxs_vec(trgt, e_kin, drfwhm)
+
+
+    def rhs(self, _t, y):
+        # pylint: disable=bad-whitespace
+
+        # Split y into useful parts
+        n   = y[:self.nq]
+        kT  = y[self.nq:]
+        # Clip low values?
+        n = np.maximum(n, MINIMAL_DENSITY)
+        # kT = np.maximum(kTn, MINIMAL_KBT)
+        # Preallocate output arrays
+        dn  = np.zeros_like(n)
+        dkT = np.zeros_like(kT)
+
+        # Compute some electron beam quantities
+        je = self.device.j / Q_E * 1e4 # electron number current density
+        ve = plasma.electron_velocity(self.device.e_kin)
+        ne = je/ve # Electron number density
+
+        # Collision rates
+        # rij = plasma.ion_coll_rate(
+        #     n[:, np.newaxis], n,
+        #     kT[:, np.newaxis], kT,
+        #     self._a[:, np.newaxis], self._a,
+        #     self._q[:, np.newaxis], self._q
+        # )
+        rij = plasma.ion_coll_rate(
+            np.atleast_2d(n).T, n,
+            np.atleast_2d(kT).T, kT,
+            np.atleast_2d(self._a).T, self._a,
+            np.atleast_2d(self._q).T, self._q
         )
-        sc_post = y[0, -1]
-    return x, y[0] - sc_post
+        # print(rij)
+        ri  = np.sum(rij, axis=-1)
+        v_th = np.sqrt(8 * Q_E * kT/(PI * self._a * M_P)) # Thermal velocities
+
+        # TODO: Radial trapping: Trap depth, compensation, Radial extent, overlap? ionisat heat
+
+        # update cross sections?
+        if self.options.RECOMPUTE_CROSS_SECTIONS:
+            self._update_eirrdrxs(self.device.e_kin, self.device.drfwhm)
+
+        # EI
+        if self.options.EI:
+            R_ei      = self._eixs * n * je
+            dn       -= R_ei
+            dn[1:]   += R_ei[:-1]
+            dkT[1:]  += R_ei[:-1] / n[1:] * (kT[:-1] - kT[1:])
+            # TODO: Ionisation Heating
 
 
-@numba.njit(cache=True)
-def _rhs(t, y, device, target, rates=None):
-
-    # prepare rhs
-    ## electrons
-    ve = plasma.electron_velocity(device.e_kin)
-    je = device.j / Q_E * 1e4
-    je = device.current / Q_E / PI / device.r_e**2
-    Ne = je / ve
-    on_ax_sc = device.current/(4 * PI * EPS_0 * ve) * (2*np.log(device.r_e/device.r_dt)-1)
-    ## ions
-    element = target
-    q = np.arange(element.z + 1)
-    A = element.a
-    ## cross sections
-    eixs = xs.eixs_vec(element, device.e_kin)
-    rrxs = xs.rrxs_vec(element, device.e_kin)
-    cxxs = 1.43e-16 * q**1.17 * element.ip**-2.76
-    if False:#dr_fwhm is not None:
-        drxs = xs.drxs_vec(element, device.e_kin, dr_fwhm)
-    else:
-        drxs = np.zeros(element.z + 1)
+        # RR
+        if self.options.RR:
+            R_rr      = self._rrxs * n * je
+            dn       -= R_rr
+            dn[:-1]  += R_rr[1:]
+            dkT[:-1] += R_rr[1:] / n[:-1] * (kT[1:] - kT[:-1])
+            # TODO: RR cooling
 
 
-    # rs = np.linspace(0, device.r_dt, 1000)
-    # rs, phi_empty = compute_potential(device, q, np.zeros_like(q), np.ones_like(q))
-    # on_ax_sc_empty = phi_empty[0]
-
-    ### Split y vector into density and temperature
-    N = y[:element.z + 1]
-    kbT = y[element.z + 1:]
-    kbT_clip = kbT[:]
-    kbT_clip[kbT_clip < 0] = 0
-    # E = N * kbT # Not currently needed
-
-    # Ion cloud
-    # print(_, phi[0])
-    # on_ax_sc = phi[0]
-
-    # Compensation
-    comp = np.sum(q*N)/Ne
-    # if comp > 0.0:
-    #     rs, phi = compute_potential(device, q, N, kbT)
-        # print(comp, _, phi[0])
-    mean_ion_heat = 1/2 * device.current/(4 * PI * EPS_0 * ve) * (1-comp)
-    v_trap_rad = -1 * on_ax_sc * (1-comp)
-    v_trap_ax = device.v_ax + comp * on_ax_sc
-    if v_trap_ax < 0:
-        v_trap_ax = 1e-16
-    if v_trap_rad < 0:
-        v_trap_rad = 1e-16
+        # DR
+        if self.options.DR:
+            R_dr      = self._drxs * n * je
+            dn       -= R_dr
+            dn[:-1]  += R_dr[1:]
+            dkT[:-1] += R_dr[1:] / n[:-1] * (kT[1:] - kT[:-1])
+            # TODO: DR cooling
 
 
-    # precompute collision rates
-    rij = plasma.ion_coll_rate_mat(N, N, kbT, kbT, A, A)
-    ri = np.sum(rij, axis=1)
-
-    ### Particle density rates
-    R_ei = je * N * eixs
-    R_rr = je * N * rrxs
-    R_dr = je * N * drxs
-
-    if target.cx:
-        R_cx = N * N[0] * np.sqrt(8 * Q_E * kbT_clip/(PI * A * M_P)) * cxxs
-        R_cx[1] = R_cx[1] - np.sum(R_cx[2:])
-    else:
-        R_cx = np.zeros_like(R_ei)
-    R_ax = plasma.escape_rate_axial(N, kbT, ri, v_trap_ax)
-    R_ra = plasma.escape_rate_radial(N, kbT, ri, A, v_trap_rad, device.b_ax, device.r_dt)
-
-    ### Energy density rates
-    S_ei = R_ei * kbT
-    S_rr = R_rr * kbT
-    S_dr = R_dr * kbT
-    S_cx = R_cx * kbT
-    S_ax = R_ax * (kbT + q * v_trap_ax)
-    S_ra = R_ra * (kbT + q * (v_trap_rad + device.r_dt * device.b_ax * \
-                                np.sqrt(2 * Q_E * kbT_clip / (3 * A *M_P))))
-    # Electron heating
-    S_eh = plasma.electron_heating_vec(N, Ne, kbT, device.e_kin, A)
-    # Energy transfer between charge states within same "species"
-    S_tr = plasma.energy_transfer_vec(N, N, kbT, kbT, A, A, rij)
-    # Ionisation heating
-    S_ih = np.zeros_like(S_eh)
-    S_ih[1:] = R_ei[:-1] * mean_ion_heat
-    # S_ih[:-1] -= (R_rr + R_dr + R_cx)[1:] * mean_ion_heat
+        # CX
+        if self.options.CX:
+            R_cx      = np.zeros_like(n)
+            for g, gas in enumerate(self.bg_gases):
+                R_cx += self._cxxs_bggas[g] * gas.n0 * n * v_th
+            for j, jtrgt in enumerate(self.targets):
+                if jtrgt.cx: # Only compute cx with target gas if wished by user
+                    R_cx += self._cxxs_trgts[j] * n[self.lb[j]] * n * v_th
+            dn       -= R_cx
+            dn[:-1]  += R_cx[1:]
+            dkT[:-1] += R_cx[1:] / n[:-1] * (kT[1:] - kT[:-1])
+            # TODO: CX cooling
 
 
-    ### Construct rhs for N (density)
-    R_tot = -(R_ei + R_rr + R_dr + R_cx) - (R_ax + R_ra)
-    R_tot[1:] += R_ei[:-1]
-    R_tot[:-1] += R_rr[1:] + R_dr[1:] + R_cx[1:]
-
-    ### Construct rates for energy density flow
-    S_tot = -(S_ei + S_rr + S_dr + S_cx) + S_eh + S_tr + S_ih - (S_ax + S_ra)
-    S_tot[1:] += S_ei[:-1]
-    S_tot[:-1] += S_rr[1:] + S_dr[1:] + S_cx[1:]
-
-    if target.cni:
-        R_tot[0] = 0
-        S_tot[0] = 0
-
-    ### Deduce temperature flow -> Integrating temperature instead of energy has proven more
-    ### numerically stable
-    Q_tot = (S_tot - kbT * R_tot) / N
-    Q_tot[N <= MINIMAL_DENSITY] = 0 ### Freeze temperature if density is low (-> not meaningful)
-
-    if rates is not None:
-        rates["R_ei"] = R_ei
-        rates["R_rr"] = R_rr
-        rates["R_dr"] = R_dr
-        rates["R_cx"] = R_cx
-        rates["R_ax"] = R_ax
-        rates["R_ra"] = R_ra
-        rates["S_ei"] = S_ei
-        rates["S_rr"] = S_rr
-        rates["S_dr"] = S_dr
-        rates["S_cx"] = S_cx
-        rates["S_ax"] = S_ax
-        rates["S_ra"] = S_ra
-        rates["S_eh"] = S_eh
-        rates["S_tr"] = S_tr
-        rates["S_ih"] = S_ih
-        rates["V_ii"] = np.diag(rij)
-        rates["V_it"] = ri
-        # rates["Comp"] = comp
-
-    return np.concatenate((R_tot, Q_tot))
+        # Electron heating / Spitzer heating
+        if self.options.SPITZER_HEATING:
+            dkT      += plasma.spitzer_heating(n, ne, kT, self.device.e_kin, self._a, self._q)
 
 
-@numba.njit(parallel=True, cache=True, nogil=True)
-def _rhs_vectorised(t, y, device, target, rates=None):
-    out = np.empty_like(y)
-    for k in range(y.shape[1]):
-        out[:, k] = _rhs(t, y[:, k], device, target, rates)
-    return out
+        # Ion-ion heat transfer (collisional thermalisation)
+        if self.options.COLLISIONAL_THERMALISATION:
+            # dkT      += np.sum(
+            #     plasma.collisional_thermalisation(
+            #         kT[:, np.newaxis], kT, self._a[:, np.newaxis], self._a, rij
+            #     ), axis=-1
+            # )
+            dkT      += np.sum(
+                plasma.collisional_thermalisation(
+                    np.atleast_2d(kT).T, kT, np.atleast_2d(self._a).T, self._a, rij
+                ), axis=-1
+            )
 
-def advanced_simulation(device, target, t_max, dr_fwhm=None, solver_kwargs=None):
+
+        # Axial escape
+        if self.options.ESCAPE_AXIAL:
+            # TODO: Check axial energy escape rate
+            R_ax      = plasma.escape_rate_axial(n, kT, self._q, ri, self.device.v_ax)
+            dn       -= R_ax
+            dkT      -= R_ax / n * self._q * self.device.v_ax
+
+
+        # Radial escape
+        if self.options.ESCAPE_RADIAL:
+            # TODO: Check radial energy escape rate
+            R_ra      = plasma.escape_rate_radial(
+                n, kT, self._q, ri, self._a, self.device.v_ra, self.device.b_ax, self.device.r_dt
+            )
+            dn       -= R_ra
+            dkT      -= R_ra / n * self._q * (
+                self.device.v_ra + self.device.r_dt * self.device.b_ax
+                * np.sqrt(2 * Q_E * kT / (3 * self._a *M_P))
+            )
+
+
+
+        #Check if neutrals are depletable or if there is continuous neutral injection
+        for i, trgt in enumerate(self.targets):
+            if trgt.cni:
+                dn[self.lb[i]] = 0.0
+                dkT[self.lb[i]] = 0.0
+
+
+        # TODO: Return rates on demand
+        return np.concatenate((dn, dkT))
+
+
+def advanced_simulation(
+        device, targets, t_max, bg_gases=None, options=DEFAULT_MODEL_OPTIONS, solver_kwargs=None
+    ):
     """
     !!!UNDER ACTIVE DEVELOPMENT!!! - API not stable!
 
@@ -287,8 +344,28 @@ def advanced_simulation(device, target, t_max, dr_fwhm=None, solver_kwargs=None)
         An instance of the Result class, holding the simulation parameters, timesteps and
         charge state distribution including the species temperature.
     """
-    N_kbT_initial = np.concatenate((target.N, target.kbT))
+    if isinstance(targets, Target):
+        targets = [targets]
+    targets = numba.typed.List(targets)
 
+    if bg_gases is None:
+        bg_gases = numba.typed.List.empty_list(_T_BG_GAS)
+    else:
+        if isinstance(bg_gases, BackgroundGas):
+            bg_gases = [bg_gases]
+        bg_gases = numba.typed.List(bg_gases)
+
+    device = Device(*tuple([float(_f) for _f in device]))
+    assert numba.typeof(device) == _T_DEVICE, "Numba type mismatch for device"
+    assert numba.typeof(options) == _T_MODEL_OPTIONS, "Numba type mismatch for options"
+    assert numba.typeof(targets) == _T_TARGET_LIST, "Numba type mismatch for Target list"
+    assert numba.typeof(bg_gases) == _T_BG_GAS_LIST, "Numba type mismatch for BgGas list"
+
+    model = AdvancedModel(device, targets, bg_gases, options)
+
+    _n0 = np.concatenate([t.n for t in targets])
+    _kT0 = np.concatenate([t.kT for t in targets])
+    n_kT_initial = np.concatenate([_n0, _kT0])
     # prepare solver options
     if not solver_kwargs:
         solver_kwargs = {}
@@ -297,29 +374,37 @@ def advanced_simulation(device, target, t_max, dr_fwhm=None, solver_kwargs=None)
     # save adjusted call parameters for passing on to Result
     param = locals().copy()
 
-
-    rhs = lambda t, y: _rhs_vectorised(t, y, device, target)
-    res = scipy.integrate.solve_ivp(rhs, (0, t_max), N_kbT_initial, vectorized=True, **solver_kwargs)
-
-    # Recompute rates for final solution (this cannot be done parasitically due to
-    # the solver approximating the jacobian and calling rhs with bogus values).
-    nt = res.t.size
-    poll = numba.typed.Dict.empty(
-        key_type=numba.types.unicode_type,
-        value_type=numba.types.float64[:]
+    res = scipy.integrate.solve_ivp(
+        model.rhs, (0, t_max), n_kT_initial, **solver_kwargs
     )
-    _ = _rhs(res.t[0], res.y[:, 0], device, target, rates=poll)
-    rates = {k:np.zeros((poll[k].size, nt)) for k in poll}
-    for idx in range(nt):
-        _ = _rhs(res.t[idx], res.y[:, idx], device, target, rates=poll)
-        for key, val in poll.items():
-            rates[key][:, idx] = val
 
-    return Result(
-        param=param,
-        t=res.t,
-        N=res.y[:target.z + 1, :],
-        kbT=res.y[target.z + 1:, :],
-        res=res,
-        rates=rates
+    out = []
+    for i, trgt in enumerate(model.targets):
+        out.append(
+            Result(
+                param=param,
+                t=res.t,
+                N=res.y[model.lb[i]:model.ub[i]],
+                kbT=res.y[model.nq + model.lb[i]:model.nq + model.ub[i]],
+                res=res,
+                target=trgt,
+                device=device
+            )
         )
+    if len(out) == 1:
+        return out[0]
+    return out
+
+    # # Recompute rates for final solution (this cannot be done parasitically due to
+    # # the solver approximating the jacobian and calling rhs with bogus values).
+    # nt = res.t.size
+    # poll = numba.typed.Dict.empty(
+    #     key_type=numba.types.unicode_type,
+    #     value_type=numba.types.float64[:]
+    # )
+    # _ = _rhs(res.t[0], res.y[:, 0], device, target, rates=poll)
+    # rates = {k:np.zeros((poll[k].size, nt)) for k in poll}
+    # for idx in range(nt):
+    #     _ = _rhs(res.t[idx], res.y[:, idx], device, target, rates=poll)
+    #     for key, val in poll.items():
+    #         rates[key][:, idx] = val
