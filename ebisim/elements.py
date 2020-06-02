@@ -148,6 +148,9 @@ class Element(_ElementSpec):
         """
         if isinstance(element, cls):
             return element
+        elif "ebisim.simulation._advanced.Target" in str(type(element)): #hacktime
+            data = {k:v for k, v in element._asdict().items() if k in cls._fields}
+            return cls(**data)
         else:
             return cls.get(element)
 
@@ -206,7 +209,7 @@ class Element(_ElementSpec):
 
         # Mass number and ionisation potential
         idx = _ELEM_Z.index(z)
-        ip = _ELEM_IP[idx]
+        ip = float(_ELEM_IP[idx])
         if a is None:
             a = _ELEM_A[idx]
         if a <= 0:
@@ -217,7 +220,7 @@ class Element(_ElementSpec):
         e_bind = _SHELL_EBIND[z].copy()
 
         # Precomputations for radiative recombination
-        # set write protection flags here since precompute_rr_quantities is compiled and cannot do this
+        # set write protection flags here since precompute_rr_quantities is compiled and cant do so
         rr_z_eff, rr_n_0_eff = xs.precompute_rr_quantities(e_cfg, _SHELL_N)
 
         # Data for computations of dielectronic recombination cross sections
