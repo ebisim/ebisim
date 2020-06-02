@@ -43,11 +43,11 @@ class Result:
     ----------
     param : dict, optional
         A dictionary containing general simulation parameters, by default None.
-    t : numpy.array, optional
+    t : numpy.ndarray, optional
         An array holding the time step coordinates, by default None.
-    N : numpy.array, optional
+    N : numpy.ndarray, optional
         An array holding the occupancy of each charge state at a given time, by default None.
-    kbT : numpy.array, optional
+    kbT : numpy.ndarray, optional
         An array holding the temperature of each charge state at a given time, by default None.
     res : optional
         The result object returned by scipy.integrate.solve_ivp. This can contain useful
@@ -56,6 +56,10 @@ class Result:
     rates : dict, optional
         A dictionary containing the different breeding rates in arrays shaped like N,
         by default None.
+    target : ebisim.simulation.Target, optional
+        If coming from advanced_simulation, this is the target represented by this Result.
+    device : ebisim.simulation.Device, optional
+        If coming from advanced_simulation, this is the machine / electron beam description.
 
     """
 
@@ -77,7 +81,7 @@ class Result:
 
         Returns
         -------
-        numpy.array
+        numpy.ndarray
             <s>
             Array of times.
 
@@ -98,7 +102,7 @@ class Result:
 
         Returns
         -------
-        numpy.array
+        numpy.ndarray
             Abundance of each charge state, array index corresponds to charge state.
 
         """

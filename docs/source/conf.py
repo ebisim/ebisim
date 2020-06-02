@@ -188,5 +188,7 @@ apidoc_separate_modules = True
 apidoc_module_first = True
 os.environ["SPHINX_APIDOC_OPTIONS"] = "members,undoc-members,inherited-members,show-inheritance"
 
+autodoc_member_order = "groupwise"
+
 def setup(app):
     app.add_css_file('theme_override.css')

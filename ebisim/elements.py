@@ -113,7 +113,7 @@ _ElementSpec = namedtuple(
 
 class Element(_ElementSpec):
     """
-    USE THE STATIC Element.get FACTORY METHOD TO CREATE INSTANCES OF THIS CLASS.
+    Use the static `get()` factory method to create instances of this class.
 
     This class is derived from collections.namedtuple which facilitates use with numba-compiled
     functions.
@@ -122,6 +122,10 @@ class Element(_ElementSpec):
     information for the computations of cross sections and rates.
     Many ebisim functions take an instance of Element as their input and access the information
     stored within the instance for their computations.
+
+    See Also
+    --------
+    ebisim.elements.Element.get
     """
     # https://docs.python.org/3.6/library/collections.html#collections.namedtuple
     # contains documentation for named tuples

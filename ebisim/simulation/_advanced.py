@@ -17,39 +17,150 @@ from ._result import Result
 
 
 class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
+    """
+    Use the static `get_ions()` or `get_gas()` factory methods to create instances of this class.
+
+    Targets are used in advanced simulations;
+    they are an extended version of ebisim.elements.Element.
+
+    There are four extra fields for a more convenient setup of advanced simulations:
+    n and kT are vectors holding initial conditions.
+    cni is a boolean flag determining whether the neutral particles are continuously injected,
+    if yes, then neutrals cannot be depleted or heated.
+    cx is a boolean flag determining whether the neutral particles contribute to charge exchange.
+
+    See Also
+    --------
+    ebisim.simulation.Target.get_ions
+    ebisim.simulation.Target.get_gas
+    """
     __slots__ = ()
 
     @classmethod
-    def get_gas(cls, element, p, T=300, cni=True, cx=True):
-        # cast element to Element if necessary
+    def get_gas(cls, element, p, T=300.0, cx=True):
+        """
+        Factory method for defining a gas injection Target.
+        A gas target is a target with constant density in charge state 0, i.e. continuous neutral
+        injection (cni=True).
+
+        Parameters
+        ----------
+        element : ebisim.elements.Element or str or int
+            An instance of the Element class, or an identifier for the element, i.e. either its
+            name, symbol or proton number.
+        p : float
+            <mbar>
+            Gas pressure.
+        T : float, optional
+            <K>
+            Gas temperature, by default 300 K (Room temperature)
+        cx : bool, optional
+            see class documentation, by default True
+
+        Returns
+        -------
+        ebisim.simulation.Target
+            Ready to use Target specification.
+        """
         element = Element.as_element(element)
         _n = np.full(element.z + 1, MINIMAL_DENSITY, dtype=np.float64)
         _kT = np.full(element.z + 1, MINIMAL_KBT, dtype=np.float64)
         _n[0] = (p * 100) / (K_B * T) #Convert from mbar to Pa and compute density at Temp
         _kT[0] = K_B * T / Q_E
-        return cls(*element, n=_n, kT=_kT, cni=cni, cx=cx)
+        return cls(*element, n=_n, kT=_kT, cni=True, cx=cx)
 
     @classmethod
-    def get_ions(cls, element, n, kT=0.025, q=1):
-        # cast element to Element if necessary
+    def get_ions(cls, element, n, kT=0.025, q=1, cx=True):
+        """
+        Factory method for defining a pulsed ion injection Target.
+        An ion target has a given density in the charge state of choice q.
+
+        Parameters
+        ----------
+        element : ebisim.elements.Element or str or int
+            An instance of the Element class, or an identifier for the element, i.e. either its
+            name, symbol or proton number.
+        n : float
+            <1/m^3>
+            Density of the initial charge state.
+        kT : float, optional
+            <eV>
+            Temperature / kinetic energy of the injected ions,
+            by default 0.025 eV (Room temperature)
+        q : int, optional
+            Initial charge state, by default 1
+        cx : bool, optional
+            see class documentation, by default True
+
+        Returns
+        -------
+        ebisim.simulation.Target
+            Ready to use Target specification.
+        """
         element = Element.as_element(element)
         _n = np.full(element.z + 1, MINIMAL_DENSITY, dtype=np.float64)
         _kT = np.full(element.z + 1, MINIMAL_KBT, dtype=np.float64)
         _n[q] = n
         _kT[q] = kT
-        return cls(*element, n=_n, kT=_kT, cni=False, cx=False)
+        return cls(*element, n=_n, kT=_kT, cni=False, cx=cx)
+
+#Patching in docstrings
+for f in Element._fields:
+    setattr(getattr(Target, f), "__doc__", getattr(getattr(Element, f), "__doc__"))
+Target.n.__doc__ = """<1/m^3> Array holding the initial density of each charge state."""
+Target.kT.__doc__ = """<eV> Array holding the initial temperature of each charge state."""
+Target.cni.__doc__ = """Boolean flag determining whether neutral particles of this target are
+continuously injected, and hence cannot be depleted or heated."""
+Target.cx.__doc__ = """Boolean flag determining whether neutral particles of this target are
+considered as charge exchange partners."""
 
 
-class BackgroundGas(namedtuple("BackgroundGas", "ip, n0")):
+class BackgroundGas(namedtuple("BackgroundGas", "name, ip, n0")):
+    """
+    Use the static `get()` factory methods to create instances of this class.
+
+    Simple datacontainer for a background gas for advanced simulations.
+    A background gas only acts as a charge exchange partner to the Targets in the simulation.
+
+    See Also
+    --------
+    ebisim.simulation.BackgroundGas.get
+    """
     __slots__ = ()
 
     @classmethod
-    def get(cls, element, p, T=300):
+    def get(cls, element, p, T=300.0):
+        """
+        Factory method for defining a background gas.
+
+        Parameters
+        ----------
+        element : ebisim.elements.Element or str or int
+            An instance of the Element class, or an identifier for the element, i.e. either its
+            name, symbol or proton number.
+        p : float
+            <mbar>
+            Gas pressure.
+        T : float, optional
+            <K>
+            Gas temperature, by default 300 K (Room temperature)
+
+        Returns
+        -------
+        ebisim.simulation.BackgroundGas
+            Ready to use BackgroundGas specification.
+        """
+        element = Element.as_element(element)
         return cls(
-            Element.as_element(element).ip,
+            element.name,
+            element.ip,
             (p * 100) / (K_B * T) #Convert from mbar to Pa and compute density at Temp
             )
 
+#Patching in docstrings
+BackgroundGas.name.__doc__ = """str Name of the element."""
+BackgroundGas.ip.__doc__ = """float <eV> Ionisation potential of this Gas."""
+BackgroundGas.n0.__doc__ = """float <1/m^3> Gas number density."""
 
 Device = namedtuple(
     "Device",
@@ -67,6 +178,21 @@ ModelOptions = namedtuple(
     "ModelOptions", _MODEL_OPTIONS_DEFAULTS.keys(), defaults=_MODEL_OPTIONS_DEFAULTS.values()
 )
 DEFAULT_MODEL_OPTIONS = ModelOptions()
+#Patching in docstrings
+ModelOptions.__doc__ = """An instance of ModelOptions can be used to turn on or off certain effects
+in an advanced simulation."""
+ModelOptions.EI.__doc__ = "Switch for electron impact ionisation, default True."
+ModelOptions.RR.__doc__ = "Switch for radiative recombination, default True."
+ModelOptions.CX.__doc__ = "Switch for charge exchange, default True."
+ModelOptions.DR.__doc__ = "Switch for dielectronic recombination, default False."
+ModelOptions.SPITZER_HEATING.__doc__ = "Switch for Spitzer- or electron-heating, default True."
+ModelOptions.COLLISIONAL_THERMALISATION.__doc__ = "Switch for ion-ion thermalisation, default True."
+ModelOptions.ESCAPE_AXIAL.__doc__ = "Switch for axial escape from the trap, default True."
+ModelOptions.ESCAPE_RADIAL.__doc__ = "Switch for radial escape from the trap, default True."
+ModelOptions.RECOMPUTE_CROSS_SECTIONS.__doc__ = """Switch deciding whether EI, RR, and DR cross
+sections are recomputed on each call of the differential equation system. Advisable if electron beam
+energy changes over time and sharp transitions are expected, e.g. DR or ionisation thresholds for a
+given shell. Default False."""
 
 
 # Typedefs for AdvancedModel
@@ -98,6 +224,24 @@ _ADVMDLSPEC = OrderedDict(
 )
 @numba.experimental.jitclass(_ADVMDLSPEC)
 class AdvancedModel:
+    """
+    The advanced model class is the base for ebisim.simulation.advanced_simulation.
+    It acts as a fast datacontainer for the underlying rhs function which represents the right hand
+    side of the differential equation system.
+    Since it is jitcompiled using numba, care is required during instatiation.
+
+    Parameters
+    ----------
+    device : ebisim.simulation.Device
+        Container describing the EBIS/T and specifically the electron beam.
+    targets : numba.typed.List[ebisim.simulation.Target]
+        List of ebisim.simulation.Target for which charge breeding is simulated.
+    bg_gases : numba.typed.List[ebisim.simulation.BackgroundGas], optional
+        List of ebisim.simulation.BackgroundGas which act as CX partners, by default None.
+    options : ebisim.simulation.ModelOptions, optional
+        Switches for effects considered in the simulation, see default values of
+        ebisim.simulation.ModelOptions.
+    """
     def __init__(self, device, targets, bg_gases=None, options=DEFAULT_MODEL_OPTIONS):
         # Bind parameters
         self.device = device
@@ -154,6 +298,27 @@ class AdvancedModel:
 
 
     def rhs(self, _t, y):
+        """
+        The right hand side of the differential equation set.
+
+        Parameters
+        ----------
+        _t : float
+            <s> Time, currently no effect.
+        y : numpy.ndarray
+            <1/m^3> and <eV>
+            Joint array of ion densities and temperatures.
+            Array must have the following structure:
+            z+1 elements holding the density for each Target in self.targets (same order)
+            followed by
+            z+1 elements holding the temperature for each Target in self.targets (same order)
+
+
+        Returns
+        -------
+        numpy.ndarray
+            dy/dt
+        """
         # pylint: disable=bad-whitespace
 
         # Split y into useful parts
@@ -287,52 +452,26 @@ class AdvancedModel:
         return np.concatenate((dn, dkT))
 
 
-def advanced_simulation(
-        device, targets, t_max, bg_gases=None, options=DEFAULT_MODEL_OPTIONS, solver_kwargs=None
-    ):
+def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, solver_kwargs=None):
     """
-    !!!UNDER ACTIVE DEVELOPMENT!!! - API not stable!
-
     Interface for performing advanced charge breeding simulations.
 
-    These simulations only include the most important effects, i.e. electron ionisation,
-    radiative recombination and optionally dielectronic recombination (for those transitions whose
-    data is available in the resource directory). All other effects are not ignored.
-
-    Continuous Neutral Injection (CNI) can be activated on demand.
-
-    The results only represent the proportions of different charge states, not actual densities.
+    For a list of effects refer to `ebisim.simulation.ModelOptions`.
 
     Parameters
     ----------
-    element : ebisim.elements.Element or str or int
-        An instance of the Element class, or an identifier for the element, i.e. either its
-        name, symbol or proton number.
-    j : float
-        <A/cm^2>
-        Current density
-    e_kin : float
-        <eV>
-        Electron beam energy
+    device : ebisim.simulation.Device
+        Container describing the EBIS/T and specifically the electron beam.
+    targets : ebisim.simulation.Target or list[ebisim.simulation.Target]
+        Target(s) for which charge breeding is simulated.
     t_max : float
         <s>
         Simulated breeding time
-    dr_fwhm : None or float, optional
-        <eV>
-        If a value is given, determines the energy spread of the electron beam
-        (in terms of Full Width Half Max) and hence the effective width of DR resonances.
-        Otherwise DR is excluded from the simulation. By default None.
-    N_kbT_initial : None or numpy.array, optional
-        <1/m^3 and eV>
-        Determines the initial charge state distribution and temperatures if given.
-        Must have 2(Z + 1) entries, where the first Z + 1 entries give the ion densities in
-        1/m^3 with the array index corresponding to the charge state and
-        the last Z + 1 entries describe the temperatures in eV.
-        If no value is given the distribution defaults to approx 100% of 1+ ions at t = 0 s with a
-        temperature of 0.5 eV.
-        By default None.
-    adv_param : None or dict, optional
-        This dict can be used to set advanced parameters of the simulation.
+    bg_gases : ebisim.simulation.BackgroundGas or list[ebisim.simulation.BackgroundGas], optional
+        Background gas(es) which act as CX partners, by default None.
+    options : ebisim.simulation.ModelOptions, optional
+        Switches for effects considered in the simulation, see default values of
+        ebisim.simulation.ModelOptions.
     solver_kwargs : None or dict, optional
         If supplied these keyword arguments are unpacked in the solver call.
         Refer to the documentation of scipy.integrate.solve_ivp for more information.
@@ -340,10 +479,12 @@ def advanced_simulation(
 
     Returns
     -------
-    ebisim.simulation.Result
+    ebisim.simulation.Result or tuple[ebisim.simulation.Result]
         An instance of the Result class, holding the simulation parameters, timesteps and
         charge state distribution including the species temperature.
     """
+    if options is None:
+        options = DEFAULT_MODEL_OPTIONS
     if isinstance(targets, Target):
         targets = [targets]
     targets = numba.typed.List(targets)
@@ -355,7 +496,7 @@ def advanced_simulation(
             bg_gases = [bg_gases]
         bg_gases = numba.typed.List(bg_gases)
 
-    device = Device(*tuple([float(_f) for _f in device]))
+    device = Device(*tuple([float(_f) for _f in device])) #Device is easy to mess up, safety rope
     assert numba.typeof(device) == _T_DEVICE, "Numba type mismatch for device"
     assert numba.typeof(options) == _T_MODEL_OPTIONS, "Numba type mismatch for options"
     assert numba.typeof(targets) == _T_TARGET_LIST, "Numba type mismatch for Target list"
@@ -393,7 +534,7 @@ def advanced_simulation(
         )
     if len(out) == 1:
         return out[0]
-    return out
+    return tuple(out)
 
     # # Recompute rates for final solution (this cannot be done parasitically due to
     # # the solver approximating the jacobian and calling rhs with bogus values).
