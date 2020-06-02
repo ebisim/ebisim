@@ -113,7 +113,7 @@ _ElementSpec = namedtuple(
 
 class Element(_ElementSpec):
     """
-    USE THE ebisim.elements.get_element FACTORY METHOD TO CREATE INSTANCES OF THIS CLASS.
+    USE THE STATIC Element.get FACTORY METHOD TO CREATE INSTANCES OF THIS CLASS.
 
     This class is derived from collections.namedtuple which facilitates use with numba-compiled
     functions.
@@ -126,6 +126,30 @@ class Element(_ElementSpec):
     # https://docs.python.org/3.6/library/collections.html#collections.namedtuple
     # contains documentation for named tuples
     __slots__ = () # This is a trick to suppress unnecessary dict() for this kind of class
+
+    @classmethod
+    def as_element(cls, element):
+        """
+        If `element` is already an instance of `Element` it is returned.
+        If `element` is a string or int identyfying an element an appropriate `Element` instance is
+        returned.
+
+        Parameters
+        ----------
+        element : ebisim.elements.Element or str or int
+            An instance of the Element class, or an identifier for the element, i.e. either its
+            name, symbol or proton number.
+
+        Returns
+        -------
+        ebisim.elements.Element
+            An instance of Element with the physical data corresponding to the supplied element_id,
+            and optionally mass number.
+        """
+        if isinstance(element, cls):
+            return element
+        else:
+            return cls.get(element)
 
     def latex_isotope(self):
         """
@@ -143,6 +167,97 @@ class Element(_ElementSpec):
 
     def __str__(self):
         return f"Element: {self.name} ({self.symbol}, Z = {self.z}, A = {self.a})"
+
+    @classmethod
+    def get(cls, element_id, a=None):
+        """
+        Factory method to create instances of the Element class.
+
+        Parameters
+        ----------
+        element_id : str or int
+            The full name, abbreviated symbol, or proton number of the element of interest.
+        a : int or None, optional
+            If provided sets the (isotopic) mass number of the Element object otherwise a reasonable
+            value is chosen automatically, by default None.
+
+        Returns
+        -------
+        ebisim.elements.Element
+            An instance of Element with the physical data corresponding to the supplied element_id,
+            and optionally mass number.
+
+        Raises
+        ------
+        ValueError
+            If the Element could not be identified or a meaningless mass number is provided.
+        """
+        # Basic element info
+        try:
+            if isinstance(element_id, int):
+                z = element_id
+            else:
+                z = element_z(element_id)
+            symbol = element_symbol(z)
+            name = element_name(z)
+        except ValueError:
+            raise ValueError(f"Unable to interpret element_id = {element_id}, " \
+                "ebisim only supports elements up to Z = 105.")
+
+        # Mass number and ionisation potential
+        idx = _ELEM_Z.index(z)
+        ip = _ELEM_IP[idx]
+        if a is None:
+            a = _ELEM_A[idx]
+        if a <= 0:
+            raise ValueError("Mass number 'a' cannot be smaller than 1.")
+
+        # Electron configuration and shell binding energies
+        e_cfg = _SHELL_CFG[z].copy()
+        e_bind = _SHELL_EBIND[z].copy()
+
+        # Precomputations for radiative recombination
+        # set write protection flags here since precompute_rr_quantities is compiled and cannot do this
+        rr_z_eff, rr_n_0_eff = xs.precompute_rr_quantities(e_cfg, _SHELL_N)
+
+        # Data for computations of dielectronic recombination cross sections
+        dr_cs = _DR_DATA[z]["dr_cs"].copy()
+        dr_e_res = _DR_DATA[z]["dr_e_res"].copy()
+        dr_strength = _DR_DATA[z]["dr_strength"].copy()
+
+        # Precompute the factors for the Lotz formula for EI cross section
+        ei_lotz_a, ei_lotz_b, ei_lotz_c = xs.lookup_lotz_factors(e_cfg, _SHELLORDER)
+
+        # Make sure that all arrays are readonly - better safe than sorry
+        e_cfg.setflags(write=False)
+        e_bind.setflags(write=False)
+        rr_z_eff.setflags(write=False)
+        rr_n_0_eff.setflags(write=False)
+        dr_cs.setflags(write=False)
+        dr_e_res.setflags(write=False)
+        dr_strength.setflags(write=False)
+        ei_lotz_a.setflags(write=False)
+        ei_lotz_b.setflags(write=False)
+        ei_lotz_c.setflags(write=False)
+
+        return cls(
+            z,
+            symbol,
+            name,
+            a,
+            ip,
+            e_cfg,
+            e_bind,
+            rr_z_eff,
+            rr_n_0_eff,
+            dr_cs,
+            dr_e_res,
+            dr_strength,
+            ei_lotz_a,
+            ei_lotz_b,
+            ei_lotz_c
+        )
+
 
 # Monkeypatching docstrings for all the fields of Element
 Element.z.__doc__ = "Atomic number"
@@ -167,7 +282,8 @@ Element.ei_lotz_c.__doc__ = "Numpy array of precomputed Lotz factor 'c' for each
 
 def get_element(element_id, a=None):
     """
-    Factory method to create instances of the Element class.
+    [LEGACY]
+    Factory function to create instances of the Element class.
 
     Parameters
     ----------
@@ -188,68 +304,4 @@ def get_element(element_id, a=None):
     ValueError
         If the Element could not be identified or a meaningless mass number is provided.
     """
-    # Basic element info
-    try:
-        if isinstance(element_id, int):
-            z = element_id
-        else:
-            z = element_z(element_id)
-        symbol = element_symbol(z)
-        name = element_name(z)
-    except ValueError:
-        raise ValueError(f"Unable to interpret element_id = {element_id}, " \
-            "ebisim only supports elements up to Z = 105.")
-
-    # Mass number and ionisation potential
-    idx = _ELEM_Z.index(z)
-    ip = _ELEM_IP[idx]
-    if a is None:
-        a = _ELEM_A[idx]
-    if a <= 0:
-        raise ValueError("Mass number 'a' cannot be smaller than 1.")
-
-    # Electron configuration and shell binding energies
-    e_cfg = _SHELL_CFG[z].copy()
-    e_bind = _SHELL_EBIND[z].copy()
-
-    # Precomputations for radiative recombination
-    # set write protection flags here since precompute_rr_quantities is compiled and cannot do this
-    rr_z_eff, rr_n_0_eff = xs.precompute_rr_quantities(e_cfg, _SHELL_N)
-
-    # Data for computations of dielectronic recombination cross sections
-    dr_cs = _DR_DATA[z]["dr_cs"].copy()
-    dr_e_res = _DR_DATA[z]["dr_e_res"].copy()
-    dr_strength = _DR_DATA[z]["dr_strength"].copy()
-
-    # Precompute the factors for the Lotz formula for EI cross section
-    ei_lotz_a, ei_lotz_b, ei_lotz_c = xs.lookup_lotz_factors(e_cfg, _SHELLORDER)
-
-    # Make sure that all arrays are readonly - better safe than sorry
-    e_cfg.setflags(write=False)
-    e_bind.setflags(write=False)
-    rr_z_eff.setflags(write=False)
-    rr_n_0_eff.setflags(write=False)
-    dr_cs.setflags(write=False)
-    dr_e_res.setflags(write=False)
-    dr_strength.setflags(write=False)
-    ei_lotz_a.setflags(write=False)
-    ei_lotz_b.setflags(write=False)
-    ei_lotz_c.setflags(write=False)
-
-    return Element(
-        z,
-        symbol,
-        name,
-        a,
-        ip,
-        e_cfg,
-        e_bind,
-        rr_z_eff,
-        rr_n_0_eff,
-        dr_cs,
-        dr_e_res,
-        dr_strength,
-        ei_lotz_a,
-        ei_lotz_b,
-        ei_lotz_c
-    )
+    return Element.get(element_id, a)
