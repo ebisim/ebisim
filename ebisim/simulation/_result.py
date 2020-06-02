@@ -7,6 +7,7 @@ import scipy.integrate
 import scipy.interpolate
 
 from .. import plotting
+from ..elements import Element
 
 
 _RATE_NAMES = dict(
@@ -58,13 +59,16 @@ class Result:
 
     """
 
-    def __init__(self, param=None, t=None, N=None, kbT=None, res=None, rates=None):
-        self.param = param
+    def __init__(self, param=None, t=None, N=None, kbT=None, res=None, rates=None,
+                 target=None, device=None):
+        self.param = param if param is not None else {}
         self.t = t
         self.N = N
         self.kbT = kbT
         self.res = res
         self.rates = rates
+        self.target = target
+        self.device = device
 
 
     def times_of_highest_abundance(self):
@@ -119,25 +123,25 @@ class Result:
             A LaTeX formatted title string compiled from the stub, current density and fwhm.
 
         """
-        if self.param:
-            if "target" in self.param:
-                target = self.param["target"]
-                element = target.element
-            else:
-                element = self.param["element"]
-            if "device" in self.param:
-                device = self.param["device"]
-                e_kin = device.e_kin
-                j = device.j
-            else:
-                e_kin = self.param["e_kin"]
-                j = self.param["j"]
-            title = f"{element.latex_isotope()} {stub.lower()} " \
-                    f"($j = {j:0.1f}$ A/cm$^2$, $E_{{e}} = {e_kin:0.1f}$ eV)"
-            if self.param.get("dr_fwhm", None) is not None:
-                title = title[:-1] + f", FWHM = {self.param['dr_fwhm']:0.1f} eV)"
+        if self.target:
+            element = Element.as_element(self.target)
+        elif "element" in self.param:
+            element = self.param["element"]
+        if element is not None:
+            title = f"{element.latex_isotope()} {stub.lower()}"
         else:
             title = stub
+
+        if self.device:
+            e_kin = self.device.e_kin
+            j = self.device.j
+        elif "e_kin" in self.param and "j" in self.param:
+            e_kin = self.param["e_kin"]
+            j = self.param["j"]
+        if e_kin is not None and j is not None:
+            title = title + f" ($j = {j:0.1f}$ A/cm$^2$, $E_{{e}} = {e_kin:0.1f}$ eV)"
+        if self.param.get("dr_fwhm", None) is not None:
+            title = title[:-1] + f", FWHM = {self.param['dr_fwhm']:0.1f} eV)"
         return title
 
 
