@@ -33,7 +33,10 @@ def electron_velocity(e_kin):
     return C_L * np.sqrt(1 - (M_E_EV / (M_E_EV + e_kin))**2)
 
 
-@vectorize([float64(float64, float64, float64, float64, float64, int64)], cache=True, nopython=True)
+@vectorize(
+    # [float64(float64, float64, float64, float64, float64, int64)],
+    cache=True, nopython=True
+)
 def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
     """
     The coulomb logarithm for ion electron collisions.
@@ -80,7 +83,7 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
 
 
 @vectorize(
-    [float64(float64, float64, float64, float64, float64, float64, int64, int64)],
+    # [float64(float64, float64, float64, float64, float64, float64, int64, int64)],
     cache=True, nopython=True
 )
 def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
@@ -131,7 +134,10 @@ def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     return 23 - np.log(A * B**0.5)
 
 
-@vectorize([float64(float64, float64, float64, float64, float64, int64)], cache=True, nopython=True)
+@vectorize(
+    # [float64(float64, float64, float64, float64, float64, int64)],
+    cache=True, nopython=True
+)
 def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
     """
     Computes the Coulomb cross section for elastic electron ion collisions
@@ -170,7 +176,7 @@ def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
 
 
 @vectorize(
-    [float64(float64, float64, float64, float64, float64, float64, int64, int64)],
+    # [float64(float64, float64, float64, float64, float64, float64, int64, int64)],
     cache=True, nopython=True
 )
 def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
@@ -225,7 +231,7 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
 
 
 @vectorize(
-    [float64(float64, float64, float64, float64, float64, int64)],
+    # [float64(float64, float64, float64, float64, float64, int64)],
     cache=True, nopython=True
 )
 def spitzer_heating(Ni, Ne, kbTi, Ee, Ai, qi):
@@ -263,7 +269,7 @@ def spitzer_heating(Ni, Ne, kbTi, Ee, Ai, qi):
 
 
 @vectorize(
-    [float64(float64, float64, float64, float64, float64)],
+    # [float64(float64, float64, float64, float64, float64)],
     cache=True, nopython=True
 )
 def collisional_thermalisation(kbTi, kbTj, Ai, Aj, rij):
@@ -300,7 +306,10 @@ def collisional_thermalisation(kbTi, kbTj, Ai, Aj, rij):
                         (1 + (Ai * kbTj) / (Aj * kbTi))**1.5
 
 
-@vectorize([float64(float64, int64, float64)], cache=True, nopython=True)
+@vectorize(
+    # [float64(float64, int64, float64)],
+    cache=True, nopython=True
+)
 def loss_frequency_axial(kbTi, qi, V):
     """
     Computes the axial trap (loss) frequencies.
@@ -329,7 +338,10 @@ def loss_frequency_axial(kbTi, qi, V):
         return qi * V / kbTi
 
 
-@vectorize([float64(float64, int64, float64, float64, float64, float64)], cache=True, nopython=True)
+@vectorize(
+    # [float64(float64, int64, float64, float64, float64, float64)],
+    cache=True, nopython=True
+)
 def loss_frequency_radial(kbTi, qi, Ai, V, B, r_dt):
     """
     Radial trap (loss) frequencies.
@@ -366,7 +378,10 @@ def loss_frequency_radial(kbTi, qi, Ai, V, B, r_dt):
         return qi * (V + B * r_dt * np.sqrt(2 * kbTi * Q_E /(3*M_P*Ai))) / kbTi
 
 
-@vectorize([float64(float64, float64, float64)], cache=True, nopython=True)
+@vectorize(
+    # [float64(float64, float64, float64)],
+    cache=True, nopython=True
+)
 def escape_rate(Ni, ri, w):
     """
     Generic escape rate - to be called by axial and radial escape
@@ -396,7 +411,10 @@ def escape_rate(Ni, ri, w):
     return esc
 
 
-@vectorize([float64(float64, float64, int64, float64, float64)], cache=True, nopython=True)
+@vectorize(
+    # [float64(float64, float64, int64, float64, float64)],
+    cache=True, nopython=True
+)
 def escape_rate_axial(Ni, kbTi, qi, ri, V):
     """
     Computes the axial ion escape rates.
@@ -430,7 +448,7 @@ def escape_rate_axial(Ni, kbTi, qi, ri, V):
 
 
 @vectorize(
-    [float64(float64, float64, int64, float64, float64, float64, float64, float64)],
+    # [float64(float64, float64, int64, float64, float64, float64, float64, float64)],
     cache=True, nopython=True
 )
 def escape_rate_radial(Ni, kbTi, qi, ri, Ai, V, B, r_dt):
