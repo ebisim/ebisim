@@ -7,7 +7,7 @@ from multiprocessing.pool import Pool
 import numpy as np
 
 from .. import plotting
-from .. import elements
+from ..elements import Element
 
 def energy_scan(sim_func, sim_kwargs, energies, parallel=False):
     """
@@ -41,14 +41,13 @@ def energy_scan(sim_func, sim_kwargs, energies, parallel=False):
 
     if "e_kin" in sim_kwargs:
         del sim_kwargs["e_kin"]
-        warn(f"sim_kwargs contains a value for e_kin, this item will be ignored.")
+        warn("sim_kwargs contains a value for e_kin, this item will be ignored.")
 
     sim_kwargs.setdefault("solver_kwargs", {}) # cast element to Element if necessary
     sim_kwargs["solver_kwargs"]["dense_output"] = True # need dense output for interpolation
 
     # cast element to Element if necessary
-    if not isinstance(sim_kwargs["element"], elements.Element):
-        sim_kwargs["element"] = elements.get_element(sim_kwargs["element"])
+    sim_kwargs["element"] = Element.as_element(sim_kwargs["element"])
 
     energies = np.array(energies)
     energies.sort()

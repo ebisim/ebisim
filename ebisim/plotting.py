@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.dates import date2num
 
 from . import xs
-from . import elements
+from .elements import Element
 
 
 #: The default colormap used to grade line plots, assigning another colormap to this object
@@ -251,8 +251,7 @@ def plot_eixs(element, **kwargs):
     matplotlib.Figure
         Figure handle of the generated plot.
     """
-    if not isinstance(element, elements.Element):
-        element = elements.get_element(element)
+    element = Element.as_element(element)
 
     e_samp, xs_scan = xs.eixs_energyscan(element)
 
@@ -282,8 +281,7 @@ def plot_rrxs(element, **kwargs):
     matplotlib.Figure
         Figure handle of the generated plot.
     """
-    if not isinstance(element, elements.Element):
-        element = elements.get_element(element)
+    element = Element.as_element(element)
 
     e_samp, xs_scan = xs.rrxs_energyscan(element)
 
@@ -317,8 +315,7 @@ def plot_drxs(element, fwhm, **kwargs):
     matplotlib.Figure
         Figure handle of the generated plot.
     """
-    if not isinstance(element, elements.Element):
-        element = elements.get_element(element)
+    element = Element.as_element(element)
 
     e_samp, xs_scan = xs.drxs_energyscan(element, fwhm)
 
@@ -358,8 +355,7 @@ def plot_combined_xs(element, fwhm, **kwargs):
     matplotlib.Figure
         Figure handle of the generated plot.
     """
-    if not isinstance(element, elements.Element):
-        element = elements.get_element(element)
+    element = Element.as_element(element)
 
     kwargs.setdefault("xscale", "linear")
     kwargs.setdefault("yscale", "log")

@@ -7,7 +7,7 @@ import scipy.integrate
 import scipy.interpolate
 
 from .. import xs
-from .. import elements
+from ..elements import Element
 from ..physconst import Q_E
 from ._result import Result
 
@@ -66,8 +66,7 @@ def basic_simulation(element, j, e_kin, t_max,
         charge state distribution.
     """
     # cast element to Element if necessary
-    if not isinstance(element, elements.Element):
-        element = elements.get_element(element)
+    element = Element.as_element(element)
 
     # set initial conditions if not supplied by user
     if not N_initial:
