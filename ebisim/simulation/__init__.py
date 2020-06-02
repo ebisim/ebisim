@@ -10,9 +10,10 @@ from ._basic import basic_simulation
 from ._advanced import (
     advanced_simulation,
     Target,
-    get_ion_target,
-    get_gas_target,
-    Device
+    Device,
+    ModelOptions,
+    BackgroundGas,
+    AdvancedModel,
 )
 
 from ._energyscan import(
@@ -25,9 +26,10 @@ __all__ = [
     "basic_simulation",
     "advanced_simulation",
     "Target",
-    "get_ion_target",
-    "get_gas_target",
     "Device",
+    "ModelOptions",
+    "BackgroundGas",
+    "AdvancedModel",
     "energy_scan",
     "EnergyScanResult"
 ]

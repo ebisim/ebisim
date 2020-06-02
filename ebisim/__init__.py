@@ -20,11 +20,16 @@ drxs_vec
 drxs_mat
 drxs_energyscan
 
+Result
 basic_simulation
 advanced_simulation
+Target
+Device
+ModelOptions
+BackgroundGas
+AdvancedModel
 energy_scan
-Result
-EnergyScanResult
+EnergyScanResul
 
 Q_E
 M_E
@@ -39,6 +44,7 @@ M_E_EV
 RY_EV
 COMPT_E_RED
 
+Element
 get_element
 
 plot_eixs
@@ -59,15 +65,16 @@ from .xs import (
     )
 
 from .simulation import (
+    Result,
     basic_simulation,
     advanced_simulation,
-    energy_scan,
-    Result,
-    EnergyScanResult,
-    Device,
     Target,
-    get_gas_target,
-    get_ion_target
+    Device,
+    ModelOptions,
+    BackgroundGas,
+    AdvancedModel,
+    energy_scan,
+    EnergyScanResult,
 )
 
 from .physconst import (
@@ -85,7 +92,7 @@ from .physconst import (
     COMPT_E_RED,
 )
 
-from .elements import get_element
+from .elements import Element, get_element
 
 from .plotting import plot_eixs, plot_rrxs, plot_drxs, plot_combined_xs
 
