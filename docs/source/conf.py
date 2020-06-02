@@ -21,7 +21,7 @@ from ebisim import __version__ as VERSION
 from ebisim import __author__ as AUTHOR
 from datetime import datetime
 project = 'ebisim'
-copyright = f"{datetime.today().year}, {AUTHOR}"
+copyright = f"2018 - {datetime.today().year}, {AUTHOR}"
 author = AUTHOR
 
 # The short X.Y version
