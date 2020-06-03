@@ -17,15 +17,15 @@ _RATE_NAMES = dict(
     R_cx="Charge exchange",
     R_ax="Axial losses",
     R_ra="Radial losses",
-    S_ei="Electron ionisation",
-    S_rr="Radiative recombination",
-    S_dr="Dielectronic recombination",
-    S_cx="Charge exchange",
-    S_ax="Axial losses",
-    S_ra="Radial losses",
-    S_eh="Electron heating",
-    S_tr="Heat transfer",
-    S_ih="Ionisation heating",
+    Q_ei="Electron ionisation",
+    Q_rr="Radiative recombination",
+    Q_dr="Dielectronic recombination",
+    Q_cx="Charge exchange",
+    Q_ax="Axial losses",
+    Q_ra="Radial losses",
+    Q_eh="Electron heating",
+    Q_tr="Heat transfer",
+    Q_ih="Ionisation heating",
     V_ii="Self collision rate",
     V_it="Total collision rate",
     Comp="Charge compensation"
@@ -284,7 +284,7 @@ class Result:
         rate_key : str
             The key identifying the rate to be plotted.
             Valid keys are:
-            R_ei, R_rr, R_dr, R_cx, R_ax, R_ra, S_ei, S_rr, S_dr, S_cx, S_ax, S_ra, S_eh, S_tr.
+            R_ei, R_rr, R_dr, R_cx, R_ax, R_ra, Q_ei, Q_rr, Q_dr, Q_cx, Q_ax, Q_ra, Q_eh, Q_tr.
 
         Returns
         -------
@@ -313,7 +313,7 @@ class Result:
 
         if rate_key.startswith("R"):
             kwargs.setdefault("ylabel", "Number density flow (m$^{-3}$ s$^{-1}$)")
-        if rate_key.startswith("S"):
+        if rate_key.startswith("Q"):
             kwargs.setdefault("ylabel", "Energy density flow (eV m$^{-3}$ s$^{-1}$)")
 
         fig = plotting.plot_generic_evolution(self.t, rate, **kwargs)

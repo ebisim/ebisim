@@ -297,7 +297,7 @@ class AdvancedModel:
                 self._drxs[self.lb[i]:self.ub[i]] = xs.drxs_vec(trgt, e_kin, drfwhm)
 
 
-    def rhs(self, _t, y):
+    def rhs(self, _t, y, rates=None):
         """
         The right hand side of the differential equation set.
 
@@ -312,6 +312,9 @@ class AdvancedModel:
             z+1 elements holding the density for each Target in self.targets (same order)
             followed by
             z+1 elements holding the temperature for each Target in self.targets (same order)
+        rates: numba.typed.Dict[numpy.ndarray], optional
+            If a dictionary object is passed into rates it will be populated with the arrays
+            holding the reaction rates.
 
 
         Returns
@@ -402,7 +405,8 @@ class AdvancedModel:
 
         # Electron heating / Spitzer heating
         if self.options.SPITZER_HEATING:
-            dkT      += plasma.spitzer_heating(n, ne, kT, self.device.e_kin, self._a, self._q)
+            _dkT_eh   = plasma.spitzer_heating(n, ne, kT, self.device.e_kin, self._a, self._q)
+            dkT      += _dkT_eh
 
 
         # Ion-ion heat transfer (collisional thermalisation)
@@ -412,11 +416,12 @@ class AdvancedModel:
             #         kT[:, np.newaxis], kT, self._a[:, np.newaxis], self._a, rij
             #     ), axis=-1
             # )
-            dkT      += np.sum(
+            _dkT_ct   = np.sum(
                 plasma.collisional_thermalisation(
                     np.atleast_2d(kT).T, kT, np.atleast_2d(self._a).T, self._a, rij
                 ), axis=-1
             )
+            dkT      += _dkT_ct
 
 
         # Axial escape
@@ -448,11 +453,42 @@ class AdvancedModel:
                 dkT[self.lb[i]] = 0.0
 
 
-        # TODO: Return rates on demand
+        if rates is not None:
+            if self.options.EI:
+                rates["R_ei"] = R_ei
+                rates["Q_ei"] = R_ei * kT
+            if self.options.RR:
+                rates["R_rr"] = R_rr
+                rates["Q_rr"] = R_rr * kT
+            if self.options.CX:
+                rates["R_cx"] = R_cx
+                rates["Q_cx"] = R_cx * kT
+            if self.options.DR:
+                rates["R_dr"] = R_dr
+                rates["Q_dr"] = R_dr * kT
+            if self.options.ESCAPE_AXIAL:
+                rates["R_ax"] = R_ax
+                rates["Q_ax"] = R_ax * (kT + self._q * self.device.v_ax)
+            if self.options.ESCAPE_RADIAL:
+                rates["R_ra"] = R_ra
+                rates["Q_ra"] = R_ra * (kT + self._q * (
+                                            self.device.v_ra + self.device.r_dt * self.device.b_ax
+                                            * np.sqrt(2 * Q_E * kT / (3 * self._a *M_P))
+                                        ))
+            if self.options.COLLISIONAL_THERMALISATION:
+                rates["Q_tr"] = n * _dkT_ct
+            if self.options.SPITZER_HEATING:
+                rates["Q_eh"] = n * _dkT_eh
+            rates["V_ii"] = np.diag(rij)
+            rates["V_it"] = ri
+            # rates["Q_ih"] = Q_ih
+            # rates["Comp"] = comp
+
         return np.concatenate((dn, dkT))
 
 
-def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, solver_kwargs=None):
+def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rates=False,
+                        solver_kwargs=None):
     """
     Interface for performing advanced charge breeding simulations.
 
@@ -469,6 +505,9 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, sol
         Simulated breeding time
     bg_gases : ebisim.simulation.BackgroundGas or list[ebisim.simulation.BackgroundGas], optional
         Background gas(es) which act as CX partners, by default None.
+    rates : bool
+        If true a 'second run' is performed to store the rates, this takes extra time and can
+        create quite a bit of data.
     options : ebisim.simulation.ModelOptions, optional
         Switches for effects considered in the simulation, see default values of
         ebisim.simulation.ModelOptions.
@@ -519,8 +558,31 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, sol
         model.rhs, (0, t_max), n_kT_initial, **solver_kwargs
     )
 
+    if rates:
+        # Recompute rates for final solution (this cannot be done parasitically due to
+        # the solver approximating the jacobian and calling rhs with bogus values).
+        nt = res.t.size
+        extractor = numba.typed.Dict.empty(
+            key_type=numba.types.unicode_type,
+            value_type=numba.types.float64[:]
+        )
+        #Poll once to get the available rates
+        _ = model.rhs(res.t[0], res.y[:, 0], extractor)
+        rates = {k:np.zeros((extractor[k].size, nt)) for k in extractor}
+        # Poll all steps
+        for idx in range(nt):
+            _ = model.rhs(res.t[idx], res.y[:, idx], extractor)
+            for key, val in extractor.items():
+                rates[key][:, idx] = val
+
     out = []
     for i, trgt in enumerate(model.targets):
+        if rates:
+            irates = {
+                key: rates[key][model.lb[i]:model.ub[i]] for key in rates.keys()
+            }
+        else:
+            irates = None
         out.append(
             Result(
                 param=param,
@@ -529,23 +591,10 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, sol
                 kbT=res.y[model.nq + model.lb[i]:model.nq + model.ub[i]],
                 res=res,
                 target=trgt,
-                device=device
+                device=device,
+                rates=irates
             )
         )
     if len(out) == 1:
         return out[0]
     return tuple(out)
-
-    # # Recompute rates for final solution (this cannot be done parasitically due to
-    # # the solver approximating the jacobian and calling rhs with bogus values).
-    # nt = res.t.size
-    # poll = numba.typed.Dict.empty(
-    #     key_type=numba.types.unicode_type,
-    #     value_type=numba.types.float64[:]
-    # )
-    # _ = _rhs(res.t[0], res.y[:, 0], device, target, rates=poll)
-    # rates = {k:np.zeros((poll[k].size, nt)) for k in poll}
-    # for idx in range(nt):
-    #     _ = _rhs(res.t[idx], res.y[:, idx], device, target, rates=poll)
-    #     for key, val in poll.items():
-    #         rates[key][:, idx] = val
