@@ -1,8 +1,9 @@
 """
 Tests for ebisim.simulation._radial_dist
 """
+# pylint: disable=missing-function-docstring
 
-import pytest
+# import pytest
 import numpy as np
 
 from ebisim.simulation._radial_dist import(
@@ -11,6 +12,8 @@ from ebisim.simulation._radial_dist import(
     fd_system_nonuniform_grid,
     radial_potential_uniform_grid,
     radial_potential_nonuniform_grid,
+    boltzmann_radial_potential_onaxis_density,
+    boltzmann_radial_potential_line_density
 )
 from ebisim.physconst import Q_E, M_E, EPS_0, PI
 
@@ -31,6 +34,7 @@ def analytical_solution(r):
     phi[nf] = phi0 * 2*np.log(r[nf]/R_D)
     return phi
 
+
 def test_tdma():
     "Solves an arbirary tridiagonal system with matrix inversion (numpy) and tdma and compares"
     l = np.arange(6, 11)
@@ -38,9 +42,13 @@ def test_tdma():
     u = np.arange(2, 7)
     M = np.diag(d) + np.diag(u[:-1], 1) + np.diag(l[1:], -1)
     b = np.arange(20, 25)
+
     _x = np.linalg.inv(M).dot(b)
     x = tridiagonal_matrix_algorithm(l, d, u, b)
     assert np.allclose(_x, x)
+
+    xpy = tridiagonal_matrix_algorithm.py_func(l, d, u, b)
+    assert np.allclose(xpy, x)
 
 def test_fd_system_uniform_grid():
     dr = 10
@@ -49,14 +57,21 @@ def test_fd_system_uniform_grid():
     _d[-1] = 1
     _l = np.array([0, 1-0.5, 1-0.5/2, 1-0.5/3, 0])/dr**2
     _u = np.array([2, 1+0.5, 1+0.5/2, 1+0.5/3, 0])/dr**2
+
     l, d, u = fd_system_uniform_grid(r)
     assert np.allclose(_l, l)
     assert np.allclose(_d, d)
     assert np.allclose(_u, u)
 
+    lpy, dpy, upy = fd_system_uniform_grid.py_func(r)
+    assert np.allclose(lpy, l)
+    assert np.allclose(dpy, d)
+    assert np.allclose(upy, u)
+
 def test_fd_system_nonuniform_grid():
     r = np.array([0, 10, 20, 30, 40])
     _l, _d, _u = fd_system_uniform_grid(r)
+
     l, d, u = fd_system_nonuniform_grid(r)
     assert np.allclose(_l, l)
     assert np.allclose(_d, d)
@@ -72,21 +87,78 @@ def test_fd_system_nonuniform_grid():
     assert np.allclose(_d, d)
     assert np.allclose(_u, u)
 
+    lpy, dpy, upy = fd_system_nonuniform_grid.py_func(r)
+    assert np.allclose(lpy, l)
+    assert np.allclose(dpy, d)
+    assert np.allclose(upy, u)
+
 def test_radial_potential_uniform_grid():
     r = np.linspace(0, R_D, N)
     rho = np.zeros(N)
     rho[r < R_E] = RHO_0
+
     phi = radial_potential_uniform_grid(r, rho)
+    phipy = radial_potential_uniform_grid.py_func(r, rho)
     phi_a = analytical_solution(r)
+
     assert np.sum((1-phi[:-1]/phi_a[:-1])**2)/N < 1e-6
     assert np.allclose(phi, phi_a, rtol=1e-3)
+    assert np.allclose(phipy, phi)
 
 def test_radial_potential_nonuniform_grid():
     r = np.geomspace(R_E/100, R_D, N)
     r[0] = 0
     rho = np.zeros(N)
     rho[r < R_E] = RHO_0
+
     phi = radial_potential_nonuniform_grid(r, rho)
+    phipy = radial_potential_nonuniform_grid.py_func(r, rho)
     phi_a = analytical_solution(r)
+
     assert np.sum((1-phi[:-1]/phi_a[:-1])**2)/N < 1e-6
     assert np.allclose(phi, phi_a, rtol=1e-3)
+    assert np.allclose(phipy, phi)
+
+def test_boltzmann_radial_potential_line_density():
+    r = np.geomspace(R_E/100, R_D, N)
+    r[0] = 0
+    rho = np.zeros(N)
+    rho[r < R_E] = RHO_0
+
+    NLI = np.array([4.2095955e+09, 2.2095955e+09])
+    KT = np.array([150, 50])
+    Q = np.array((5, 3))
+
+    phi, n, shape = boltzmann_radial_potential_line_density(
+        r, rho, NLI[:, np.newaxis], KT[:, np.newaxis], Q[:, np.newaxis]
+        )
+    # test that python and numba give same result
+    phipy, npy, shapepy = boltzmann_radial_potential_line_density.py_func(
+        r, rho, NLI[:, np.newaxis], KT[:, np.newaxis], Q[:, np.newaxis]
+        )
+    np.allclose(phipy, phi)
+    np.allclose(npy, n)
+    np.allclose(shapepy, shape)
+
+    assert np.allclose(phipy, phi)
+
+def test_boltzmann_radial_potential_onaxis_density():
+    r = np.geomspace(R_E/100, R_D, N)
+    r[0] = 0
+    rho = np.zeros(N)
+    rho[r < R_E] = RHO_0
+
+    NI = np.array([2.51722401e+16, 7.16550624e+16])
+    KT = np.array([150, 50])
+    Q = np.array((5, 3))
+
+    phi, n, shape = boltzmann_radial_potential_onaxis_density(
+        r, rho, NI[:, np.newaxis], KT[:, np.newaxis], Q[:, np.newaxis]
+        )
+    # test that python and numba give same result
+    phipy, npy, shapepy = boltzmann_radial_potential_onaxis_density.py_func(
+        r, rho, NI[:, np.newaxis], KT[:, np.newaxis], Q[:, np.newaxis]
+        )
+    np.allclose(phipy, phi)
+    np.allclose(npy, n)
+    np.allclose(shapepy, shape)

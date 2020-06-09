@@ -1,6 +1,7 @@
 """
 Tests for ebisim.resources._shell_data
 """
+# pylint: disable=line-too-long
 
 import pytest
 import numpy as np
