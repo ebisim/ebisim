@@ -21,6 +21,17 @@ from ._energyscan import(
     EnergyScanResult
 )
 
+from ._radial_dist import(
+    tridiagonal_matrix_algorithm,
+    fd_system_uniform_grid,
+    radial_potential_uniform_grid,
+    fd_system_nonuniform_grid,
+    radial_potential_nonuniform_grid,
+    boltzmann_radial_potential_onaxis_density,
+    boltzmann_radial_potential_line_density,
+    heat_capacity
+)
+
 __all__ = [
     "Result",
     "basic_simulation",
@@ -31,5 +42,13 @@ __all__ = [
     "BackgroundGas",
     "AdvancedModel",
     "energy_scan",
-    "EnergyScanResult"
+    "EnergyScanResult",
+    "tridiagonal_matrix_algorithm",
+    "fd_system_uniform_grid",
+    "radial_potential_uniform_grid",
+    "fd_system_nonuniform_grid",
+    "radial_potential_nonuniform_grid",
+    "boltzmann_radial_potential_onaxis_density",
+    "boltzmann_radial_potential_line_density",
+    "heat_capacity"
 ]
