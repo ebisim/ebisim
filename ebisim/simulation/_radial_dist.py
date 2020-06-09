@@ -6,7 +6,7 @@ in turn also shapes the potential once the number of ions becomes significant.
 import numpy as np
 from numba import njit
 
-from ..physconst import EPS_0, Q_E, PI
+from ..physconst import EPS_0, Q_E, PI, M_E
 
 
 @njit(cache=True)
@@ -238,10 +238,12 @@ def heat_capacity(r, phi, q, kT):
     return 3/2 + 1/kT**2 * (a/c - b**2/c**2)
 
 
+@njit(cache=True)
 def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=None, ldu=None):
     """
     Solves the Boltzmann Poisson equation for a static background charge density rho_0 and particles
     with a fixed on axis density n, Temperature kT and charge state q.
+
     Below, nRS and nCS are the number of radial sampling points and charge states.
 
     Solution is found through Newton iterations, cf. [1]_.
@@ -320,23 +322,26 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
         # f = A.dot(phi) - (b0 + bx) # Target function
         f = d * phi - (b0 + bx) # Target function
         f[:-1] += u[:-1] * phi[1:]
-        f[1:]  += l[1:]  * phi[:-1]
+        f[1:] += l[1:] * phi[:-1]
 
         j_d = - np.sum(_bx * q/kT, axis=0) #Diagonal of the Jacobian Jacobian df/dphi_i
-        y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
-        phi = phi - y
 
+        y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         res = np.linalg.norm(y)/phi.size
         if res < 1e-3:
             break
+        else:
+            phi = phi - y
 
     return phi, n, shape
 
-# @njit(cache=True)
+
+@njit(cache=True)
 def boltzmann_radial_potential_line_density(r, rho_0, nl, kT, q, first_guess=None, ldu=None):
     """
     Solves the Boltzmann Poisson equation for a static background charge density rho_0 and particles
     with line number density n, Temperature kT and charge state q.
+
     Below, nRS and nCS are the number of radial sampling points and charge states.
 
     Solution is found through Newton iterations, cf. [1]_.
@@ -417,16 +422,133 @@ def boltzmann_radial_potential_line_density(r, rho_0, nl, kT, q, first_guess=Non
         # F = A.dot(phi) - (b0 + bx)
         f = d * phi - (b0 + bx) # Target function
         f[:-1] += u[:-1] * phi[1:]
-        f[1:]  += l[1:]  * phi[:-1]
+        f[1:] += l[1:] * phi[:-1]
 
         _c = np.zeros_like(shape)
         _c[:, :-1] = r[:-1] * (r[1:]-r[:-1]) * shape[:, :-1]
         j_d = - np.sum(_bx * q/kT *(i_sr-_c)/i_sr, axis=0) #Diagonal of the Jacobian df/dphi_i
 
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
-        phi = phi - y
         res = np.linalg.norm(y)/phi.size
         if res < 1e-3:
             break
+        else:
+            phi = phi - y
+
+    return phi, nax, shape
+
+
+@njit(cache=True)
+def boltzmann_radial_potential_line_density_ebeam(
+        r, current, r_e, e_kin, nl, kT, q, first_guess=None, ldu=None
+    ):
+    """
+    Solves the Boltzmann Poisson equation for a static background charge density rho_0 and particles
+    with line number density n, Temperature kT and charge state q.
+    The electron beam charge density is computed from a uniform current density and
+    the iteratively corrected velocity profile of the electron beam.
+
+    Below, nRS and nCS are the number of radial sampling points and charge states.
+
+    Solution is found through Newton iterations, cf. [1]_.
+
+    Parameters
+    ----------
+    r : np.ndarray
+        <m>
+        Radial grid points, with r[0] = 0, r[-1] = r_max.
+    current : float
+        <A>
+        Electron beam current (positive sign).
+    r_e : float
+        <m>
+        Electron beam radius.
+    e_kin : float
+        <eV>
+        Uncorrected electron beam energy.
+    nl : np.ndarray (1, nCS)
+        <1/m>
+        Line number density of Boltzmann distributed particles.
+    kT : np.ndarray (1, nCS)
+        <eV>
+        Temperature of Boltzmann distributed particles.
+    q : np.ndarray (1, nCS)
+        Charge state of Boltzmann distributed particles.
+    ldu : (np.ndarray, np.ndarray, np.ndarray)
+        The lower diagonal, diagonal, and upper diagonal vector describing the finite difference
+        scheme. Can be provided if they have been pre-computed.
+
+    Returns
+    -------
+    phi : np.ndarray (nRS, )
+        <V>
+        Potential at r.
+    nax : np.ndarray (1, nCS)
+        <1/m^3>
+        On axis number densities.
+    shape : np.ndarray (nRS, nCS)
+        Radial shape factor of the particle distributions.
+
+    References
+    ----------
+    .. [1] "Nonlinear Poisson Solver"
+           https://www.particleincell.com/2012/nonlinear-poisson-solver/
+    """
+    # Solves the nonlinear radial poisson equation for a dynamic charge distribution following
+    # the Boltzmann law
+    # A * phi = b0 + bx (where b0 and bx are the static and dynamic terms)
+    # Define cost function f = A * phi - b0 - bx
+    # Compute jacobian J = A - diag(d bx_i / d phi_i)
+    # Solve J y = f
+    # Next guess: phi = phi - y
+    # Iterate until adjustment is small
+    cden = np.zeros(r.size)
+    cden[r < r_e] = -current/PI/r_e**2
+
+
+    if ldu is not None:
+        l, d, u = ldu
+    else:
+        l, d, u = fd_system_nonuniform_grid(r) # Set up tridiagonal system
+    # A = np.diag(d) + np.diag(u[:-1], 1) + np.diag(l[1:], -1)
+
+    if first_guess is None:
+        phi = radial_potential_nonuniform_grid(r, cden/np.sqrt(2 * Q_E * e_kin/M_E))
+    else:
+        phi = first_guess
+
+    nl = np.atleast_2d(np.asarray(nl))
+    kT = np.atleast_2d(np.asarray(kT))
+    q = np.atleast_2d(np.asarray(q))
+
+    for _ in range(500):
+
+        shape = np.exp(-q * (phi - phi[0])/kT)
+        i_sr = np.atleast_2d(np.trapz(r*shape, r)).T
+        nax = nl / 2 / PI / i_sr
+
+        # dynamic rhs term
+        _bx_a = - nax * q * shape * Q_E / EPS_0 # dynamic rhs term
+        _bx_b = - cden/np.sqrt(2 * Q_E * (e_kin+phi)/M_E) / EPS_0
+        _bx_a[:, -1] = 0  # boundary condition
+        bx = np.sum(_bx_a, axis=0) + _bx_b
+
+        # F = A.dot(phi) - (b0 + bx)
+        f = d * phi - bx # Target function
+        f[:-1] += u[:-1] * phi[1:]
+        f[1:] += l[1:] * phi[:-1]
+
+        _c = np.zeros_like(shape)
+        _c[:, :-1] = r[:-1] * (r[1:]-r[:-1]) * shape[:, :-1]
+        #Diagonal of the Jacobian df/dphi_i
+        j_d = -(np.sum(_bx_a * q/kT *(i_sr-_c)/i_sr, axis=0)
+                + Q_E/M_E*_bx_b/(2 * Q_E * (e_kin+phi)/M_E))#Diagonal of the Jacobian df/dphi_i
+
+        y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
+        res = np.linalg.norm(y)/phi.size
+        if res < 1e-3:
+            break
+        else:
+            phi = phi - y
 
     return phi, nax, shape
