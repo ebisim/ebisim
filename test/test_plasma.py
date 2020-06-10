@@ -13,8 +13,8 @@ from ebisim.plasma import (
     ion_coll_rate,
     spitzer_heating,
     collisional_thermalisation,
-    loss_frequency_axial,
-    loss_frequency_radial
+    trapping_strength_axial,
+    trapping_strength_radial
 )
 
 def test_electron_velocity():
