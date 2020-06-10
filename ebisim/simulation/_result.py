@@ -214,7 +214,7 @@ class Result:
         if relative or self.kbT is None: # Hack to determine whether basic or advanced sim
             kwargs.setdefault("ylabel", "Relative abundance")
         else:
-            kwargs.setdefault("ylabel", "Density (m$^{-3}$)")
+            kwargs.setdefault("ylabel", "Linear density (m$^{-1}$)")
 
         if relative:
             kwargs["ylim"] = (0, 1.1)
@@ -279,7 +279,7 @@ class Result:
         kwargs.setdefault("xlim", (1e-4, self.t.max()))
         kwargs.setdefault("ylim", (ymin, ymax))
         kwargs.setdefault("title", self._param_title("Energy density"))
-        kwargs.setdefault("ylabel", "Energy density (eV / m$^{-3}$)")
+        kwargs.setdefault("ylabel", "Linear energy density (eV / m$^{-1}$)")
         kwargs.setdefault("plot_total", True)
 
         fig = plotting.plot_generic_evolution(self.t, e_den, **kwargs)
@@ -358,9 +358,9 @@ class Result:
         kwargs.setdefault("plot_total", True)
 
         if rate_key.startswith("R"):
-            kwargs.setdefault("ylabel", "Number density flow (m$^{-3}$ s$^{-1}$)")
+            kwargs.setdefault("ylabel", "Number density flow (m$^{-1}$ s$^{-1}$)")
         if rate_key.startswith("Q"):
-            kwargs.setdefault("ylabel", "Energy density flow (eV m$^{-3}$ s$^{-1}$)")
+            kwargs.setdefault("ylabel", "Energy density flow (eV m$^{-1}$ s$^{-1}$)")
         if rate_key == "f_ei":
             kwargs.setdefault("ylabel", "Ion electron overlap factor")
 
