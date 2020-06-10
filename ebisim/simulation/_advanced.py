@@ -166,17 +166,27 @@ BackgroundGas.name.__doc__ = """str Name of the element."""
 BackgroundGas.ip.__doc__ = """float <eV> Ionisation potential of this Gas."""
 BackgroundGas.n0.__doc__ = """float <1/m^3> Gas number density."""
 
-
-class Device(
-        namedtuple(
-            "Device", (
-                "current", "e_kin", "r_e", "length", "j", "v_ax",
-                "v_ax_sc", "v_ra", "b_ax", "r_dt", "fwhm",
-                "rad_grid", "rad_fd_l", "rad_fd_d", "rad_fd_u",
-                "rad_phi_uncomp", "rad_phi_ax_barr", "rad_re_idx"
-            )
-        )
-):
+_DEVICE = OrderedDict(
+    current="<A> Beam current.",
+    e_kin="<eV> Uncorrected beam energy.",
+    r_e="<m> Beam radius.",
+    length="<m> Trap length.",
+    j="<A/cm^2> Current density.",
+    v_ax="<V> Axial barrier voltage.",
+    v_ax_sc="<V> Axial barrier space charge correction.",
+    v_ra="<V> Radial barrier voltage.",
+    b_ax="<T> Axial magnetic field density.",
+    r_dt="<m> Drift tube radius.",
+    fwhm="<eV> Electron beam energy spread.",
+    rad_grid="<m> Radial grid for finite difference computations.",
+    rad_fd_l="Lower diagonal vector of finite difference scheme.",
+    rad_fd_d="Diagonal vector of finite difference scheme.",
+    rad_fd_u="Upper diagonal vector of finite difference scheme.",
+    rad_phi_uncomp="<V> Radial potential of the electron beam.",
+    rad_phi_ax_barr="<V> Radial potential of the electron beam in the barrier tube",
+    rad_re_idx="Index of the radial grid point closest to r_e",
+)
+class Device(namedtuple("Device", _DEVICE.keys())):
     """
     Use the static `get()` factory methods to create instances of this class.
 
@@ -216,11 +226,14 @@ class Device(
             <m>
             Drift tube radius.
         v_ra : float, optional
+            <V>
             Override for radial trap depth, by default None.
             Only effective if ModelOptions.RADIAL_DYNAMICS=False.
         j : float, optional
+            <A/cm^2>
             Override for current density, by default None.
         fwhm : float, optional
+            <eV>
             Override for the electron beam energy spread, by default None.
             Only effective if ModelOptions.RADIAL_DYNAMICS=False.
         n_grid : int, optional
@@ -273,6 +286,8 @@ class Device(
             rad_phi_ax_barr=phi_barrier + v_ax,
             rad_re_idx=rad_re_idx
         )
+for k, v in _DEVICE.items():
+    setattr(getattr(Device, k), "__doc__", v)
 
 
 _MODEL_OPTIONS_DEFAULTS = OrderedDict(
