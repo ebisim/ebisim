@@ -428,7 +428,7 @@ def collisional_escape_rate(ri, w):
 
 
 _INVSQRTPI = 1/np.sqrt(PI)
-@vectorize()
+@njit(cache=True)
 def roundtrip_escape(w):
     """
     Computes the fraction of ions that have enough kinetic energy to overcome the trap represented
