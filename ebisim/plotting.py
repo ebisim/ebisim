@@ -206,7 +206,7 @@ def plot_radial_distribution(r, dens, phi=None, r_e=None, ax=None, ax2=None, **k
     """
     if ax is None:
         _, ax = plt.subplots(figsize=(8, 6), dpi=150)
-    fig = ax.get_figure()
+    _ = ax.get_figure()
 
     kwargs.setdefault("xlabel", "Radius (m)")
     kwargs.setdefault("ylabel", "Density (m$^{-3}$)")

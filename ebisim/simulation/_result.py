@@ -68,7 +68,7 @@ class Result:
 
     def __init__(self, param=None, t=None, N=None, kbT=None, res=None, rates=None,
                  target=None, device=None, model=None, id_=None,
-            ):
+                ):
         self.param = param if param is not None else {}
         self.t = t
         self.N = N
@@ -118,7 +118,24 @@ class Result:
         return interp(t)
 
     def radial_distribution_at_time(self, t):
-        # TODO: docstring
+        """
+        Yields the radial distribution information at time
+
+        Parameters
+        ----------
+        t : float
+            <s>
+            Point of time to evaluate.
+
+        Returns
+        -------
+        phi : numpy.ndarray
+            Radial potential
+        n3d : numpy.ndarray
+            On axis 3D density for each charge state.
+        shapes : numpy.ndarray
+            The Boltzmann shape factors for each charge state.
+        """
         if self.res and self.res.sol:
             y = self.res.sol(t)
         else:
@@ -130,11 +147,11 @@ class Result:
         kT = y[self.model.ub[-1]:]
         kT = np.maximum(kT, MINIMAL_KBT)
         phi, n3d, shapes = boltzmann_radial_potential_linear_density_ebeam(
-                self.device.rad_grid, self.device.current, self.device.r_e, self.device.e_kin,
-                np.atleast_2d(n).T, np.atleast_2d(kT).T, np.atleast_2d(self.model._q).T,
-                first_guess=self.device.rad_phi_uncomp,
-                ldu=(self.device.rad_fd_l, self.device.rad_fd_d, self.device.rad_fd_u)
-            )
+            self.device.rad_grid, self.device.current, self.device.r_e, self.device.e_kin,
+            np.atleast_2d(n).T, np.atleast_2d(kT).T, np.atleast_2d(self.model.q).T,
+            first_guess=self.device.rad_phi_uncomp,
+            ldu=(self.device.rad_fd_l, self.device.rad_fd_d, self.device.rad_fd_u)
+        )
         return phi, n3d, shapes
 
 
@@ -228,7 +245,24 @@ class Result:
 
 
     def plot_radial_distribution_at_time(self, t, **kwargs):
-        # TODO: docstring
+        """
+        Plot the radial ion distribution at time t.
+
+        Parameters
+        ----------
+        t : float
+            <s>
+            Point of time to evaluate.
+        **kwargs
+            Keyword arguments are handed down to ebisim.plotting.plot_radial_distribution and
+            ebisim.plotting.plot_generic_evolution, cf. documentation thereof.
+            If no arguments are provided, reasonable default values are injected.
+
+        Returns
+        -------
+        matplotlib.Figure
+            Figure handle of the generated plot.
+        """
         phi, n3d, shapes = self.radial_distribution_at_time(t)
         dens = (n3d * shapes)[self.model.lb[self.id]:self.model.ub[self.id]]
         denslim = 10**np.ceil(np.log10(dens.max()))
@@ -241,7 +275,9 @@ class Result:
         kwargs.setdefault("xlim", (self.device.r_e/100, self.device.r_dt))
         kwargs.setdefault("ylim", (denslim/10**10, denslim))
 
-        fig = plotting.plot_radial_distribution(self.device.rad_grid, dens, phi, self.device.r_e, **kwargs)
+        fig = plotting.plot_radial_distribution(
+            self.device.rad_grid, dens, phi, self.device.r_e, **kwargs
+        )
 
         return fig
 

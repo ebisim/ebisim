@@ -26,7 +26,7 @@ R_D = 0.005
 I = 1.
 RHO_0 = -I/(V_E * PI * R_E**2)
 def analytical_solution(r):
-    f = r<R_E
+    f = r < R_E
     nf = np.logical_not(f)
     phi = np.zeros_like(r)
     phi0 = I/(4*PI*EPS_0*V_E)
