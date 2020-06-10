@@ -10,6 +10,16 @@ from .physconst import MINIMAL_DENSITY
 
 
 @njit(cache=True)
+def _erfc_approx(x):
+    """
+    Approximation of the complementary error function erfc on the interval (0, inf]
+    http://users.auth.gr/users/9/3/028239/public_html/pdf/Q_Approxim.pdf
+    https://en.wikipedia.org/wiki/Error_function#Approximation_with_elementary_functions
+    """
+    return (1 - np.exp(-1.98*x))*np.exp(-x**2) / 2.0117351207777605 / x
+
+
+@njit(cache=True)
 def electron_velocity(e_kin):
     """
     Computes the electron velocity corresponding to a kinetic energy.
@@ -307,9 +317,9 @@ def collisional_thermalisation(kbTi, kbTj, Ai, Aj, rij):
     # [float64(float64, int64, float64)],
     cache=True, nopython=True
 )
-def loss_frequency_axial(kbTi, qi, V):
+def trapping_strength_axial(kbTi, qi, V):
     """
-    Computes the axial trap (loss) frequencies.
+    Computes the axial trapping strenghts.
 
     Parameters
     ----------
@@ -326,22 +336,27 @@ def loss_frequency_axial(kbTi, qi, V):
     -------
     float or numpy.ndarray
         <1/s>
-        Vector of axial ion trap (loss) frequencies for each charge state.
+        Vector of axial ion trapping strenghts for each charge state.
 
     """
-    if qi == 0 or kbTi <= 0:
-        return np.inf # fake value for neutrals -> essentially infinite trap
-    else:
-        return qi * V / kbTi
+    # if qi == 0 or kbTi <= 0:
+    # if kbTi <= 0:
+    #     return np.inf # fake value for neutrals -> essentially infinite trap
+    # else:
+    w = qi * V / kbTi
+    if w < 1:
+        return 0.
+    return w
+
 
 
 @vectorize(
     # [float64(float64, int64, float64, float64, float64, float64)],
     cache=True, nopython=True
 )
-def loss_frequency_radial(kbTi, qi, Ai, V, B, r_dt):
+def trapping_strength_radial(kbTi, qi, Ai, V, B, r_dt):
     """
-    Radial trap (loss) frequencies.
+    Radial trapping strenghts.
 
     Parameters
     ----------
@@ -366,28 +381,29 @@ def loss_frequency_radial(kbTi, qi, Ai, V, B, r_dt):
     -------
     float or numpy.ndarray
         <1/s>
-        Vector of radial ion trap (loss) frequencies for each charge state.
+        Vector of radial ion trapping strenghts for each charge state.
 
     """
-    if qi == 0 or kbTi <= 0:
-        return np.inf # fake value for neutrals -> essentially infinite trap
-    else:
-        return qi * (V + B * r_dt * np.sqrt(2 * kbTi * Q_E /(3*M_P*Ai))) / kbTi
+    # if qi == 0 or kbTi <= 0:
+    # if kbTi <= 0:
+    #     return np.inf # fake value for neutrals -> essentially infinite trap
+    # else:
+    w = qi * (V + B * r_dt * np.sqrt(2 * kbTi * Q_E /(3*M_P*Ai))) / kbTi
+    if w < 1:
+        return 0.
+    return w
 
 
 @vectorize(
     # [float64(float64, float64, float64)],
     cache=True, nopython=True
 )
-def escape_rate(Ni, ri, w):
+def collisional_escape_rate(ri, w):
     """
     Generic escape rate - to be called by axial and radial escape
 
     Parameters
     ----------
-    Ni : float or numpy.ndarray
-        <1/m^3>
-        Vector of ion densities.
     ri : float or numpy.ndarray
         <1/s>
         Vector of total ion ion collision rates for each charge state.
@@ -402,87 +418,121 @@ def escape_rate(Ni, ri, w):
         Vector of ion loss rates for each charge state.
 
     """
-    esc = 3 / np.sqrt(2) * Ni * ri * np.exp(-w) / w
-    if esc < 0 or Ni < MINIMAL_DENSITY:
-        esc = 0.
+    if w == 0:
+        esc = ri
+    else:
+        esc = 3 / np.sqrt(2) * ri * np.exp(-w) / w
+    # if esc < 0:
+    #     esc = 0.
     return esc
 
 
-@vectorize(
-    # [float64(float64, float64, int64, float64, float64)],
-    cache=True, nopython=True
-)
-def escape_rate_axial(Ni, kbTi, qi, ri, V):
+_INVSQRTPI = 1/np.sqrt(PI)
+@vectorize()
+def roundtrip_escape(w):
     """
-    Computes the axial ion escape rates.
+    Computes the fraction of ions that have enough kinetic energy to overcome the trap represented
+    by w. Also returns the "temperature factor" which tells how much hotter those ions are
+    then the complete population average
 
     Parameters
     ----------
-    Ni : float or numpy.ndarray
-        <1/m^3>
-        Vector of ion densities.
-    kbTi : float or numpy.ndarray
-        <eV>
-        Vector of ion temperatures.
-    qi : int or int
-        Ion species "i" charge state.
-    ri : float or numpy.ndarray
-        <1/s>
-        Vector of total ion ion collision rates for each charge state.
-    V : float or numpy.ndarray
-        <V>
-        Trap depth.
+    w : numpy.ndarray
+        The axial or radial trapping strength
 
     Returns
     -------
-    float or numpy.ndarray
-        <1/s>
-        Vector of axial ion loss rates for each charge state.
-
+    free_fraction : numpy.ndarray
+        Fraction of ions with enough energy to pass trapping barrier
+    temperature_factor : numpy.ndarray
+        Factor by which the escaping ions are hotter than the whole ensemble
     """
-    w = loss_frequency_axial(kbTi, qi, V)
-    return escape_rate(Ni, ri, w)
+    w = w * 3 #Degrees of freedom pushes cut-on (minimal) energy three times higher
+    _sqrtw = np.sqrt(w)
+    _erfc = _erfc_approx(_sqrtw)
+    free_fraction = _erfc + 2*_INVSQRTPI*_sqrtw*np.exp(-w)
+    free_fraction[w == 0] = 1
+    temperature_factor = (1.5*_erfc + _INVSQRTPI*_sqrtw*np.exp(-w)*(2*w+3))/free_fraction
+    temperature_factor[free_fraction == 0] = 1
+    temperature_factor[w == 0] = 1
+    return free_fraction, temperature_factor
 
 
-@vectorize(
-    # [float64(float64, float64, int64, float64, float64, float64, float64, float64)],
-    cache=True, nopython=True
-)
-def escape_rate_radial(Ni, kbTi, qi, ri, Ai, V, B, r_dt):
-    """
-    Computes the radial ion escape rates.
+# @vectorize(
+#     # [float64(float64, float64, int64, float64, float64)],
+#     cache=True, nopython=True
+# )
+# def escape_rate_axial(Ni, kbTi, qi, ri, V):
+#     """
+#     Computes the axial ion escape rates.
 
-    Parameters
-    ----------
-    Ni : float or numpy.ndarray
-        <1/m^3>
-        Vector of ion densities.
-    kbTi : float or numpy.ndarray
-        <eV>
-        Vector of ion temperatures.
-    qi : int or numpy.ndarray
-        Ion species "i" charge state.
-    ri : float or numpy.ndarray
-        <1/s>
-        Vector of total ion ion collision rates for each charge state.
-    Ai : float or numpy.ndarray
-        Ion mass number.
-    V : float or numpy.ndarray
-        <V>
-        Trap depth.
-    B : float or numpy.ndarray
-        <T>
-        Axial magnetic flux density.
-    r_dt : float or numpy.ndarray
-        <m>
-        Drift tube radius.
+#     Parameters
+#     ----------
+#     Ni : float or numpy.ndarray
+#         <1/m^3>
+#         Vector of ion densities.
+#     kbTi : float or numpy.ndarray
+#         <eV>
+#         Vector of ion temperatures.
+#     qi : int or int
+#         Ion species "i" charge state.
+#     ri : float or numpy.ndarray
+#         <1/s>
+#         Vector of total ion ion collision rates for each charge state.
+#     V : float or numpy.ndarray
+#         <V>
+#         Trap depth.
 
-    Returns
-    -------
-    float or numpy.ndarray
-        <1/s>
-        Vector of radial ion loss rates for each charge state.
+#     Returns
+#     -------
+#     float or numpy.ndarray
+#         <1/s>
+#         Vector of axial ion loss rates for each charge state.
 
-    """
-    w = loss_frequency_radial(kbTi, qi, Ai, V, B, r_dt)
-    return escape_rate(Ni, ri, w)
+#     """
+#     w = loss_frequency_axial(kbTi, qi, V)
+#     return escape_rate(Ni, ri, w)
+
+
+# @vectorize(
+#     # [float64(float64, float64, int64, float64, float64, float64, float64, float64)],
+#     cache=True, nopython=True
+# )
+# def escape_rate_radial(Ni, kbTi, qi, ri, Ai, V, B, r_dt):
+#     """
+#     Computes the radial ion escape rates.
+
+#     Parameters
+#     ----------
+#     Ni : float or numpy.ndarray
+#         <1/m^3>
+#         Vector of ion densities.
+#     kbTi : float or numpy.ndarray
+#         <eV>
+#         Vector of ion temperatures.
+#     qi : int or numpy.ndarray
+#         Ion species "i" charge state.
+#     ri : float or numpy.ndarray
+#         <1/s>
+#         Vector of total ion ion collision rates for each charge state.
+#     Ai : float or numpy.ndarray
+#         Ion mass number.
+#     V : float or numpy.ndarray
+#         <V>
+#         Trap depth.
+#     B : float or numpy.ndarray
+#         <T>
+#         Axial magnetic flux density.
+#     r_dt : float or numpy.ndarray
+#         <m>
+#         Drift tube radius.
+
+#     Returns
+#     -------
+#     float or numpy.ndarray
+#         <1/s>
+#         Vector of radial ion loss rates for each charge state.
+
+#     """
+#     w = loss_frequency_radial(kbTi, qi, Ai, V, B, r_dt)
+#     return escape_rate(Ni, ri, w)
