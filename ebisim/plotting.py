@@ -17,7 +17,7 @@ from .elements import Element
 
 #: The default colormap used to grade line plots, assigning another colormap to this object
 #: will result in an alternative color gradient for line plots
-COLORMAP = plt.cm.gist_rainbow #pylint: disable=E1101
+COLORMAP = plt.cm.plasma #pylint: disable=E1101
 
 
 ########################
@@ -168,6 +168,29 @@ def plot_generic_evolution(t, y, plot_total=False, **kwargs):
     kwargs.setdefault("label_lines", True)
     decorate_axes(ax, **kwargs)
 
+    return fig
+
+
+########################
+#### Radial Plotting ###
+########################
+
+def plot_radial_distribution(r, dens, phi=None, r_e=None, **kwargs):
+    # TODO: docstring
+    kwargs.setdefault("xlabel", "Radius (m)")
+    kwargs.setdefault("ylabel", "Density (m$^{-3}$)")
+    ylimphi = kwargs.pop("ylimphi", None)
+    fig = plot_generic_evolution(r, dens, plot_total=True, **kwargs)
+    ax = fig.gca()
+    if r_e is not None:
+        plt.axvline(r_e, c="k", ls="--")
+    if phi is not None:
+        ax2 = ax.twinx()
+        ax2.set(ylabel="Radial potential (V)", yscale="linear")
+        ax2.plot(r, phi, "k")
+        if ylimphi:
+            ax2.set_ylim(ylimphi)
+    plt.tight_layout()
     return fig
 
 ########################

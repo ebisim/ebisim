@@ -8,6 +8,8 @@ import scipy.interpolate
 
 from .. import plotting
 from ..elements import Element
+from ._radial_dist import boltzmann_radial_potential_linear_density_ebeam
+from ..physconst import MINIMAL_DENSITY, MINIMAL_KBT
 
 
 _RATE_NAMES = dict(
@@ -28,6 +30,7 @@ _RATE_NAMES = dict(
     Q_ih="Ionisation heating",
     V_ii="Self collision rate",
     V_it="Total collision rate",
+    f_ei="Overlap factors",
     Comp="Charge compensation"
 ) #: Rates names for plot annotation
 
@@ -64,7 +67,8 @@ class Result:
     """
 
     def __init__(self, param=None, t=None, N=None, kbT=None, res=None, rates=None,
-                 target=None, device=None):
+                 target=None, device=None, model=None, id_=None,
+            ):
         self.param = param if param is not None else {}
         self.t = t
         self.N = N
@@ -73,6 +77,8 @@ class Result:
         self.rates = rates
         self.target = target
         self.device = device
+        self.model = model
+        self.id = id_
 
 
     def times_of_highest_abundance(self):
@@ -110,6 +116,27 @@ class Result:
             return self.res.sol(t)
         interp = scipy.interpolate.interp1d(self.t, self.N)
         return interp(t)
+
+    def radial_distribution_at_time(self, t):
+        # TODO: docstring
+        if self.res and self.res.sol:
+            y = self.res.sol(t)
+        else:
+            # interp = scipy.interpolate.interp1d(self.t, self.res.y)
+            # y = interp(t)
+            y = self.res.y[np.argmin((t-self.res.t)**2)]
+        n = y[:self.model.ub[-1]]
+        n = np.maximum(n, MINIMAL_DENSITY)
+        kT = y[self.model.ub[-1]:]
+        kT = np.maximum(kT, MINIMAL_KBT)
+        phi, n3d, shapes = boltzmann_radial_potential_linear_density_ebeam(
+                self.device.rad_grid, self.device.current, self.device.r_e, self.device.e_kin,
+                np.atleast_2d(n).T, np.atleast_2d(kT).T, np.atleast_2d(self.model._q).T,
+                first_guess=self.device.rad_phi_uncomp,
+                ldu=(self.device.rad_fd_l, self.device.rad_fd_d, self.device.rad_fd_u)
+            )
+        return phi, n3d, shapes
+
 
     def _param_title(self, stub):
         """
@@ -198,6 +225,25 @@ class Result:
 
 
     plot = plot_charge_states #: Alias for plot_charge_states
+
+
+    def plot_radial_distribution_at_time(self, t, **kwargs):
+        # TODO: docstring
+        phi, n3d, shapes = self.radial_distribution_at_time(t)
+        dens = (n3d * shapes)[self.model.lb[self.id]:self.model.ub[self.id]]
+        denslim = 10**np.ceil(np.log10(dens.max()))
+
+        title = self._param_title(f"Radial distribution at t = {1000*t:.1f} ms")
+
+        kwargs.setdefault("xscale", "log")
+        kwargs.setdefault("yscale", "log")
+        kwargs.setdefault("title", title)
+        kwargs.setdefault("xlim", (self.device.r_e/100, self.device.r_dt))
+        kwargs.setdefault("ylim", (denslim/10**10, denslim))
+
+        fig = plotting.plot_radial_distribution(self.device.rad_grid, dens, phi, self.device.r_e, **kwargs)
+
+        return fig
 
 
     def plot_energy_density(self, **kwargs):
@@ -315,6 +361,8 @@ class Result:
             kwargs.setdefault("ylabel", "Number density flow (m$^{-3}$ s$^{-1}$)")
         if rate_key.startswith("Q"):
             kwargs.setdefault("ylabel", "Energy density flow (eV m$^{-3}$ s$^{-1}$)")
+        if rate_key == "f_ei":
+            kwargs.setdefault("ylabel", "Ion electron overlap factor")
 
         fig = plotting.plot_generic_evolution(self.t, rate, **kwargs)
         return fig
