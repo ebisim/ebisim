@@ -118,7 +118,7 @@ def plot_energy_time_scan(energies, times, abundance, **kwargs):
 #### Evolution Plotting ###
 ###########################
 
-def plot_generic_evolution(t, y, plot_total=False, **kwargs):
+def plot_generic_evolution(t, y, plot_total=False, ax=None, **kwargs):
     """
     Plots the evolution of a quantity with time
 
@@ -134,6 +134,8 @@ def plot_generic_evolution(t, y, plot_total=False, **kwargs):
     plot_total : bool, optional
         Indicate whether a black dashed line indicating the total accross all charge states should
         also be plotted, by default False.
+    ax : matplotlib.Axes, optional
+        Provide if you want to add this plot to existing Axes, by default None.
     **kwargs
         Keyword arguments are handed down to ebisim.plotting.decorate_axes,
         cf. documentation thereof.
@@ -144,19 +146,20 @@ def plot_generic_evolution(t, y, plot_total=False, **kwargs):
     matplotlib.Figure
         Figure handle of the generated plot.
     """
-    fig = plt.figure(figsize=(8, 6), dpi=150)
-    ax = fig.add_subplot(111)
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6), dpi=150)
+    fig = ax.get_figure()
 
     n = y.shape[0]
     _set_line_prop_cycle(ax, n)
 
     for cs in range(n):
         if np.array_equal(np.unique(y[cs, :]), np.array([0])):
-            plt.loglog([], [], figure=fig) # Ghost draw for purely zero cases
+            ax.loglog([], [], figure=fig) # Ghost draw for purely zero cases
         else:
-            plt.loglog(t, y[cs, :], figure=fig, label=str(cs) + "+")
+            ax.loglog(t, y[cs, :], figure=fig, label=str(cs) + "+")
     if plot_total:
-        plt.plot(t, np.sum(y, axis=0), c="k", ls="--", figure=fig, label="total")
+        ax.plot(t, np.sum(y, axis=0), c="k", ls="--", figure=fig, label="total")
 
     kwargs.setdefault("xlim", (1e-4, 1e3))
     kwargs.setdefault("xlabel", "Time (s)")
@@ -175,29 +178,57 @@ def plot_generic_evolution(t, y, plot_total=False, **kwargs):
 #### Radial Plotting ###
 ########################
 
-def plot_radial_distribution(r, dens, phi=None, r_e=None, **kwargs):
-    # TODO: docstring
+def plot_radial_distribution(r, dens, phi=None, r_e=None, ax=None, ax2=None, **kwargs):
+    """
+    Plots the radial ion distribution, can also plot radial potential and electron beam radius.
+
+    Parameters
+    ----------
+    r : numpy.ndarray
+        [description]
+    dens : numpy.ndarray
+        Array of densities, shaped like 'y' in plot_generic_evolution.
+    phi : numpy.ndarray, optional
+        The radial potential, if supplied will be plotted on second y-axis, by default None.
+    r_e : numpy.ndarray, optional
+        Electron beam radius, if provided will be marked as vertical likne, by default None.
+    ax : numpy.ndarray, optional
+        Axes on which to plot the densities, by default None.
+    ax2 : numpy.ndarray, optional
+        Axes on which to plot the radial potential, by default None.
+
+    Returns
+    -------
+    ax : matplotlib.Axes
+        As above.
+    ax2 : matplotlib.Axes
+        As above.
+    """
+    if ax is None:
+        _, ax = plt.subplots(figsize=(8, 6), dpi=150)
+    fig = ax.get_figure()
+
     kwargs.setdefault("xlabel", "Radius (m)")
     kwargs.setdefault("ylabel", "Density (m$^{-3}$)")
     ylimphi = kwargs.pop("ylimphi", None)
-    fig = plot_generic_evolution(r, dens, plot_total=True, **kwargs)
-    ax = fig.gca()
+    plot_generic_evolution(r, dens, plot_total=True, ax=ax, **kwargs)
     if r_e is not None:
-        plt.axvline(r_e, c="k", ls="--")
+        ax.axvline(r_e, c="k", ls="--")
     if phi is not None:
-        ax2 = ax.twinx()
+        if ax2 is None:
+            ax2 = ax.twinx()
         ax2.set(ylabel="Radial potential (V)", yscale="linear")
         ax2.plot(r, phi, "k")
         if ylimphi:
             ax2.set_ylim(ylimphi)
     plt.tight_layout()
-    return fig
+    return ax, ax2
 
 ########################
 #### XS Plotting #######
 ########################
 
-def _plot_xs(e_samp, xs_scan, fig=None, ls="-", **kwargs):
+def _plot_xs(e_samp, xs_scan, ax=None, ls="-", **kwargs):
     """
     Low level plotting routine serving plot_eixs, plot_rrxs and plot_drxs
 
@@ -210,8 +241,8 @@ def _plot_xs(e_samp, xs_scan, fig=None, ls="-", **kwargs):
         <m^2>
         Array holding the cross sections, where the row index corresponds to the charge state
         and the columns correspond to the different sampling energies.
-    fig : matplotlib.Figure, optional
-        Provide if you want to add this plot to an existing figure, by default None.
+    ax : matplotlib.Axes, optional
+        Provide if you want to add this plot to existing Axes, by default None.
     ls : str, optional
         Can be provided to define a linestyle for the plot, by default "-".
     **kwargs
@@ -224,9 +255,10 @@ def _plot_xs(e_samp, xs_scan, fig=None, ls="-", **kwargs):
     matplotlib.Figure
         Figure handle of the generated plot.
     """
-    if not fig:
-        fig = plt.figure(figsize=(8, 6), dpi=150)
-    ax = fig.gca()
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6), dpi=150)
+    else:
+        fig = ax.get_figure()
 
     n = xs_scan.shape[0]
 
@@ -403,7 +435,7 @@ def plot_combined_xs(element, fwhm, **kwargs):
     )
     fig = plot_rrxs(
         element,
-        fig=fig,
+        ax=fig.gca(),
         ls="-.",
         label_lines=label_lines,
         legend=False,
@@ -412,7 +444,7 @@ def plot_combined_xs(element, fwhm, **kwargs):
     fig = plot_drxs(
         element,
         fwhm,
-        fig=fig,
+        ax=fig.gca(),
         ls="-",
         legend=False,
         **kwargs
