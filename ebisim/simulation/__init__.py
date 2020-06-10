@@ -28,8 +28,9 @@ from ._radial_dist import(
     fd_system_nonuniform_grid,
     radial_potential_nonuniform_grid,
     boltzmann_radial_potential_onaxis_density,
-    boltzmann_radial_potential_line_density,
-    heat_capacity
+    boltzmann_radial_potential_linear_density,
+    boltzmann_radial_potential_linear_density_ebeam,
+    heat_capacity,
 )
 
 __all__ = [
@@ -49,6 +50,7 @@ __all__ = [
     "fd_system_nonuniform_grid",
     "radial_potential_nonuniform_grid",
     "boltzmann_radial_potential_onaxis_density",
-    "boltzmann_radial_potential_line_density",
-    "heat_capacity"
+    "boltzmann_radial_potential_linear_density",
+    "boltzmann_radial_potential_linear_density_ebeam",
+    "heat_capacity",
 ]
