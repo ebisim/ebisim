@@ -337,7 +337,7 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
 
 
 @njit(cache=True)
-def boltzmann_radial_potential_line_density(r, rho_0, nl, kT, q, first_guess=None, ldu=None):
+def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=None, ldu=None):
     """
     Solves the Boltzmann Poisson equation for a static background charge density rho_0 and particles
     with line number density n, Temperature kT and charge state q.
@@ -439,7 +439,7 @@ def boltzmann_radial_potential_line_density(r, rho_0, nl, kT, q, first_guess=Non
 
 
 @njit(cache=True)
-def boltzmann_radial_potential_line_density_ebeam(
+def boltzmann_radial_potential_linear_density_ebeam(
         r, current, r_e, e_kin, nl, kT, q, first_guess=None, ldu=None
     ):
     """

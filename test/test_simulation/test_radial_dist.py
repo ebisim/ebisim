@@ -13,7 +13,7 @@ from ebisim.simulation._radial_dist import(
     radial_potential_uniform_grid,
     radial_potential_nonuniform_grid,
     boltzmann_radial_potential_onaxis_density,
-    boltzmann_radial_potential_line_density
+    boltzmann_radial_potential_linear_density
 )
 from ebisim.physconst import Q_E, M_E, EPS_0, PI
 
@@ -129,11 +129,11 @@ def test_boltzmann_radial_potential_line_density():
     KT = np.array([150, 50])
     Q = np.array((5, 3))
 
-    phi, n, shape = boltzmann_radial_potential_line_density(
+    phi, n, shape = boltzmann_radial_potential_linear_density(
         r, rho, NLI[:, np.newaxis], KT[:, np.newaxis], Q[:, np.newaxis]
         )
     # test that python and numba give same result
-    phipy, npy, shapepy = boltzmann_radial_potential_line_density.py_func(
+    phipy, npy, shapepy = boltzmann_radial_potential_linear_density.py_func(
         r, rho, NLI[:, np.newaxis], KT[:, np.newaxis], Q[:, np.newaxis]
         )
     np.allclose(phipy, phi)
