@@ -141,7 +141,7 @@ class Result:
         else:
             # interp = scipy.interpolate.interp1d(self.t, self.res.y)
             # y = interp(t)
-            y = self.res.y[np.argmin((t-self.res.t)**2)]
+            y = self.res.y[:, np.argmin((t-self.res.t)**2)]
         n = y[:self.model.ub[-1]]
         n = np.maximum(n, MINIMAL_DENSITY)
         kT = y[self.model.ub[-1]:]
@@ -349,7 +349,7 @@ class Result:
             raise ValueError("The t or kbT field does not contain any plottable data.")
 
         kwargs.setdefault("xlim", (1e-4, self.t.max()))
-        kwargs.setdefault("ylim", (0.01, 10**(np.ceil(np.log10(self.kbT.max()) + 1))))
+        kwargs.setdefault("ylim", (1, 10**(np.ceil(np.log10(self.kbT.max())))))
         kwargs.setdefault("title", self._param_title("Temperature"))
         kwargs.setdefault("ylabel", "Temperature (eV)")
 
@@ -391,7 +391,7 @@ class Result:
         kwargs.setdefault("xlim", (1e-4, self.t.max()))
         kwargs.setdefault("title", self._param_title(_RATE_NAMES.get(rate_key, "unkown rate")))
         kwargs.setdefault("yscale", "linear")
-        kwargs.setdefault("plot_total", True)
+        kwargs.setdefault("plot_total", False)
 
         if rate_key.startswith("R"):
             kwargs.setdefault("ylabel", "Number density flow (m$^{-1}$ s$^{-1}$)")
@@ -399,6 +399,9 @@ class Result:
             kwargs.setdefault("ylabel", "Energy density flow (eV m$^{-1}$ s$^{-1}$)")
         if rate_key == "f_ei":
             kwargs.setdefault("ylabel", "Ion electron overlap factor")
+
+        if len(rate.shape) == 1:
+            rate = rate[np.newaxis, :]
 
         fig = plotting.plot_generic_evolution(self.t, rate, **kwargs)
         return fig
