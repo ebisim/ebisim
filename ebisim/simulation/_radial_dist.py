@@ -117,7 +117,7 @@ def radial_potential_uniform_grid(r, rho):
         Potential at r.
     """
     l, d, u = fd_system_uniform_grid(r)
-    rho_ = rho[:]
+    rho_ = rho.copy()
     rho_[-1] = 0 #Boundary condition
     phi = tridiagonal_matrix_algorithm(l, d, u, -rho/EPS_0)
     return phi
@@ -199,7 +199,7 @@ def radial_potential_nonuniform_grid(r, rho):
         Potential at r.
     """
     l, d, u = fd_system_nonuniform_grid(r)
-    rho_ = rho[:]
+    rho_ = rho.copy()
     rho_[-1] = 0 #Boundary condition
     phi = tridiagonal_matrix_algorithm(l, d, u, -rho/EPS_0)
     return phi
@@ -292,7 +292,7 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
     # Solve J y = f
     # Next guess: phi = phi - y
     # Iterate until adjustment is small
-    rho_0 = rho_0[:]
+    rho_0 = rho_0.copy()
     rho_0[-1] = 0 #Boundary condition
     b0 = - rho_0/EPS_0 # static rhs term
 
@@ -306,7 +306,7 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
     if first_guess is None:
         phi = radial_potential_nonuniform_grid(r, rho_0) # compute static potential
     else:
-        phi = first_guess
+        phi = first_guess.copy()
 
     n = np.atleast_2d(np.asarray(n))
     kT = np.atleast_2d(np.asarray(kT))
@@ -328,10 +328,9 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
 
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         res = np.linalg.norm(y)/phi.size
+        phi = phi - y
         if res < 1e-3:
             break
-        else:
-            phi = phi - y
 
     return phi, n, shape
 
@@ -390,7 +389,7 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
     # Solve J y = f
     # Next guess: phi = phi - y
     # Iterate until adjustment is small
-    rho_0 = rho_0[:]
+    rho_0 = rho_0.copy()
     rho_0[-1] = 0 #Boundary condition
     b0 = - rho_0/EPS_0 # static rhs term
 
@@ -403,7 +402,7 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
     if first_guess is None:
         phi = radial_potential_nonuniform_grid(r, rho_0) # compute static potential
     else:
-        phi = first_guess
+        phi = first_guess.copy()
 
     nl = np.atleast_2d(np.asarray(nl))
     kT = np.atleast_2d(np.asarray(kT))
@@ -430,10 +429,9 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
 
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         res = np.linalg.norm(y)/phi.size
+        phi = phi - y
         if res < 1e-3:
             break
-        else:
-            phi = phi - y
 
     return phi, nax, shape
 
@@ -546,9 +544,8 @@ def boltzmann_radial_potential_linear_density_ebeam(
 
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         res = np.linalg.norm(y)/phi.size
+        phi = phi - y
         if res < 1e-3:
             break
-        else:
-            phi = phi - y
-
+    # print("CONV", 1+_)
     return phi, nax, shape
