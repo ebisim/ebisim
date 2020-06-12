@@ -74,7 +74,7 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
         return cls(*element, n=_n, kT=_kT, cni=True, cx=cx)
 
     @classmethod
-    def get_ions(cls, element, nl, kT=0.025, q=1, cx=True):
+    def get_ions(cls, element, nl, kT_per_q=10, q=1, cx=True):
         """
         Factory method for defining a pulsed ion injection Target.
         An ion target has a given density in the charge state of choice q.
@@ -87,10 +87,10 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
         nl : float
             <1/m>
             Linear density of the initial charge state (ions per unit length).
-        kT : float, optional
+        kT_per_q : float, optional
             <eV>
-            Temperature / kinetic energy of the injected ions,
-            by default 0.025 eV (Room temperature)
+            Temperature / kinetic energy per charge of the injected ions,
+            by default 10 eV /q
         q : int, optional
             Initial charge state, by default 1
         cx : bool, optional
@@ -103,9 +103,8 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
         """
         element = Element.as_element(element)
         _n = np.full(element.z + 1, MINIMAL_DENSITY, dtype=np.float64)
-        _kT = np.full(element.z + 1, MINIMAL_KBT, dtype=np.float64)
         _n[q] = nl
-        _kT[q] = kT
+        _kT = kT_per_q * np.arange(element.z+1, dtype=np.float64)
         return cls(*element, n=_n, kT=_kT, cni=False, cx=cx)
 
 #Patching in docstrings
@@ -332,11 +331,13 @@ _T_I4_ARRAY = numba.int32[:]
 
 def compile_adv_model():
     global AdvancedModel
-    print("Compiling Model class, this may take a moment...")
+    print("Arming compilation of AdvancedModel class.")
+    print("The next calls to this class and its methods may take a while.")
+    print("The compiled instance lives as long as the python interpreter.")
+    AdvancedModel = numba.experimental.jitclass(_ADVMDLSPEC)(AdvancedModel)
     # d = numba.typed.Dict()
     # ones = np.ones(6, dtype=np.float64)
     # d["A"] = ones
-    AdvancedModel = numba.experimental.jitclass(_ADVMDLSPEC)(AdvancedModel)
     # print("Compiling Constructor with BGGas")
     # a = AdvancedModel(Device.get(1, 8000, 1e-4, 0.8, 500, 2, 0.005),
     #                   numba.typed.List([Target.get_ions("He", 0., 0., 1)]),
@@ -366,6 +367,7 @@ _ADVMDLSPEC = OrderedDict(
     _cxxs_bggas=numba.types.ListType(_T_F8_ARRAY),
     _cxxs_trgts=numba.types.ListType(_T_F8_ARRAY),
     _rad_phi_latest=_T_F8_ARRAY,
+    _t_latest=numba.float64,
 )
 # @numba.experimental.jitclass(_ADVMDLSPEC)
 class AdvancedModel:
@@ -394,6 +396,7 @@ class AdvancedModel:
         self.bg_gases = bg_gases if bg_gases is not None else numba.typed.List.empty_list(_T_BG_GAS)
         self.options = options
         self._rad_phi_latest = self.device.rad_phi_uncomp.copy()
+        self._t_latest = -1.0
 
 
         # Determine array bounds for different targets in state vector
@@ -432,7 +435,6 @@ class AdvancedModel:
             self._cxxs_trgts.append(xs.cxxs(self.q, trgt.ip))
 
 
-
     def _update_eirrdrxs(self, e_kin, drfwhm):
         for i, trgt in enumerate(self.targets):
             if self.options.EI:
@@ -469,7 +471,7 @@ class AdvancedModel:
             dy/dt
         """
         # pylint: disable=bad-whitespace
-
+        # print(_t)
         # Split y into useful parts
         n   = y[:self.nq]
         kT  = y[self.nq:]
@@ -483,23 +485,36 @@ class AdvancedModel:
         # Radial dynamics
         if self.options.RADIAL_DYNAMICS:
             # Solve radial problem
-            phi, n3d, shapes = boltzmann_radial_potential_linear_density_ebeam(
-                self.device.rad_grid, self.device.current, self.device.r_e, self.device.e_kin,
-                np.atleast_2d(n).T, np.atleast_2d(kT).T, np.atleast_2d(self.q).T,
-                first_guess=self._rad_phi_latest,
-                ldu=(self.device.rad_fd_l, self.device.rad_fd_d, self.device.rad_fd_u)
-            )
-            n3d = n3d.T[0] # Adjust shape
-            # Memorise this solution
-            self._rad_phi_latest[:] = phi[:]
 
-            # Compute overlap factors
             ix = self.device.rad_re_idx
             r = self.device.rad_grid
+
+            if _t == self._t_latest:
+                phi = self._rad_phi_latest
+                q_ = np.atleast_2d(self.q).T
+                n_ = np.atleast_2d(n).T
+                t_ = np.atleast_2d(kT).T
+                shapes = np.exp(-q_ * (phi - phi[0])/t_)
+                i_sr = np.atleast_2d(np.trapz(r*shapes, r)).T
+                n3d = n_ / 2 / PI / i_sr
+            else:
+                phi, n3d, shapes = boltzmann_radial_potential_linear_density_ebeam(
+                    self.device.rad_grid, self.device.current, self.device.r_e, self.device.e_kin,
+                    np.atleast_2d(n).T, np.atleast_2d(kT).T, np.atleast_2d(self.q).T,
+                    first_guess=self._rad_phi_latest,
+                    ldu=(self.device.rad_fd_l, self.device.rad_fd_d, self.device.rad_fd_u)
+                )
+                # Memorise this solution
+                self._rad_phi_latest = phi
+                self._t_latest = _t
+            n3d = n3d.T[0] # Adjust shape
+
+            # Compute overlap factors
             i_rs_re = np.trapz(shapes[:, :ix+1]*r[:ix+1], r[:ix+1])
             i_rs_rd = np.trapz(shapes*r, r)
             fei = i_rs_re/i_rs_rd
-            for i in self.lb:
+            for i in self.lb: #Take care of neutrals
+                n3d[i] = n[i]/PI/self.device.r_e**2
                 fei[i] = 1. #full overlap for neutrals
 
             # Ionisation heating
@@ -527,7 +542,6 @@ class AdvancedModel:
             v_ra = self.device.v_ra
             e_kin = self.device.e_kin
             e_kin_fwhm = self.device.fwhm
-
 
         # Compute some electron beam quantities
         je = self.device.j / Q_E * 1e4 # electron number current density
@@ -651,9 +665,10 @@ class AdvancedModel:
 
         #Check if neutrals are depletable or if there is continuous neutral injection
         for i, trgt in enumerate(self.targets):
-            if trgt.cni:
-                dn[self.lb[i]] = 0.0
-                dkT[self.lb[i]] = 0.0
+            # if trgt.cni:
+            # Kill all neutral rates - seems to improve stability
+            dn[self.lb[i]] = 0.0
+            dkT[self.lb[i]] = 0.0
 
 
         if rates is not None:
@@ -780,7 +795,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
             nonlocal k
             k += 1
             if k%100 == 0:
-                print("\r", f"Progress: {k} calls, t = {t:.4e} s", end="")
+                print("\r", f"Integration: {k} calls, t = {t:.4e} s", end="")
             return model.rhs(t, y)
     else:
         rhs = model.rhs
@@ -790,12 +805,11 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
         # model.rhs, (0, t_max), n_kT_initial, **solver_kwargs
     )
     if progress:
-        print("\r", "FINISHED", k, "calls                    ")
+        print("\rIntegration finished:", k, "calls                    ")
 
     if rates:
         # Recompute rates for final solution (this cannot be done parasitically due to
         # the solver approximating the jacobian and calling rhs with bogus values).
-        print("Extracting rates.")
         nt = res.t.size
         extractor = numba.typed.Dict.empty(
             key_type=numba.types.unicode_type,
@@ -813,13 +827,16 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
         # rates = {k:np.zeros((extractor[k].size, nt)) for k in extractor}
         # Poll all steps
         for idx in range(nt):
+            if progress:
+                print("\r", f"Rates: {idx+1} / {nt}", end="")
             _ = model.rhs(res.t[idx], res.y[:, idx], extractor)
             for key, val in extractor.items():
                 if len(val.shape) == 1:
                     rates[key][:, idx] = val
                 if len(val.shape) == 0:
                     rates[key][idx] = val
-        print("Finished rates.")
+        if progress:
+            print("\rRates finished:", nt, "/", nt, "                   ")
 
     out = []
     for i, trgt in enumerate(model.targets):
