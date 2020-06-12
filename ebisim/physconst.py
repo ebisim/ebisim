@@ -22,5 +22,5 @@ COMPT_E_RED = HBAR / (M_E * C_L) #: <m> Reduced electron compton wavelength
 
 
 ##### Numerical Thresholds
-MINIMAL_DENSITY = 1. #: <1/m^3> Minimal particle number density
+MINIMAL_DENSITY = 1.e-6 #: <1/m^3> Minimal particle number density
 MINIMAL_KBT = 1. #: <eV> Minimal temperature equivalent
