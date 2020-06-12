@@ -458,9 +458,10 @@ def plot_combined_xs(element, fwhm, **kwargs):
 ########################
 
 def _set_line_prop_cycle(ax, n_lines):
-    color = [COLORMAP(i) for i in np.linspace(0, 1, n_lines)]
+    color = [COLORMAP(i) for i in np.linspace(0, .9, n_lines)]
     lw = [.75 if (i % 5 != 0) else 1.5 for i in range(n_lines)]
-    ax.set_prop_cycle(color=color, linewidth=lw)
+    ls = ["-" if (i % 5 != 0) else "-." for i in range(n_lines)]
+    ax.set_prop_cycle(color=color, linewidth=lw, linestyle=ls)
 
 
 def decorate_axes(ax, grid=True, legend=False, label_lines=True, tight_layout=True, **kwargs):
