@@ -322,12 +322,15 @@ class Result:
         return fig
 
 
-    def plot_temperature(self, **kwargs):
+    def plot_temperature(self, dens_threshold=1000*MINIMAL_DENSITY, **kwargs):
         """
         Plot the temperature evolution of this result object.
 
         Parameters
         ----------
+        dens_threshold : float, optional
+            If given temperatures are only plotted where the particle denisty is larger than
+            the threshold value.
         **kwargs
             Keyword arguments are handed down to ebisim.plotting.plot_generic_evolution,
             cf. documentation thereof.
@@ -348,12 +351,20 @@ class Result:
         if self.t is None or self.kbT is None:
             raise ValueError("The t or kbT field does not contain any plottable data.")
 
+        filtered_kbT = self.kbT.copy()
+        filtered_kbT[self.N < dens_threshold] = np.nan
         kwargs.setdefault("xlim", (1e-4, self.t.max()))
-        kwargs.setdefault("ylim", (1, 10**(np.ceil(np.log10(self.kbT.max())))))
+        kwargs.setdefault(
+            "ylim",
+            (
+                10**np.floor(np.nanmin(np.log10(filtered_kbT))),
+                10**np.ceil(np.nanmax(np.log10(filtered_kbT))),
+            )
+        )
         kwargs.setdefault("title", self._param_title("Temperature"))
         kwargs.setdefault("ylabel", "Temperature (eV)")
 
-        fig = plotting.plot_generic_evolution(self.t, self.kbT, **kwargs)
+        fig = plotting.plot_generic_evolution(self.t, filtered_kbT, **kwargs)
         return fig
 
 
