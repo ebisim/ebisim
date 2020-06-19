@@ -117,6 +117,30 @@ class Result:
         interp = scipy.interpolate.interp1d(self.t, self.N)
         return interp(t)
 
+
+    def temperature_at_time(self, t):
+        """
+        Yields the temperature of each charge state at a given time
+
+        Parameters
+        ----------
+        t : float
+            <s>
+            Point of time to evaluate.
+
+        Returns
+        -------
+        numpy.ndarray
+            <eV>
+            Temperature of each charge state, array index corresponds to charge state.
+
+        """
+        if self.res and self.res.sol:
+            return self.res.sol(t)
+        interp = scipy.interpolate.interp1d(self.t, self.kbT)
+        return interp(t)
+
+
     def radial_distribution_at_time(self, t):
         """
         Yields the radial distribution information at time
