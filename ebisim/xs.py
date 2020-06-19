@@ -56,7 +56,8 @@ def cxxs(q, ip):
 @numba.njit(cache=True)
 def eixs_vec(element, e_kin):
     """
-    Electron ionisation cross section according to a simplified version of the models given in [1]_.
+    Electron ionisation cross section according to a simplified version of the models given in
+    [Lotz1967]_.
 
     Parameters
     ----------
@@ -76,7 +77,7 @@ def eixs_vec(element, e_kin):
 
     References
     ----------
-    .. [1] "An empirical formula for the electron-impact ionization cross-section",
+    .. [Lotz1967] "An empirical formula for the electron-impact ionization cross-section",
            W. Lotz,
            Zeitschrift Für Physik, 206(2), 205–211 (1967),
            https://doi.org/10.1007/BF01325928
@@ -115,7 +116,7 @@ def eixs_vec(element, e_kin):
 @numba.njit(cache=True)
 def eixs_mat(element, e_kin):
     """
-    Electron ionisation cross section according to a simplified version of the models given in [1]_.
+    Electron ionisation cross section.
 
     Parameters
     ----------
@@ -135,13 +136,6 @@ def eixs_mat(element, e_kin):
         out[q, q]   = - cross section of q+ ion
         out[q+1, q] = + cross section of (q+1)+ ion
 
-    References
-    ----------
-    .. [1] "An empirical formula for the electron-impact ionization cross-section",
-           W. Lotz,
-           Zeitschrift Für Physik, 206(2), 205–211 (1967),
-           https://doi.org/10.1007/BF01325928
-
     See Also
     --------
     ebisim.xs.eixs_vec : Similar method with different output format.
@@ -154,7 +148,7 @@ def eixs_mat(element, e_kin):
 @numba.njit(cache=True)
 def rrxs_vec(element, e_kin):
     """
-    Radiative recombination cross section according to [1]_.
+    Radiative recombination cross section according to [Kim1983]_.
 
     Parameters
     ----------
@@ -174,7 +168,7 @@ def rrxs_vec(element, e_kin):
 
     References
     ----------
-    .. [1] "Direct radiative recombination of electrons with atomic ions:
+    .. [Kim1983] "Direct radiative recombination of electrons with atomic ions:
            Cross sections and rate coefficients",
            Young Soon Kim and R. H. Pratt,
            Phys. Rev. A 27, 2913 (1983),
@@ -195,7 +189,7 @@ def rrxs_vec(element, e_kin):
 @numba.njit(cache=True)
 def rrxs_mat(element, e_kin):
     """
-    Radiative recombination cross section according to [1]_.
+    Radiative recombination cross section.
 
     Parameters
     ----------
@@ -214,14 +208,6 @@ def rrxs_mat(element, e_kin):
         for implementation of a rate equation like dN/dt = j * xs_matrix dot N.
         out[q, q]   = - cross section of q+ ion
         out[q, q+1] = + cross section of (q+1)+ ion
-
-    References
-    ----------
-    .. [1] "Direct radiative recombination of electrons with atomic ions:
-           Cross sections and rate coefficients",
-           Young Soon Kim and R. H. Pratt,
-           Phys. Rev. A 27, 2913 (1983),
-           https://journals.aps.org/pra/abstract/10.1103/PhysRevA.27.2913
 
     See Also
     --------
@@ -320,7 +306,7 @@ def precompute_rr_quantities(e_cfg, shell_n):
     """
     Precomputes the effective valence shell and nuclear charge for all charge states,
     as required for the computation of radiative recombinations cross sections.
-    According to the procedure described in [1]_.
+    According to the procedure described in [Kim1983a]_.
 
     This function is primarily meant for internal use inside the ebisim.get_element() function.
 
@@ -343,7 +329,7 @@ def precompute_rr_quantities(e_cfg, shell_n):
 
     References
     ----------
-    .. [1] "Direct radiative recombination of electrons with atomic ions:
+    .. [Kim1983a] "Direct radiative recombination of electrons with atomic ions:
            Cross sections and rate coefficients",
            Young Soon Kim and R. H. Pratt,
            Phys. Rev. A 27, 2913 (1983),

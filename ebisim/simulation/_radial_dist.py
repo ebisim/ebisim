@@ -12,7 +12,7 @@ from ..physconst import EPS_0, Q_E, PI, M_E
 @njit(cache=True)
 def tridiagonal_matrix_algorithm(l, d, u, b):
     """
-    Tridiagonal Matrix Algorithm [1]_.
+    Tridiagonal Matrix Algorithm [TDMA]_.
     Solves a system of equations M x = b for x, where M is a tridiagonal matrix.
 
     M = np.diag(d) + np.diag(u[:-1], 1) + np.diag(l[1:], -1)
@@ -35,7 +35,7 @@ def tridiagonal_matrix_algorithm(l, d, u, b):
 
     References
     ----------
-    .. [1] "Tridiagonal matrix algorithm"
+    .. [TDMA] "Tridiagonal matrix algorithm"
            https://en.wikipedia.org/wiki/Tridiagonal_matrix_algorithm
     """
     n = l.size
@@ -129,7 +129,7 @@ def fd_system_nonuniform_grid(r):
     Sets up the three diagonal vectors for a finite Poisson problem with radial symmetry on a
     nonuniform grid.
     d phi/dr = 0 at r = 0, and phi = phi0 at r = (n-1) * dr = r_max
-    The finite differences are developed according to [1]_.
+    The finite differences are developed according to [Sundqvist1970]_.
 
     Parameters
     ----------
@@ -148,7 +148,7 @@ def fd_system_nonuniform_grid(r):
 
     References
     ----------
-    .. [1] "A simple finite-difference grid with non-constant intervals",
+    .. [Sundqvist1970] "A simple finite-difference grid with non-constant intervals",
             Sundqvist, H., & Veronis, G.,
             Tellus, 22(1), 26–31 (1970),
             https://doi.org/10.3402/tellusa.v22i1.10155
@@ -246,7 +246,7 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
 
     Below, nRS and nCS are the number of radial sampling points and charge states.
 
-    Solution is found through Newton iterations, cf. [1]_.
+    Solution is found through Newton iterations, cf. [PICNPSa]_.
 
     Parameters
     ----------
@@ -281,7 +281,7 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
 
     References
     ----------
-    .. [1] "Nonlinear Poisson Solver"
+    .. [PICNPSa] "Nonlinear Poisson Solver"
            https://www.particleincell.com/2012/nonlinear-poisson-solver/
     """
     # Solves the nonlinear radial poisson equation for a dynamic charge distribution following
@@ -343,7 +343,7 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
 
     Below, nRS and nCS are the number of radial sampling points and charge states.
 
-    Solution is found through Newton iterations, cf. [1]_.
+    Solution is found through Newton iterations, cf. [PICNPSb]_.
 
     Parameters
     ----------
@@ -378,7 +378,7 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
 
     References
     ----------
-    .. [1] "Nonlinear Poisson Solver"
+    .. [PICNPSb] "Nonlinear Poisson Solver"
            https://www.particleincell.com/2012/nonlinear-poisson-solver/
     """
     # Solves the nonlinear radial poisson equation for a dynamic charge distribution following
@@ -448,7 +448,7 @@ def boltzmann_radial_potential_linear_density_ebeam(
 
     Below, nRS and nCS are the number of radial sampling points and charge states.
 
-    Solution is found through Newton iterations, cf. [1]_.
+    Solution is found through Newton iterations, cf. [PICNPS]_.
 
     Parameters
     ----------
@@ -489,7 +489,7 @@ def boltzmann_radial_potential_linear_density_ebeam(
 
     References
     ----------
-    .. [1] "Nonlinear Poisson Solver"
+    .. [PICNPS] "Nonlinear Poisson Solver"
            https://www.particleincell.com/2012/nonlinear-poisson-solver/
     """
     # Solves the nonlinear radial poisson equation for a dynamic charge distribution following
