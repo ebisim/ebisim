@@ -49,7 +49,7 @@ def plot_energy_scan(energies, abundance, cs=None, **kwargs):
     matplotlib.Figure
         Figure handle of the generated plot.
     """
-    fig = plt.figure(figsize=(6, 3), dpi=150)
+    fig = plt.figure()
     ax = fig.add_subplot(111)
 
     n = abundance.shape[0]
@@ -94,7 +94,7 @@ def plot_energy_time_scan(energies, times, abundance, **kwargs):
     matplotlib.Figure
         Figure handle of the generated plot.
     """
-    fig = plt.figure(figsize=(6, 3), dpi=150)
+    fig = plt.figure()
     ax = fig.add_subplot(111)
 
     e_kin, t = np.meshgrid(energies, times)
@@ -147,7 +147,7 @@ def plot_generic_evolution(t, y, plot_total=False, ax=None, **kwargs):
         Figure handle of the generated plot.
     """
     if ax is None:
-        fig, ax = plt.subplots(figsize=(8, 6), dpi=150)
+        fig, ax = plt.subplots()
     fig = ax.get_figure()
 
     n = y.shape[0]
@@ -205,7 +205,7 @@ def plot_radial_distribution(r, dens, phi=None, r_e=None, ax=None, ax2=None, **k
         As above.
     """
     if ax is None:
-        _, ax = plt.subplots(figsize=(8, 6), dpi=150)
+        _, ax = plt.subplots()
     _ = ax.get_figure()
 
     kwargs.setdefault("xlabel", "Radius (m)")
@@ -256,7 +256,7 @@ def _plot_xs(e_samp, xs_scan, ax=None, ls="-", **kwargs):
         Figure handle of the generated plot.
     """
     if ax is None:
-        fig, ax = plt.subplots(figsize=(8, 6), dpi=150)
+        fig, ax = plt.subplots()
     else:
         fig = ax.get_figure()
 
