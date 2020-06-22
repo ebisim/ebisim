@@ -2,6 +2,7 @@
 This module contains the simulation result class.
 """
 
+from enum import IntEnum
 import numpy as np
 import scipy.integrate
 import scipy.interpolate
@@ -11,28 +12,180 @@ from ..elements import Element
 from ._radial_dist import boltzmann_radial_potential_linear_density_ebeam
 from ..physconst import MINIMAL_DENSITY, MINIMAL_KBT
 
+class Rate(IntEnum):
+    """
+    Enum for conveniently identifying rates produced in advanced simulations
+    """
+    ELECTRON_IONISATION = 101
+    EI = 101
 
-_RATE_NAMES = dict(
-    R_ei="Electron ionisation",
-    R_rr="Radiative recombination",
-    R_dr="Dielectronic recombination",
-    R_cx="Charge exchange",
-    R_ax="Axial losses",
-    R_ra="Radial losses",
-    Q_ei="Electron ionisation",
-    Q_rr="Radiative recombination",
-    Q_dr="Dielectronic recombination",
-    Q_cx="Charge exchange",
-    Q_ax="Axial losses",
-    Q_ra="Radial losses",
-    Q_eh="Electron heating",
-    Q_tr="Heat transfer",
-    Q_ih="Ionisation heating",
-    V_ii="Self collision rate",
-    V_it="Total collision rate",
-    f_ei="Overlap factors",
-    Comp="Charge compensation"
-) #: Rates names for plot annotation
+    RADIATIVE_RECOMBINATION = 102
+    RR = 102
+
+    DIELECTRONIC_RECOMBINATION = 103
+    DR = 103
+
+    CHARGE_EXCHANGE = 104
+    CX = 104
+
+    LOSSES_AXIAL_COLLISIONAL = 105
+    AX_CO = 105
+
+    LOSSES_AXIAL_ROUNDTRIP = 106
+    AX_RT = 106
+
+    LOSSES_RADIAL_COLLISIONAL = 107
+    RA_CO = 107
+
+    LOSSES_RADIAL_ROUNDTRIP = 108
+    RA_RT = 108
+
+    # T_ELECTRON_IONISATION = 201
+    # T_EI = 201
+
+    # T_RADIATIVE_RECOMBINATION = 202
+    # T_RR = 202
+
+    # T_DIELECTRONIC_RECOMBINATION = 203
+    # T_DR = 203
+
+    # T_CHARGE_EXCHANGE = 204
+    # T_CX = 204
+
+    T_LOSSES_AXIAL_COLLISIONAL = 205
+    T_AX_CO = 205
+
+    T_LOSSES_AXIAL_ROUNDTRIP = 206
+    T_AX_RT = 206
+
+    T_LOSSES_RADIAL_COLLISIONAL = 207
+    T_RA_CO = 207
+
+    T_LOSSES_RADIAL_ROUNDTRIP = 208
+    T_RA_RT = 208
+
+    T_COLLISIONAL_THERMALISATION = 301
+    COLLISIONAL_THERMALISATION = 301
+    T_CT = 301
+
+    T_SPITZER_HEATING = 302
+    SPITZER_HEATING = 302
+    T_SH = 302
+
+    COLLISION_RATE_TOTAL = 401
+
+    COLLISION_RATE_SELF = 402
+
+    OVERLAP_FACTORS_EBEAM = 501
+    F_EI = 501
+
+    # CHARGE_COMPENSATION = 511
+
+    TRAPPING_PARAMETER_AXIAL = 521
+    W_AX = 521
+
+    TRAPPING_PARAMETER_RADIAL = 522
+    W_RA = 522
+
+_PER_M_PER_S = r"(m$^{-1}$ s$^{-1}$)"
+_EV_PER_S = r"(eV s$^{-1}$)"
+_PER_S = r"(s$^{-1}$)"
+_RATE_LABELS = {
+    Rate.EI:dict(
+        title="EI",
+        ylabel="Ionisation rate " + _PER_M_PER_S,
+    ),
+    Rate.RR:dict(
+        title="RR",
+        ylabel="Recombination rate " + _PER_M_PER_S,
+    ),
+    Rate.DR:dict(
+        title="DR",
+        ylabel="Recombination rate " + _PER_M_PER_S,
+    ),
+    Rate.CX:dict(
+        title="CX",
+        ylabel="Recombination rate " + _PER_M_PER_S,
+    ),
+    Rate.AX_CO:dict(
+        title="Ax. coll. losses",
+        ylabel="Loss rate " + _PER_M_PER_S,
+    ),
+    Rate.AX_RT:dict(
+        title="Ax. roundtrip losses",
+        ylabel="Loss rate " + _PER_M_PER_S,
+    ),
+    Rate.RA_CO:dict(
+        title="Rad. coll. losses",
+        ylabel="Loss rate " + _PER_M_PER_S,
+    ),
+    Rate.RA_RT:dict(
+        title="Rad. roundtrip losses",
+        ylabel="Loss rate " + _PER_M_PER_S,
+    ),
+    # Rate.T_EI:dict(
+    #     title="Electron ionisation"
+    #     ylabel="",
+    # ),
+    # Rate.T_RR:dict(
+    #     title="Radiative recombination"
+    #     ylabel="",
+    # ),
+    # Rate.T_DR:dict(
+    #     title="Dielectronic recombination"
+    #     ylabel="",
+    # ),
+    # Rate.T_CX:dict(
+    #     title="Charge exchange"
+    #     ylabel="",
+    # ),
+    Rate.T_AX_CO:dict(
+        title="Ax. coll. losses",
+        ylabel="Cooling rate " + _EV_PER_S,
+    ),
+    Rate.T_AX_RT:dict(
+        title="Ax. roundtrip losses",
+        ylabel="Cooling rate " + _EV_PER_S,
+    ),
+    Rate.T_RA_CO:dict(
+        title="Rad. coll. losses",
+        ylabel="Cooling rate " + _EV_PER_S,
+    ),
+    Rate.T_RA_RT:dict(
+        title="Rad. roundtrip losses",
+        ylabel="Cooling rate " + _EV_PER_S,
+    ),
+    Rate.COLLISIONAL_THERMALISATION:dict(
+        title="Coll. thermalisation",
+        ylabel="Thermalisation rate " + _EV_PER_S,
+    ),
+    Rate.SPITZER_HEATING:dict(
+        title="Spitzer heating",
+        ylabel="Heating rate " + _EV_PER_S,
+    ),
+    Rate.COLLISION_RATE_TOTAL:dict(
+        title="Total collision rate",
+        ylabel=r"$r_i$ " + _PER_S,
+    ),
+    Rate.COLLISION_RATE_SELF:dict(
+        title="Self collision rate",
+        ylabel=r"$r_{ii}$ " + _PER_S,
+    ),
+    Rate.F_EI:dict(
+        title="Electron beam overlap",
+        ylabel=r"$f_{ei}$",
+        ylim=(0, 1),
+    ),
+    Rate.TRAPPING_PARAMETER_AXIAL:dict(
+        title="Ax. trapping parameter",
+        ylabel=r"$\omega_{ax}$",
+    ),
+    Rate.TRAPPING_PARAMETER_RADIAL:dict(
+        title="Rad. trapping parameter",
+        ylabel=r"$\omega_{rad}$",
+    ),
+}
+
 
 
 class Result:
@@ -398,10 +551,9 @@ class Result:
 
         Parameters
         ----------
-        rate_key : str
+        rate_key : ebisim.simulation.Rate
             The key identifying the rate to be plotted.
-            Valid keys are:
-            R_ei, R_rr, R_dr, R_cx, R_ax, R_ra, Q_ei, Q_rr, Q_dr, Q_cx, Q_ax, Q_ra, Q_eh, Q_tr.
+            See ebisim.simulation.Rate for valid values.
 
         Returns
         -------
@@ -423,17 +575,13 @@ class Result:
 
         rate = self.rates[rate_key]
 
+        labels = _RATE_LABELS.get(rate_key, {})
         kwargs.setdefault("xlim", (1e-4, self.t.max()))
-        kwargs.setdefault("title", self._param_title(_RATE_NAMES.get(rate_key, "unkown rate")))
-        kwargs.setdefault("yscale", "linear")
+        kwargs.setdefault("ylim", labels.get("ylim", None))
+        kwargs.setdefault("yscale", labels.get("yscale", "linear"))
+        kwargs.setdefault("title", self._param_title(labels.get("title", "unkown rate")))
+        kwargs.setdefault("ylabel", labels.get("ylabel", "Unknown"))
         kwargs.setdefault("plot_total", False)
-
-        if rate_key.startswith("R"):
-            kwargs.setdefault("ylabel", "Number density flow (m$^{-1}$ s$^{-1}$)")
-        if rate_key.startswith("Q"):
-            kwargs.setdefault("ylabel", "Energy density flow (eV m$^{-1}$ s$^{-1}$)")
-        if rate_key == "f_ei":
-            kwargs.setdefault("ylabel", "Ion electron overlap factor")
 
         if len(rate.shape) == 1:
             rate = rate[np.newaxis, :]

@@ -3,7 +3,7 @@ This subpackage contains functions and classes provide an interface to run simul
 their results.
 """
 
-from ._result import Result
+from ._result import Result, Rate
 
 from ._basic import basic_simulation
 

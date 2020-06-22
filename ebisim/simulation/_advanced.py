@@ -13,7 +13,7 @@ from .. import plasma
 from ..elements import Element
 from ..physconst import Q_E, M_P, PI, EPS_0, K_B
 from ..physconst import MINIMAL_DENSITY, MINIMAL_KBT
-from ._result import Result
+from ._result import Result, Rate
 from ._radial_dist import fd_system_nonuniform_grid, boltzmann_radial_potential_linear_density_ebeam
 
 
@@ -329,27 +329,28 @@ _T_BG_GAS_LIST = numba.types.ListType(_T_BG_GAS)
 _T_F8_ARRAY = numba.float64[:] #Cannot be called in jitted code so need to predefine
 _T_I4_ARRAY = numba.int32[:]
 
-def compile_adv_model():
-    global AdvancedModel
-    print("Arming compilation of AdvancedModel class.")
-    print("The next calls to this class and its methods may take a while.")
-    print("The compiled instance lives as long as the python interpreter.")
-    AdvancedModel = numba.experimental.jitclass(_ADVMDLSPEC)(AdvancedModel)
-    # d = numba.typed.Dict()
-    # ones = np.ones(6, dtype=np.float64)
-    # d["A"] = ones
-    # print("Compiling Constructor with BGGas")
-    # a = AdvancedModel(Device.get(1, 8000, 1e-4, 0.8, 500, 2, 0.005),
-    #                   numba.typed.List([Target.get_ions("He", 0., 0., 1)]),
-    #                   numba.typed.List([BackgroundGas.get("He", 1e-8)]))
-    # print("Compiling Constructor without BGGas")
-    # a = AdvancedModel(Device.get(1, 8000, 1e-4, 0.8, 500, 2, 0.005),
-    #                   numba.typed.List([Target.get_ions("He", 0., 0., 1)]))
-    # print("Compiling RHS without rates.")
-    # a.rhs(0, ones)
-    # print("Compiling RHS with rates.")
-    # a.rhs(0, ones, d)
-    # print("Done.")
+# Compilation can currently not work because typedDicts don't work with enums
+# def compile_adv_model():
+#     global AdvancedModel
+#     print("Arming compilation of AdvancedModel class.")
+#     print("The next calls to this class and its methods may take a while.")
+#     print("The compiled instance lives as long as the python interpreter.")
+#     AdvancedModel = numba.experimental.jitclass(_ADVMDLSPEC)(AdvancedModel)
+#     # d = numba.typed.Dict()
+#     # ones = np.ones(6, dtype=np.float64)
+#     # d["A"] = ones
+#     # print("Compiling Constructor with BGGas")
+#     # a = AdvancedModel(Device.get(1, 8000, 1e-4, 0.8, 500, 2, 0.005),
+#     #                   numba.typed.List([Target.get_ions("He", 0., 0., 1)]),
+#     #                   numba.typed.List([BackgroundGas.get("He", 1e-8)]))
+#     # print("Compiling Constructor without BGGas")
+#     # a = AdvancedModel(Device.get(1, 8000, 1e-4, 0.8, 500, 2, 0.005),
+#     #                   numba.typed.List([Target.get_ions("He", 0., 0., 1)]))
+#     # print("Compiling RHS without rates.")
+#     # a.rhs(0, ones)
+#     # print("Compiling RHS with rates.")
+#     # a.rhs(0, ones, d)
+#     # print("Done.")
 
 _ADVMDLSPEC = OrderedDict(
     device=_T_DEVICE,
@@ -673,45 +674,45 @@ class AdvancedModel:
 
         if rates is not None:
             if self.options.EI:
-                rates["R_ei"] = R_ei
-                rates["Q_ei"] = R_ei * kT/n
+                rates[Rate.EI] = R_ei
+                # rates[Rate.T_EI] = R_ei * kT/n
             if self.options.RR:
-                rates["R_rr"] = R_rr
-                rates["Q_rr"] = R_rr * kT/n
+                rates[Rate.RR] = R_rr
+                # rates[Rate.T_RR] = R_rr * kT/n
             if self.options.CX:
-                rates["R_cx"] = R_cx
-                rates["Q_cx"] = R_cx * kT/n
+                rates[Rate.CX] = R_cx
+                # rates[Rate.T_CX] = R_cx * kT/n
             if self.options.DR:
-                rates["R_dr"] = R_dr
-                rates["Q_dr"] = R_dr * kT/n
+                rates[Rate.DR] = R_dr
+                # rates[Rate.T_DR] = R_dr * kT/n
             if self.options.ESCAPE_AXIAL:
-                rates["w_ax"]    = w_ax
-                rates["R_ax_co"] = R_ax_co
-                rates["Q_ax_co"] = R_ax_co * (kT + w_ax * kT)/n
-                rates["R_ax_rt"] = R_ax_rt
-                rates["Q_ax_rt"] = R_ax_rt * (tfact_ax - 1) * kT/n
-                rates["free_ax"] = free_ax
+                rates[Rate.W_AX]    = w_ax
+                rates[Rate.AX_CO] = R_ax_co
+                rates[Rate.T_AX_CO] = R_ax_co * (kT + w_ax * kT)/n
+                rates[Rate.AX_RT] = R_ax_rt
+                rates[Rate.T_AX_RT] = R_ax_rt * (tfact_ax - 1) * kT/n
+                # rates["free_ax"] = free_ax
             if self.options.ESCAPE_RADIAL:
-                rates["w_ra"]    = w_ra
-                rates["R_ra_co"] = R_ra_co
-                rates["Q_ra_co"] = R_ra_co * (kT + w_ra * kT)/n
-                rates["R_ra_rt"] = R_ra_rt
-                rates["Q_ra_rt"] = R_ra_rt * (tfact_ra - 1) * kT/n
-                rates["free_ra"] = free_ra
+                rates[Rate.W_RA]    = w_ra
+                rates[Rate.RA_CO] = R_ra_co
+                rates[Rate.T_RA_CO] = R_ra_co * (kT + w_ra * kT)/n
+                rates[Rate.RA_RT] = R_ra_rt
+                rates[Rate.T_RA_RT] = R_ra_rt * (tfact_ra - 1) * kT/n
+                # rates["free_ra"] = free_ra
             if self.options.COLLISIONAL_THERMALISATION:
-                rates["Q_tr"] = _dkT_ct
+                rates[Rate.T_COLLISIONAL_THERMALISATION] = _dkT_ct
             if self.options.SPITZER_HEATING:
-                rates["Q_eh"] = _dkT_eh
+                rates[Rate.T_SPITZER_HEATING] = _dkT_eh
             if self.options.RADIAL_DYNAMICS:
-                rates["f_ei"] = fei
+                rates[Rate.F_EI] = fei
                 # rates["e_kin"] = np.atleast_1d(e_kin)
                 # rates["v_ra"] = v_ra
                 # rates["v_ax"] = v_ax
-            rates["V_ii"] = np.diag(rij)
-            rates["V_it"] = ri
-            rates["iheat"] = R_ei[:-1] / n[1:] * iheat[:-1]
-            rates["n3d"] = n3d
-            # rates["Comp"] = comp
+            rates[Rate.COLLISION_RATE_SELF] = np.diag(rij)
+            rates[Rate.COLLISION_RATE_TOTAL] = ri
+            # rates["iheat"] = R_ei[:-1] / n[1:] * iheat[:-1]
+            # rates["n3d"] = n3d
+            # rates[Rate.CHARGE_COMPENSATION] = comp
 
         dkT[n < 10*MINIMAL_DENSITY] = 0
         # dn[n<10*MINIMAL_DENSITY] = np.maximum(dn[n<10*MINIMAL_DENSITY], 0)
@@ -811,10 +812,11 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
         # Recompute rates for final solution (this cannot be done parasitically due to
         # the solver approximating the jacobian and calling rhs with bogus values).
         nt = res.t.size
-        extractor = numba.typed.Dict.empty(
-            key_type=numba.types.unicode_type,
-            value_type=numba.types.float64[:]
-        )
+        # extractor = numba.typed.Dict.empty(
+        #     key_type=numba.types.EnumMember(Rate, numba.typeof(Rate.EI)),
+        #     value_type=numba.types.float64[:]
+        # )
+        extractor = {}
         #Poll once to get the available rates
         _ = model.rhs(res.t[0], res.y[:, 0], extractor)
         rates = {}

@@ -75,6 +75,7 @@ from .simulation import (
     AdvancedModel,
     energy_scan,
     EnergyScanResult,
+    Rate
 )
 
 from .physconst import (
