@@ -266,7 +266,7 @@ class Result:
 
         """
         if self.res and self.res.sol:
-            return self.res.sol(t)
+            return self.res.sol(t)[self.model.lb[self.id]:self.model.ub[self.id]]
         interp = scipy.interpolate.interp1d(self.t, self.N)
         return interp(t)
 
@@ -289,7 +289,9 @@ class Result:
 
         """
         if self.res and self.res.sol:
-            return self.res.sol(t)
+            return self.res.sol(t)[
+                self.model.lb[self.id]+self.res.y.shape[0]//2:
+                self.model.ub[self.id]+self.res.y.shape[0]//2]
         interp = scipy.interpolate.interp1d(self.t, self.kbT)
         return interp(t)
 
