@@ -529,6 +529,9 @@ def _labelLine(line, x, label=None, align=True, **kwargs):
     y = ydata[ip-1] + (ydata[ip]-ydata[ip-1]) * \
         (x-xdata[ip-1])/(xdata[ip]-xdata[ip-1])
 
+    if any(np.isnan([x, y])) or any(np.isinf([x,y])):
+        return
+
     if not label:
         label = line.get_label()
 
