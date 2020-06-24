@@ -16,6 +16,13 @@ from ..physconst import MINIMAL_DENSITY, MINIMAL_KBT
 from ._result import Result, Rate
 from ._radial_dist import fd_system_nonuniform_grid, boltzmann_radial_potential_linear_density_ebeam
 
+#Hack for making Enums hashable by numba - hash will differ from CPython
+#This is to make Enums work as numba.typed.Dict keys
+@numba.extending.overload_method(numba.types.EnumMember, '__hash__')
+def enum_hash(val):
+    def impl(val):
+        return hash(val.value)
+    return impl
 
 class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
     """
@@ -328,29 +335,20 @@ _T_TARGET_LIST = numba.types.ListType(_T_TARGET)
 _T_BG_GAS_LIST = numba.types.ListType(_T_BG_GAS)
 _T_F8_ARRAY = numba.float64[:] #Cannot be called in jitted code so need to predefine
 _T_I4_ARRAY = numba.int32[:]
+_T_RATE_ENUM = numba.typeof(Rate.EI)
 
-# Compilation can currently not work because typedDicts don't work with enums
-# def compile_adv_model():
-#     global AdvancedModel
-#     print("Arming compilation of AdvancedModel class.")
-#     print("The next calls to this class and its methods may take a while.")
-#     print("The compiled instance lives as long as the python interpreter.")
-#     AdvancedModel = numba.experimental.jitclass(_ADVMDLSPEC)(AdvancedModel)
-#     # d = numba.typed.Dict()
-#     # ones = np.ones(6, dtype=np.float64)
-#     # d["A"] = ones
-#     # print("Compiling Constructor with BGGas")
-#     # a = AdvancedModel(Device.get(1, 8000, 1e-4, 0.8, 500, 2, 0.005),
-#     #                   numba.typed.List([Target.get_ions("He", 0., 0., 1)]),
-#     #                   numba.typed.List([BackgroundGas.get("He", 1e-8)]))
-#     # print("Compiling Constructor without BGGas")
-#     # a = AdvancedModel(Device.get(1, 8000, 1e-4, 0.8, 500, 2, 0.005),
-#     #                   numba.typed.List([Target.get_ions("He", 0., 0., 1)]))
-#     # print("Compiling RHS without rates.")
-#     # a.rhs(0, ones)
-#     # print("Compiling RHS with rates.")
-#     # a.rhs(0, ones, d)
-#     # print("Done.")
+
+
+def compile_adv_model():
+    global AdvancedModel
+    if not hasattr(AdvancedModel, "_ctor_sig"):
+        print("Arming compilation of AdvancedModel class.")
+        print("The next calls to this class and its methods may take a while.")
+        print("The compiled instance lives as long as the python interpreter.")
+        AdvancedModel = numba.experimental.jitclass(_ADVMDLSPEC)(AdvancedModel)
+    else:
+        print("Compilation already triggered.")
+
 
 _ADVMDLSPEC = OrderedDict(
     device=_T_DEVICE,
@@ -507,7 +505,6 @@ class AdvancedModel:
                 )
                 # Memorise this solution
                 self._rad_phi_latest = phi
-                self._t_latest = _t
             n3d = n3d.T[0] # Adjust shape
 
             # Compute overlap factors
@@ -705,15 +702,17 @@ class AdvancedModel:
                 rates[Rate.T_SPITZER_HEATING] = _dkT_eh
             if self.options.RADIAL_DYNAMICS:
                 rates[Rate.F_EI] = fei
-                # rates["e_kin"] = np.atleast_1d(e_kin)
-                # rates["v_ra"] = v_ra
-                # rates["v_ax"] = v_ax
+                rates[Rate.E_KIN_MEAN] = np.atleast_1d(np.array(e_kin))
+                rates[Rate.E_KIN_FWHM] = np.atleast_1d(np.array(e_kin_fwhm))
+                rates[Rate.V_RA] = np.atleast_1d(np.array(v_ra))
+                rates[Rate.V_AX] = np.atleast_1d(np.array(v_ax))
             rates[Rate.COLLISION_RATE_SELF] = np.diag(rij)
             rates[Rate.COLLISION_RATE_TOTAL] = ri
             # rates["iheat"] = R_ei[:-1] / n[1:] * iheat[:-1]
             # rates["n3d"] = n3d
             # rates[Rate.CHARGE_COMPENSATION] = comp
 
+        self._t_latest = _t
         dkT[n < 10*MINIMAL_DENSITY] = 0
         # dn[n<10*MINIMAL_DENSITY] = np.maximum(dn[n<10*MINIMAL_DENSITY], 0)
 
@@ -721,7 +720,7 @@ class AdvancedModel:
 
 
 def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rates=False,
-                        solver_kwargs=None, progress=True):
+                        solver_kwargs=None, verbose=True):
     """
     Interface for performing advanced charge breeding simulations.
 
@@ -748,8 +747,8 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
         If supplied these keyword arguments are unpacked in the solver call.
         Refer to the documentation of scipy.integrate.solve_ivp for more information.
         By default None.
-    progress : bool, optional
-        Print a little progress indicatior, by default True.
+    verbose : bool, optional
+        Print a little progress indicator and some status messages, by default True.
 
     Returns
     -------
@@ -789,63 +788,83 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
     # save adjusted call parameters for passing on to Result
     param = locals().copy()
 
-    if progress:
+    if verbose:
         k = 0
         print("")
-        def rhs(t, y):
+        def _rhs(t, y, rates=None):
             nonlocal k
             k += 1
             if k%100 == 0:
                 print("\r", f"Integration: {k} calls, t = {t:.4e} s", end="")
-            return model.rhs(t, y)
+            return model.rhs(t, y, rates)
     else:
-        rhs = model.rhs
+        _rhs = model.rhs
+
+    if rates:
+        _rates = dict()
+        def rhs(t, y):
+            # nonlocal _rates
+            if t not in _rates:
+                extractor = numba.typed.Dict.empty(
+                key_type=numba.typeof(Rate.EI),
+                    value_type=numba.types.float64[:]
+                )
+                dydt = _rhs(t, y, extractor)
+                _rates[t] = extractor
+                return dydt
+            else:
+                return _rhs(t, y, None)
+    else:
+        rhs = _rhs
+
 
     res = scipy.integrate.solve_ivp(
         rhs, (0, t_max), n_kT_initial, **solver_kwargs
-        # model.rhs, (0, t_max), n_kT_initial, **solver_kwargs
     )
-    if progress:
+    if verbose:
         print("\rIntegration finished:", k, "calls                    ")
+        print(res.message)
+        print(f"Calls: {k} of which ~{res.nfev} normal ({res.nfev/k:.2%}) and " \
+              f"~{res.y.shape[0]*res.njev} for jacobian approximation "\
+              f"({res.y.shape[0]*res.njev/k:.2%})")
 
     if rates:
         # Recompute rates for final solution (this cannot be done parasitically due to
         # the solver approximating the jacobian and calling rhs with bogus values).
         nt = res.t.size
-        # extractor = numba.typed.Dict.empty(
-        #     key_type=numba.types.EnumMember(Rate, numba.typeof(Rate.EI)),
-        #     value_type=numba.types.float64[:]
-        # )
-        extractor = {}
+
         #Poll once to get the available rates
-        _ = model.rhs(res.t[0], res.y[:, 0], extractor)
+        extractor = list(_rates.values())[0]
         rates = {}
         for k in extractor:
             if len(extractor[k].shape) == 1:
                 rates[k] = np.zeros((extractor[k].size, nt))
-            if len(extractor[k].shape) == 0:
-                rates[k] = np.zeros(nt)
 
-        # rates = {k:np.zeros((extractor[k].size, nt)) for k in extractor}
         # Poll all steps
         for idx in range(nt):
-            if progress:
+            if verbose and idx%100 == 0:
                 print("\r", f"Rates: {idx+1} / {nt}", end="")
-            _ = model.rhs(res.t[idx], res.y[:, idx], extractor)
+            if res.t[idx] in _rates: #Technically this data should already exist
+                extractor = _rates[res.t[idx]]
+            else: #In case it does not -> recompute
+                _ = model.rhs(res.t[idx], res.y[:, idx], extractor)
             for key, val in extractor.items():
                 if len(val.shape) == 1:
                     rates[key][:, idx] = val
-                if len(val.shape) == 0:
-                    rates[key][idx] = val
-        if progress:
-            print("\rRates finished:", nt, "/", nt, "                   ")
+
+        if verbose:
+            print("\rRates finished:", nt, "rates")
 
     out = []
     for i, trgt in enumerate(model.targets):
         if rates:
-            irates = {
-                key: rates[key][model.lb[i]:model.ub[i]] for key in rates.keys()
-            }
+            irates = {}
+            for key in rates.keys():
+                _ir = rates[key]
+                if _ir.shape[0] != 1:
+                    irates[key] = _ir[model.lb[i]:model.ub[i]] #Per CS
+                else:
+                    irates[key] = _ir #scalar
         else:
             irates = None
         out.append(
