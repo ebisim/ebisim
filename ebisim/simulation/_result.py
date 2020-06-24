@@ -297,7 +297,10 @@ class Result:
 
         """
         if self.res and self.res.sol:
-            return self.res.sol(t)[self.model.lb[self.id]:self.model.ub[self.id]]
+            if self.model:
+                return self.res.sol(t)[self.model.lb[self.id]:self.model.ub[self.id]]
+            else:
+                return self.res.sol(t)
         interp = scipy.interpolate.interp1d(self.t, self.N)
         return interp(t)
 
@@ -319,12 +322,15 @@ class Result:
             Temperature of each charge state, array index corresponds to charge state.
 
         """
-        if self.res and self.res.sol:
-            return self.res.sol(t)[
-                self.model.lb[self.id]+self.res.y.shape[0]//2:
-                self.model.ub[self.id]+self.res.y.shape[0]//2]
-        interp = scipy.interpolate.interp1d(self.t, self.kbT)
-        return interp(t)
+        if self.kbT:
+            if self.res and self.res.sol:
+                return self.res.sol(t)[
+                    self.model.lb[self.id]+self.res.y.shape[0]//2:
+                    self.model.ub[self.id]+self.res.y.shape[0]//2]
+            interp = scipy.interpolate.interp1d(self.t, self.kbT)
+            return interp(t)
+        else:
+            raise LookupError("This result does not contain temperature information.")
 
 
     def radial_distribution_at_time(self, t):
@@ -477,23 +483,26 @@ class Result:
         matplotlib.Figure
             Figure handle of the generated plot.
         """
-        phi, n3d, shapes = self.radial_distribution_at_time(t)
-        dens = (n3d * shapes)[self.model.lb[self.id]:self.model.ub[self.id]]
-        denslim = 10**np.ceil(np.log10(dens.max()))
+        if self.kbT:
+            phi, n3d, shapes = self.radial_distribution_at_time(t)
+            dens = (n3d * shapes)[self.model.lb[self.id]:self.model.ub[self.id]]
+            denslim = 10**np.ceil(np.log10(dens.max()))
 
-        title = self._param_title(f"Radial distribution at t = {1000*t:.1f} ms")
+            title = self._param_title(f"Radial distribution at t = {1000*t:.1f} ms")
 
-        kwargs.setdefault("xscale", "log")
-        kwargs.setdefault("yscale", "log")
-        kwargs.setdefault("title", title)
-        kwargs.setdefault("xlim", (self.device.r_e/100, self.device.r_dt))
-        kwargs.setdefault("ylim", (denslim/10**10, denslim))
+            kwargs.setdefault("xscale", "log")
+            kwargs.setdefault("yscale", "log")
+            kwargs.setdefault("title", title)
+            kwargs.setdefault("xlim", (self.device.r_e/100, self.device.r_dt))
+            kwargs.setdefault("ylim", (denslim/10**10, denslim))
 
-        fig = plotting.plot_radial_distribution(
-            self.device.rad_grid, dens, phi, self.device.r_e, **kwargs
-        )
+            fig = plotting.plot_radial_distribution(
+                self.device.rad_grid, dens, phi, self.device.r_e, **kwargs
+            )
 
-        return fig
+            return fig
+        else:
+            raise LookupError("This result does not contain temperature information.")
 
 
     def plot_energy_density(self, **kwargs):
