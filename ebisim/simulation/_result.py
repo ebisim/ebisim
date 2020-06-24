@@ -87,6 +87,17 @@ class Rate(IntEnum):
     TRAPPING_PARAMETER_RADIAL = 522
     W_RA = 522
 
+    TRAP_DEPTH_AXIAL = 523
+    V_AX = 523
+
+    TRAP_DEPTH_RADIAL = 524
+    V_RA = 524
+
+    E_KIN_MEAN = 531
+
+    E_KIN_FWHM = 532
+
+
 _PER_M_PER_S = r"(m$^{-1}$ s$^{-1}$)"
 _EV_PER_S = r"(eV s$^{-1}$)"
 _PER_S = r"(s$^{-1}$)"
@@ -183,6 +194,26 @@ _RATE_LABELS = {
     Rate.TRAPPING_PARAMETER_RADIAL:dict(
         title="Rad. trapping parameter",
         ylabel=r"$\omega_{rad}$",
+    ),
+    Rate.TRAP_DEPTH_AXIAL:dict(
+        title="Ax. trapping potential",
+        ylabel=r"$V_{ax} (V)$",
+    ),
+    Rate.TRAP_DEPTH_RADIAL:dict(
+        title="Rad. trapping potential",
+        ylabel=r"$V_{rad} (V)$",
+    ),
+    Rate.E_KIN_MEAN:dict(
+        title="Beam energy mean",
+        ylabel=r"$E_e$ (eV)",
+    ),
+    Rate.E_KIN_FWHM:dict(
+        title="Beam energy FWHM",
+        ylabel=r"FWHM($E_e$) (eV)",
+    ),
+    Rate.E_KIN_FWHM:dict(
+        title="Beam energy FWHM",
+        ylabel=r"FWHM($E_e$) (eV)",
     ),
 }
 
@@ -333,6 +364,10 @@ class Result:
         )
         return phi, n3d, shapes
 
+    def _density_filter(self, data, threshold):
+        filtered = data.copy()
+        filtered[self.N < threshold] = np.nan
+        return filtered
 
     def _param_title(self, stub):
         """
@@ -530,8 +565,8 @@ class Result:
         if self.t is None or self.kbT is None:
             raise ValueError("The t or kbT field does not contain any plottable data.")
 
-        filtered_kbT = self.kbT.copy()
-        filtered_kbT[self.N < dens_threshold] = np.nan
+        filtered_kbT = self._density_filter(self.kbT, dens_threshold)
+
         kwargs.setdefault("xlim", (1e-4, self.t.max()))
         kwargs.setdefault(
             "ylim",
@@ -547,7 +582,7 @@ class Result:
         return fig
 
 
-    def plot_rate(self, rate_key, **kwargs):
+    def plot_rate(self, rate_key, dens_threshold=1000*MINIMAL_DENSITY, **kwargs):
         """
         Plots the requested ionisation- or energy flow rates.
 
@@ -556,6 +591,13 @@ class Result:
         rate_key : ebisim.simulation.Rate
             The key identifying the rate to be plotted.
             See ebisim.simulation.Rate for valid values.
+        dens_threshold : float, optional
+            If given temperatures are only plotted where the particle denisty is larger than
+            the threshold value.
+        **kwargs
+            Keyword arguments are handed down to ebisim.plotting.plot_generic_evolution,
+            cf. documentation thereof.
+            If no arguments are provided, reasonable default values are injected.
 
         Returns
         -------
@@ -576,8 +618,10 @@ class Result:
             )
 
         rate = self.rates[rate_key]
-
+        if rate.shape[0] != 1: #Don't filter if scalar (i.e. not for indiv charge states)
+            rate = self._density_filter(rate, dens_threshold)
         labels = _RATE_LABELS.get(rate_key, {})
+
         kwargs.setdefault("xlim", (1e-4, self.t.max()))
         kwargs.setdefault("ylim", labels.get("ylim", None))
         kwargs.setdefault("yscale", labels.get("yscale", "linear"))
