@@ -338,7 +338,8 @@ _T_I4_ARRAY = numba.int32[:]
 _T_RATE_ENUM = numba.typeof(Rate.EI)
 
 
-
+#TODO: This trick does not reexport the updated Model, so ebisim.AdvancedModel
+# and ebisim.simulation.AdvancedModel remain unjitted - this could cause trouble in weird scenarios
 def compile_adv_model():
     global AdvancedModel
     if not hasattr(AdvancedModel, "_ctor_sig"):
@@ -706,7 +707,7 @@ class AdvancedModel:
                 rates[Rate.E_KIN_FWHM] = np.atleast_1d(np.array(e_kin_fwhm))
                 rates[Rate.V_RA] = np.atleast_1d(np.array(v_ra))
                 rates[Rate.V_AX] = np.atleast_1d(np.array(v_ax))
-            rates[Rate.COLLISION_RATE_SELF] = np.diag(rij)
+            rates[Rate.COLLISION_RATE_SELF] = np.diag(rij).copy()
             rates[Rate.COLLISION_RATE_TOTAL] = ri
             # rates["iheat"] = R_ei[:-1] / n[1:] * iheat[:-1]
             # rates["n3d"] = n3d
