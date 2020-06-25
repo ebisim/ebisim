@@ -300,7 +300,7 @@ class Result:
 
         """
         if self.res and self.res.sol:
-            if self.model:
+            if self.model is not None:
                 return self.res.sol(t)[self.model.lb[self.id]:self.model.ub[self.id]]
             else:
                 return self.res.sol(t)
@@ -325,7 +325,7 @@ class Result:
             Temperature of each charge state, array index corresponds to charge state.
 
         """
-        if self.kbT:
+        if self.kbT is not None:
             if self.res and self.res.sol:
                 return self.res.sol(t)[
                     self.model.lb[self.id]+self.res.y.shape[0]//2:
@@ -486,7 +486,7 @@ class Result:
         matplotlib.Figure
             Figure handle of the generated plot.
         """
-        if self.kbT:
+        if self.kbT is not None:
             phi, n3d, shapes = self.radial_distribution_at_time(t)
             dens = (n3d * shapes)[self.model.lb[self.id]:self.model.ub[self.id]]
             denslim = 10**np.ceil(np.log10(dens.max()))
