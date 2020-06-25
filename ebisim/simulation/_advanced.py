@@ -1,7 +1,8 @@
 """
 This module contains the advanced simulation method and related resources.
 """
-
+import logging
+logger = logging.getLogger(__name__)
 from collections import namedtuple, OrderedDict
 import numpy as np
 import scipy.integrate
@@ -18,12 +19,14 @@ from ._radial_dist import fd_system_nonuniform_grid, boltzmann_radial_potential_
 
 #Hack for making Enums hashable by numba - hash will differ from CPython
 #This is to make Enums work as numba.typed.Dict keys
+logger.debug("Patching numba.types.EnumMember __hash__.")
 @numba.extending.overload_method(numba.types.EnumMember, '__hash__')
 def enum_hash(val):
     def impl(val):
         return hash(val.value)
     return impl
 
+logger.debug("Defining Target.")
 class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
     """
     Use the static `get_ions()` or `get_gas()` factory methods to create instances of this class.
@@ -114,7 +117,11 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
         _kT = kT_per_q * np.arange(element.z+1, dtype=np.float64)
         return cls(*element, n=_n, kT=_kT, cni=False, cx=cx)
 
+    def __repr__(self):
+        return f"Target({Element.as_element(self)})"
+
 #Patching in docstrings
+logger.debug("Patching Target docstrings.")
 for f in Element._fields:
     setattr(getattr(Target, f), "__doc__", getattr(getattr(Element, f), "__doc__"))
 Target.n.__doc__ = """<1/m> Array holding the initial linear density of each charge state."""
@@ -125,6 +132,7 @@ Target.cx.__doc__ = """Boolean flag determining whether neutral particles of thi
 considered as charge exchange partners."""
 
 
+logger.debug("Defining BackgroundGas.")
 class BackgroundGas(namedtuple("BackgroundGas", "name, ip, n0")):
     """
     Use the static `get()` factory methods to create instances of this class.
@@ -168,10 +176,12 @@ class BackgroundGas(namedtuple("BackgroundGas", "name, ip, n0")):
         )
 
 #Patching in docstrings
+logger.debug("Patching BackgroundGas docstrings.")
 BackgroundGas.name.__doc__ = """str Name of the element."""
 BackgroundGas.ip.__doc__ = """float <eV> Ionisation potential of this Gas."""
 BackgroundGas.n0.__doc__ = """float <1/m^3> Gas number density."""
 
+logger.debug("Defining Device.")
 _DEVICE = OrderedDict(
     current="<A> Beam current.",
     e_kin="<eV> Uncorrected beam energy.",
@@ -250,16 +260,21 @@ class Device(namedtuple("Device", _DEVICE.keys())):
         ebisim.simulation.Device
             The populated device object.
         """
+        logger.debug(f"Device.get({current}, {e_kin}, {r_e}, {length}, "\
+                     f"{v_ax}, {b_ax}, {r_dt}, {v_ra}, {j}, {fwhm}, {n_grid})")
         rad_grid = np.geomspace(r_e/100, r_dt, num=n_grid)
         rad_grid[0] = 0
+        logger.debug(f"Device.get: Call fd_system_nonuniform_grid.")
         rad_ldu = fd_system_nonuniform_grid(rad_grid)
         rad_re_idx = np.argmin((rad_grid-r_e)**2)
 
+        logger.debug(f"Device.get: Trap - Call boltzmann_radial_potential_linear_density_ebeam.")
         phi, _, __ = boltzmann_radial_potential_linear_density_ebeam(
             rad_grid, current, r_e, e_kin, 0, 1, 1, ldu=rad_ldu
         )
         rad_phi_uncomp = phi
 
+        logger.debug(f"Device.get: Barrier - Call boltzmann_radial_potential_linear_density_ebeam.")
         phi_barrier, _, __ = boltzmann_radial_potential_linear_density_ebeam(
             rad_grid, current, r_e, e_kin+v_ax, 0, 1, 1, ldu=rad_ldu
         )
@@ -272,6 +287,7 @@ class Device(namedtuple("Device", _DEVICE.keys())):
         if v_ra is None:
             v_ra = -phi[0]
 
+        logger.debug(f"Device.get: Create and return Device instance.")
         return cls(
             current=float(current),
             e_kin=float(e_kin),
@@ -292,10 +308,18 @@ class Device(namedtuple("Device", _DEVICE.keys())):
             rad_phi_ax_barr=phi_barrier + v_ax,
             rad_re_idx=rad_re_idx
         )
+
+    def __repr__(self):
+        return f"Device.get({self.current}, {self.e_kin}, {self.r_e}, {self.length}, "\
+                f"{self.v_ax}, {self.b_ax}, {self.r_dt}, {self.v_ra}, {self.j}, {self.fwhm}, "\
+                f"{len(self.rad_grid)})"
+
+logger.debug("Patching Device docstrings.")
 for k, v in _DEVICE.items():
     setattr(getattr(Device, k), "__doc__", v)
 
 
+logger.debug("Defining ModelOptions.")
 _MODEL_OPTIONS_DEFAULTS = OrderedDict(
     EI=True, RR=True, CX=True, DR=False,
     SPITZER_HEATING=True, COLLISIONAL_THERMALISATION=True,
@@ -307,6 +331,7 @@ ModelOptions = namedtuple(
 )
 DEFAULT_MODEL_OPTIONS = ModelOptions()
 #Patching in docstrings
+logger.debug("Patching ModelOptions docstrings.")
 ModelOptions.__doc__ = """An instance of ModelOptions can be used to turn on or off certain effects
 in an advanced simulation."""
 ModelOptions.EI.__doc__ = "Switch for electron impact ionisation, default True."
@@ -327,22 +352,34 @@ ModelOptions.IONISATION_HEATING.__doc__ = """Switch for ionisation heating/recom
 
 
 # Typedefs for AdvancedModel
+logger.debug("Defining numba types for AdvancedModel typing.")
+logger.debug("Defining numba types: _T_DEVICE.")
 _T_DEVICE = numba.typeof(Device.get(1, 8000, 1e-4, 0.8, 500, 2, 0.005))
+logger.debug("Defining numba types: _T_TARGET.")
 _T_TARGET = numba.typeof(Target.get_ions("He", 0., 0., 1))
+logger.debug("Defining numba types: _T_BG_GAS.")
 _T_BG_GAS = numba.typeof(BackgroundGas.get("He", 1e-8))
+logger.debug("Defining numba types: _T_MODEL_OPTIONS.")
 _T_MODEL_OPTIONS = numba.typeof(DEFAULT_MODEL_OPTIONS)
+logger.debug("Defining numba types: _T_TARGET_LIST.")
 _T_TARGET_LIST = numba.types.ListType(_T_TARGET)
+logger.debug("Defining numba types: _T_BG_GAS_LIST.")
 _T_BG_GAS_LIST = numba.types.ListType(_T_BG_GAS)
+logger.debug("Defining numba types: _T_F8_ARRAY.")
 _T_F8_ARRAY = numba.float64[:] #Cannot be called in jitted code so need to predefine
+logger.debug("Defining numba types: _T_I4_ARRAY.")
 _T_I4_ARRAY = numba.int32[:]
+logger.debug("Defining numba types: _T_RATE_ENUM.")
 _T_RATE_ENUM = numba.typeof(Rate.EI)
 
 
 #TODO: This trick does not reexport the updated Model, so ebisim.AdvancedModel
 # and ebisim.simulation.AdvancedModel remain unjitted - this could cause trouble in weird scenarios
+logger.debug("Defining compile_adv_model.")
 def compile_adv_model():
     global AdvancedModel
     if not hasattr(AdvancedModel, "_ctor_sig"):
+        logger.debug("Arming compilation of AdvancedModel class.")
         print("Arming compilation of AdvancedModel class.")
         print("The next calls to this class and its methods may take a while.")
         print("The compiled instance lives as long as the python interpreter.")
@@ -351,6 +388,7 @@ def compile_adv_model():
         print("Compilation already triggered.")
 
 
+logger.debug("Defining AdvancedModel.")
 _ADVMDLSPEC = OrderedDict(
     device=_T_DEVICE,
     targets=_T_TARGET_LIST,
@@ -720,6 +758,7 @@ class AdvancedModel:
         return np.concatenate((dn, dkT))
 
 
+logger.debug("Defining advanced_simulation.")
 def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rates=False,
                         solver_kwargs=None, verbose=True):
     """
@@ -757,6 +796,15 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
         An instance of the Result class, holding the simulation parameters, timesteps and
         charge state distribution including the species temperature.
     """
+    logger.info("Preparing advanced simulation.")
+    logger.info(f"device = {device}.")
+    logger.info(f"targets = {targets}.")
+    logger.info(f"t_max = {t_max}.")
+    logger.info(f"bg_gases = {bg_gases}.")
+    logger.info(f"options = {options}.")
+    logger.info(f"rates = {rates}.")
+    logger.info(f"solver_kwargs = {solver_kwargs}.")
+    logger.info(f"verbose = {verbose}.")
     if options is None:
         options = DEFAULT_MODEL_OPTIONS
     if isinstance(targets, Target):
@@ -776,6 +824,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
     assert numba.typeof(targets) == _T_TARGET_LIST, "Numba type mismatch for Target list"
     assert numba.typeof(bg_gases) == _T_BG_GAS_LIST, "Numba type mismatch for BgGas list"
 
+    logger.debug("Initialising AdvancedModel object.")
     model = AdvancedModel(device, targets, bg_gases, options)
 
     _n0 = np.concatenate([t.n for t in targets])
@@ -790,6 +839,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
     param = locals().copy()
 
     if verbose:
+        logger.debug("Wrapping rhs in progress meter.")
         k = 0
         print("")
         def _rhs(t, y, rates=None):
@@ -802,6 +852,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
         _rhs = model.rhs
 
     if rates:
+        logger.debug("Wrapping rhs in rate extractor.")
         _rates = dict()
         def rhs(t, y):
             # nonlocal _rates
@@ -818,7 +869,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
     else:
         rhs = _rhs
 
-
+    logger.debug("Starting integration.")
     res = scipy.integrate.solve_ivp(
         rhs, (0, t_max), n_kT_initial, **solver_kwargs
     )
@@ -830,6 +881,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
               f"({res.y.shape[0]*res.njev/k:.2%})")
 
     if rates:
+        logger.debug("Assembling rate arrays.")
         # Recompute rates for final solution (this cannot be done parasitically due to
         # the solver approximating the jacobian and calling rhs with bogus values).
         nt = res.t.size
@@ -858,6 +910,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
 
     out = []
     for i, trgt in enumerate(model.targets):
+        logger.debug(f"Assembling result of target #{i}.")
         if rates:
             irates = {}
             for key in rates.keys():

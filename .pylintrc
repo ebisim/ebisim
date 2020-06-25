@@ -1,4 +1,5 @@
 [MESSAGES CONTROL]
 disable=
     C0103, # suppress invalid variable name
-    C0302 # suppress module too long 
+    C0302, # suppress module too long
+    logging-fstring-interpolation,

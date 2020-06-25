@@ -5,11 +5,14 @@ physical data going into the ebisim computations.
 Besides that, there are some small helper functions to translate certain element properties,
 which may offer convenience to the user.
 """
+import logging
+logger = logging.getLogger(__name__)
 
 from collections import namedtuple
 
 from . import utils
 from . import xs
+logger.debug("Loading element data and shell configurations.")
 from .resources import (
     ELEMENT_Z    as _ELEM_Z,
     ELEMENT_ES   as _ELEM_ES,
@@ -21,12 +24,13 @@ from .resources import (
     SHELL_CFG    as _SHELL_CFG,
     SHELL_EBIND  as _SHELL_EBIND
 )
-
+logger.debug("Loading DR data.")
 _DR_DATA = utils.load_dr_data()
 
 
 ##### Helper functions for translating chemical symbols
 
+logger.debug("Defining element_z.")
 def element_z(element):
     """
     Returns the proton number of the given element.
@@ -48,6 +52,7 @@ def element_z(element):
     return _ELEM_Z[idx]
 
 
+logger.debug("Defining element_symbol.")
 def element_symbol(element):
     """
     Returns the abbreviated symbol of the given element.
@@ -69,6 +74,7 @@ def element_symbol(element):
     return _ELEM_ES[idx]
 
 
+logger.debug("Defining element_name.")
 def element_name(element):
     """
     Returns the name of the given element.
@@ -90,6 +96,7 @@ def element_name(element):
     return _ELEM_NAME[idx]
 
 
+logger.debug("Defining _ElementSpec.")
 _ElementSpec = namedtuple(
     "Element", [
         "z",
@@ -111,6 +118,7 @@ _ElementSpec = namedtuple(
 )
 
 
+logger.debug("Defining Element.")
 class Element(_ElementSpec):
     """
     Use the static `get()` factory method to create instances of this class.
@@ -266,6 +274,7 @@ class Element(_ElementSpec):
         )
 
 
+logger.debug("Patching Element docstrings.")
 # Monkeypatching docstrings for all the fields of Element
 Element.z.__doc__ = "Atomic number"
 Element.symbol.__doc__ = "Element symbol e.g. H, He, Li"
@@ -287,6 +296,7 @@ Element.ei_lotz_a.__doc__ = "Numpy array of precomputed Lotz factor 'a' for each
 Element.ei_lotz_b.__doc__ = "Numpy array of precomputed Lotz factor 'b' for each entry of 'e_cfg'."
 Element.ei_lotz_c.__doc__ = "Numpy array of precomputed Lotz factor 'c' for each entry of 'e_cfg'."
 
+logger.debug("Defining get_element")
 def get_element(element_id, a=None):
     """
     [LEGACY]

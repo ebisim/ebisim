@@ -1,7 +1,8 @@
 """
 This module contains the simulation result class.
 """
-
+import logging
+logger = logging.getLogger(__name__)
 from enum import IntEnum
 import numpy as np
 import scipy.integrate
@@ -12,6 +13,7 @@ from ..elements import Element
 from ._radial_dist import boltzmann_radial_potential_linear_density_ebeam
 from ..physconst import MINIMAL_DENSITY, MINIMAL_KBT
 
+logger.debug("Defining Rate(IntEnum).")
 class Rate(IntEnum):
     """
     Enum for conveniently identifying rates produced in advanced simulations
@@ -219,6 +221,7 @@ _RATE_LABELS = {
 
 
 
+logger.debug("Defining Result.")
 class Result:
     """
     Instances of this class are containers for the results of ebisim simulations and contain a

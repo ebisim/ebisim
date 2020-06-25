@@ -1,7 +1,8 @@
 """
 This module contains functions for computing collission rates and related plasma parameters.
 """
-
+import logging
+logger = logging.getLogger(__name__)
 from numba import njit, vectorize#, float64, int64
 import numpy as np
 
@@ -9,6 +10,7 @@ from .physconst import M_E, M_P, PI, EPS_0, Q_E, C_L, M_E_EV
 from .physconst import MINIMAL_DENSITY
 
 
+logger.debug("Defining _erfc_appprox.")
 @njit(cache=True)
 def _erfc_approx(x):
     """
@@ -19,6 +21,7 @@ def _erfc_approx(x):
     return (1 - np.exp(-1.98*x))*np.exp(-x**2) / 2.0117351207777605 / x
 
 
+logger.debug("Defining electron_velocity.")
 @njit(cache=True)
 def electron_velocity(e_kin):
     """
@@ -40,6 +43,7 @@ def electron_velocity(e_kin):
     return C_L * np.sqrt(1 - (M_E_EV / (M_E_EV + e_kin))**2)
 
 
+logger.debug("Defining clog_ei.")
 @vectorize(
     # [float64(float64, float64, float64, float64, float64, int64)],
     cache=True, nopython=True
@@ -89,6 +93,7 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
         return 24. - np.log(Ne**0.5 / kbTe)
 
 
+logger.debug("Defining clog_ii.")
 @vectorize(
     # [float64(float64, float64, float64, float64, float64, float64, int64, int64)],
     cache=True, nopython=True
@@ -141,6 +146,7 @@ def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     return 23 - np.log(A * B**0.5)
 
 
+logger.debug("Defining coulomb_xs.")
 @vectorize(
     # [float64(float64, float64, float64, float64, float64, int64)],
     cache=True, nopython=True
@@ -182,6 +188,7 @@ def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
     return 4 * PI * (qi * Q_E * Q_E / (4 * PI * EPS_0 * M_E))**2 * clog / v_e**4
 
 
+logger.debug("Defining ion_coll_rate.")
 @vectorize(
     # [float64(float64, float64, float64, float64, float64, float64, int64, int64)],
     cache=True, nopython=True
@@ -237,6 +244,7 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     return const * Nj * (qi * qj * Q_E * Q_E / Mi)**2 * (Mi/kbTi_SI)**1.5 * clog
 
 
+logger.debug("Defining spitzer_heating.")
 @vectorize(
     # [float64(float64, float64, float64, float64, float64, int64)],
     cache=True, nopython=True
@@ -275,6 +283,7 @@ def spitzer_heating(Ni, Ne, kbTi, Ee, Ai, qi):
            * coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi)
 
 
+logger.debug("Defining collisional_thermalisation.")
 @vectorize(
     # [float64(float64, float64, float64, float64, float64)],
     cache=True, nopython=True
@@ -313,6 +322,7 @@ def collisional_thermalisation(kbTi, kbTj, Ai, Aj, rij):
                         (1 + (Ai * kbTj) / (Aj * kbTi))**1.5
 
 
+logger.debug("Defining trapping_strength_axial.")
 @vectorize(
     # [float64(float64, int64, float64)],
     cache=True, nopython=True
@@ -350,6 +360,7 @@ def trapping_strength_axial(kbTi, qi, V):
 
 
 
+logger.debug("Defining trapping_strength_radial.")
 @vectorize(
     # [float64(float64, int64, float64, float64, float64, float64)],
     cache=True, nopython=True
@@ -394,6 +405,7 @@ def trapping_strength_radial(kbTi, qi, Ai, V, B, r_dt):
     return w
 
 
+logger.debug("Defining collisional_escape_rate.")
 @vectorize(
     # [float64(float64, float64, float64)],
     cache=True, nopython=True
@@ -427,6 +439,7 @@ def collisional_escape_rate(ri, w):
     return esc
 
 
+logger.debug("Defining roundtrip_escape.")
 _INVSQRTPI = 1/np.sqrt(PI)
 @njit(cache=True)
 def roundtrip_escape(w):
@@ -458,6 +471,7 @@ def roundtrip_escape(w):
     return free_fraction, temperature_factor
 
 
+# logger.debug("Defining escape_rate_axial.")
 # @vectorize(
 #     # [float64(float64, float64, int64, float64, float64)],
 #     cache=True, nopython=True
@@ -494,6 +508,7 @@ def roundtrip_escape(w):
 #     return escape_rate(Ni, ri, w)
 
 
+# logger.debug("Defining escape_rate_radial.")
 # @vectorize(
 #     # [float64(float64, float64, int64, float64, float64, float64, float64, float64)],
 #     cache=True, nopython=True

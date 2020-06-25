@@ -3,12 +3,15 @@ This module contains function for solving the radial space charge problem in an 
 The ions are assumed to follow a Boltzmann statistic in the radial trapping potential. Their charge
 in turn also shapes the potential once the number of ions becomes significant.
 """
+import logging
+logger = logging.getLogger(__name__)
 import numpy as np
 from numba import njit
 
 from ..physconst import EPS_0, Q_E, PI, M_E
 
 
+logger.debug("Defining tridiagonal_matrix_algorithm.")
 @njit(cache=True)
 def tridiagonal_matrix_algorithm(l, d, u, b):
     """
@@ -53,6 +56,7 @@ def tridiagonal_matrix_algorithm(l, d, u, b):
     return x
 
 
+logger.debug("Defining fd_system_uniform_grid.")
 @njit(cache=True)
 def fd_system_uniform_grid(r):
     """
@@ -95,6 +99,7 @@ def fd_system_uniform_grid(r):
     return l, d, u
 
 
+logger.debug("Defining radial_potential_uniform_grid.")
 @njit(cache=True)
 def radial_potential_uniform_grid(r, rho):
     """
@@ -123,6 +128,7 @@ def radial_potential_uniform_grid(r, rho):
     return phi
 
 
+logger.debug("Defining fd_system_nonuniform_grid.")
 @njit(cache=True)
 def fd_system_nonuniform_grid(r):
     """
@@ -178,6 +184,7 @@ def fd_system_nonuniform_grid(r):
     return l, d, u
 
 
+logger.debug("Defining radial_potential_nonuniform_grid.")
 @njit(cache=True)
 def radial_potential_nonuniform_grid(r, rho):
     """
@@ -205,6 +212,7 @@ def radial_potential_nonuniform_grid(r, rho):
     return phi
 
 
+logger.debug("Defining heat_capacity.")
 @njit(cache=True)
 def heat_capacity(r, phi, q, kT):
     """
@@ -238,6 +246,7 @@ def heat_capacity(r, phi, q, kT):
     return 3/2 + 1/kT**2 * (a/c - b**2/c**2)
 
 
+logger.debug("Defining boltzmann_radial_potential_onaxis_density.")
 @njit(cache=True)
 def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=None, ldu=None):
     """
@@ -335,6 +344,7 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
     return phi, n, shape
 
 
+logger.debug("Defining boltzmann_radial_potential_linear_density.")
 @njit(cache=True)
 def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=None, ldu=None):
     """
@@ -436,6 +446,7 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
     return phi, nax, shape
 
 
+logger.debug("Defining boltzmann_radial_potential_linear_density_ebeam.")
 @njit(cache=True)
 def boltzmann_radial_potential_linear_density_ebeam(
         r, current, r_e, e_kin, nl, kT, q, first_guess=None, ldu=None

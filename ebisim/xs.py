@@ -3,12 +3,15 @@ This module contains functions to compute the cross sections for various ionisat
 recombination processes.
 """
 
+import logging
+logger = logging.getLogger(__name__)
 import math
 import numpy as np
 import numba
 
 from .physconst import RY_EV, ALPHA, PI, COMPT_E_RED, M_E_EV
 
+logger.debug("Defining _normpdf.")
 @numba.njit(cache=True)
 def _normpdf(x, mu, sigma):
     """
@@ -32,6 +35,7 @@ def _normpdf(x, mu, sigma):
     return np.exp(-(x - mu)**2 / (2 * sigma**2)) / (2 * PI * sigma**2)**0.5
 
 
+logger.debug("Defining cxxs.")
 @numba.njit(cache=True)
 def cxxs(q, ip):
     """
@@ -53,6 +57,7 @@ def cxxs(q, ip):
     """
     return 1.43e-16 * q**1.17 * ip**-2.76
 
+logger.debug("Defining eixs_vec.")
 @numba.njit(cache=True)
 def eixs_vec(element, e_kin):
     """
@@ -113,6 +118,7 @@ def eixs_vec(element, e_kin):
     return xs_vec
 
 
+logger.debug("Defining eixs_mat.")
 @numba.njit(cache=True)
 def eixs_mat(element, e_kin):
     """
@@ -145,6 +151,7 @@ def eixs_mat(element, e_kin):
     return np.diag(xs[:-1], -1) - np.diag(xs)
 
 
+logger.debug("Defining rrxs_vec.")
 @numba.njit(cache=True)
 def rrxs_vec(element, e_kin):
     """
@@ -186,6 +193,7 @@ def rrxs_vec(element, e_kin):
     return xs
 
 
+logger.debug("Defining rrxs_mat.")
 @numba.njit(cache=True)
 def rrxs_mat(element, e_kin):
     """
@@ -218,6 +226,7 @@ def rrxs_mat(element, e_kin):
     return np.diag(xs[1:], 1) - np.diag(xs)
 
 
+logger.debug("Defining drxs_vec.")
 @numba.njit(cache=True)
 def drxs_vec(element, e_kin, fwhm):
     """
@@ -262,6 +271,7 @@ def drxs_vec(element, e_kin, fwhm):
     return xs_vec
 
 
+logger.debug("Defining drxs_mat.")
 @numba.njit(cache=True)
 def drxs_mat(element, e_kin, fwhm):
     """
@@ -301,6 +311,7 @@ def drxs_mat(element, e_kin, fwhm):
     return np.diag(xs[1:], 1) - np.diag(xs)
 
 
+logger.debug("Defining precompute_rr_quantities.")
 @numba.njit(cache=True)
 def precompute_rr_quantities(e_cfg, shell_n):
     """
@@ -365,6 +376,7 @@ def precompute_rr_quantities(e_cfg, shell_n):
     return rr_z_eff, rr_n_0_eff
 
 
+logger.debug("Defining lookup_lotz_factors.")
 def lookup_lotz_factors(e_cfg, shellorder):
     """
     Analyses the shell structure of each charge state and looks up the correct factors for
@@ -466,6 +478,7 @@ def lookup_lotz_factors(e_cfg, shellorder):
     return ei_lotz_a, ei_lotz_b, ei_lotz_c
 
 
+logger.debug("Defining eixs_energyscan.")
 @numba.njit(cache=True)
 def eixs_energyscan(element, e_kin=None, n=1000):
     """
@@ -510,6 +523,7 @@ def eixs_energyscan(element, e_kin=None, n=1000):
     return e_samp, xs_scan
 
 
+logger.debug("Defining rrxs_energyscan.")
 @numba.njit(cache=True)
 def rrxs_energyscan(element, e_kin=None, n=1000):
     """
@@ -554,6 +568,7 @@ def rrxs_energyscan(element, e_kin=None, n=1000):
     return e_samp, xs_scan
 
 
+logger.debug("Defining _eirr_e_samp.")
 @numba.njit(cache=True)
 def _eirr_e_samp(element, e_kin, n):
     """
@@ -600,6 +615,7 @@ def _eirr_e_samp(element, e_kin, n):
     return e_samp
 
 
+logger.debug("Defining drxs_energyscan.")
 @numba.njit(cache=True)
 def drxs_energyscan(element, fwhm, e_kin=None, n=1000):
     """

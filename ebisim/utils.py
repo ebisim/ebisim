@@ -3,7 +3,8 @@ This module contains convenience and management functions not directly related t
 simulation code, e.g. loading resources. These functions are meant for internal use only, they
 have no real use outside this scope.
 """
-
+import logging
+logger = logging.getLogger(__name__)
 try:
     from importlib.resources import open_text # py>=3.7
 except ImportError:
@@ -13,6 +14,7 @@ import numpy as np
 from .resources import drdata as _drdata
 
 
+logger.debug("Defining load_dr_data.")
 def load_dr_data():
     """
     Loads the avaliable DR transition data from the resource directory
@@ -42,6 +44,7 @@ def load_dr_data():
     return out
 
 
+logger.debug("Defining _parse_dr_file.")
 def _parse_dr_file(fobj):
     """
     Parses the content of a single DR data file into a dict with three numpy arrays holding
@@ -81,6 +84,7 @@ def _parse_dr_file(fobj):
     return dict(dr_e_res=e_res, dr_strength=stren, dr_cs=cs)
 
 
+logger.debug("Defining _nparray_from_jagged_list.")
 def _nparray_from_jagged_list(list_of_lists):
     """
     Takes a list of lists with varying length and turns them into a numpy array,
