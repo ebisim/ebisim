@@ -28,15 +28,17 @@ def test_electron_velocity():
         1000000,
         ])
     vel = np.array([
-        5.930969609e5,
-        1.875509742e6,
-        5.930099274e6,
-        1.872789671e7,
-        5.845521514e7,
-        1.643524802e8,
-        2.821284551e8
+        593096.087988011,
+        1875509.73510071,
+        5930099.25162193,
+        18727896.63517020,
+        58455214.9277818,
+        164352479.7315760,
+        282128454.9430590,
     ])
-    assert np.allclose(vel, electron_velocity(e_kin))
+    np.testing.assert_allclose(vel, electron_velocity(e_kin))
+    np.testing.assert_allclose(electron_velocity(e_kin), electron_velocity.py_func(e_kin))
+    np.testing.assert_equal(electron_velocity(e_kin), electron_velocity.py_func(e_kin))
 
 
 # def test_clog_ei():
@@ -64,7 +66,7 @@ def test_clog_ii():
     ])
 
     res = clog_ii(ni, nj, Ti, Tj, Ai, Aj, qi, qj)
-    assert np.allclose(res, lbd)
+    np.testing.assert_allclose(res, lbd)
 
 
 # def test_coulomb_xs():

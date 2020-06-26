@@ -45,10 +45,10 @@ def test_tdma():
 
     _x = np.linalg.inv(M).dot(b)
     x = tridiagonal_matrix_algorithm(l, d, u, b)
-    assert np.allclose(_x, x)
+    np.testing.assert_allclose(_x, x)
 
     xpy = tridiagonal_matrix_algorithm.py_func(l, d, u, b)
-    assert np.allclose(xpy, x)
+    np.testing.assert_equal(xpy, x)
 
 def test_fd_system_uniform_grid():
     dr = 10
@@ -59,23 +59,23 @@ def test_fd_system_uniform_grid():
     _u = np.array([2, 1+0.5, 1+0.5/2, 1+0.5/3, 0])/dr**2
 
     l, d, u = fd_system_uniform_grid(r)
-    assert np.allclose(_l, l)
-    assert np.allclose(_d, d)
-    assert np.allclose(_u, u)
+    np.testing.assert_allclose(_l, l)
+    np.testing.assert_allclose(_d, d)
+    np.testing.assert_allclose(_u, u)
 
     lpy, dpy, upy = fd_system_uniform_grid.py_func(r)
-    assert np.allclose(lpy, l)
-    assert np.allclose(dpy, d)
-    assert np.allclose(upy, u)
+    np.testing.assert_equal(lpy, l)
+    np.testing.assert_equal(dpy, d)
+    np.testing.assert_equal(upy, u)
 
 def test_fd_system_nonuniform_grid():
     r = np.array([0, 10, 20, 30, 40])
     _l, _d, _u = fd_system_uniform_grid(r)
 
     l, d, u = fd_system_nonuniform_grid(r)
-    assert np.allclose(_l, l)
-    assert np.allclose(_d, d)
-    assert np.allclose(_u, u)
+    np.testing.assert_allclose(_l, l)
+    np.testing.assert_allclose(_d, d)
+    np.testing.assert_allclose(_u, u)
 
     r = np.array([0, 1, 3, 6, 10])
     _u = np.array([2, 0.5, 0.177777777777778, 0.089285714285714, 0])
@@ -83,14 +83,14 @@ def test_fd_system_nonuniform_grid():
     _d = np.array([-2, -0.5, -0.277777777777778, -0.152777777777778, 1])
 
     l, d, u = fd_system_nonuniform_grid(r)
-    assert np.allclose(_l, l)
-    assert np.allclose(_d, d)
-    assert np.allclose(_u, u)
+    np.testing.assert_allclose(_l, l)
+    np.testing.assert_allclose(_d, d)
+    np.testing.assert_allclose(_u, u)
 
     lpy, dpy, upy = fd_system_nonuniform_grid.py_func(r)
-    assert np.allclose(lpy, l)
-    assert np.allclose(dpy, d)
-    assert np.allclose(upy, u)
+    np.testing.assert_equal(lpy, l)
+    np.testing.assert_equal(dpy, d)
+    np.testing.assert_equal(upy, u)
 
 def test_radial_potential_uniform_grid():
     r = np.linspace(0, R_D, N)
@@ -102,12 +102,13 @@ def test_radial_potential_uniform_grid():
     phi_a = analytical_solution(r)
 
     assert np.sum((1-phi[:-1]/phi_a[:-1])**2)/N < 1e-6
-    assert np.allclose(phi, phi_a, rtol=1e-3)
-    assert np.allclose(phipy, phi)
+    np.testing.assert_allclose(phi, phi_a, rtol=1e-3)
+    np.testing.assert_equal(phipy, phi)
 
 def test_radial_potential_nonuniform_grid():
     r = np.geomspace(R_E/100, R_D, N)
     r[0] = 0
+    r[-1] = R_D
     rho = np.zeros(N)
     rho[r < R_E] = RHO_0
 
@@ -116,12 +117,13 @@ def test_radial_potential_nonuniform_grid():
     phi_a = analytical_solution(r)
 
     assert np.sum((1-phi[:-1]/phi_a[:-1])**2)/N < 1e-6
-    assert np.allclose(phi, phi_a, rtol=1e-3)
-    assert np.allclose(phipy, phi)
+    np.testing.assert_allclose(phi, phi_a, rtol=5.e-4)
+    np.testing.assert_equal(phipy, phi)
 
-def test_boltzmann_radial_potential_line_density():
+def test_boltzmann_radial_potential_linear_density():
     r = np.geomspace(R_E/100, R_D, N)
     r[0] = 0
+    r[-1] = R_D
     rho = np.zeros(N)
     rho[r < R_E] = RHO_0
 
@@ -136,11 +138,12 @@ def test_boltzmann_radial_potential_line_density():
     phipy, npy, shapepy = boltzmann_radial_potential_linear_density.py_func(
         r, rho, NLI[:, np.newaxis], KT[:, np.newaxis], Q[:, np.newaxis]
         )
-    np.allclose(phipy, phi)
-    np.allclose(npy, n)
-    np.allclose(shapepy, shape)
+    np.testing.assert_allclose(phipy, phi, atol=0, rtol=1e-6)
+    np.testing.assert_allclose(npy, n, atol=0, rtol=1e-6)
+    np.testing.assert_allclose(shapepy, shape, atol=0, rtol=1e-6)
 
-    assert np.allclose(phipy, phi)
+
+    # np.testing.assert_equal(phipy, phi)
 
 def test_boltzmann_radial_potential_onaxis_density():
     r = np.geomspace(R_E/100, R_D, N)
@@ -159,6 +162,10 @@ def test_boltzmann_radial_potential_onaxis_density():
     phipy, npy, shapepy = boltzmann_radial_potential_onaxis_density.py_func(
         r, rho, NI[:, np.newaxis], KT[:, np.newaxis], Q[:, np.newaxis]
         )
-    np.allclose(phipy, phi)
-    np.allclose(npy, n)
-    np.allclose(shapepy, shape)
+    np.testing.assert_allclose(phipy, phi)
+    np.testing.assert_allclose(npy, n)
+    np.testing.assert_allclose(shapepy, shape)
+
+    np.testing.assert_equal(phipy, phi)
+    np.testing.assert_equal(npy, n)
+    np.testing.assert_equal(shapepy, shape)
