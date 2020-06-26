@@ -153,11 +153,15 @@ def plot_generic_evolution(t, y, plot_total=False, ax=None, **kwargs):
     n = y.shape[0]
     _set_line_prop_cycle(ax, n)
 
+    ls = kwargs.pop("ls", None)
     for cs in range(n):
         if np.array_equal(np.unique(y[cs, :]), np.array([0])):
-            ax.loglog([], [], figure=fig) # Ghost draw for purely zero cases
+            ax.loglog([], []) # Ghost draw for purely zero cases
         else:
-            ax.loglog(t, y[cs, :], figure=fig, label=str(cs) + "+")
+            if ls:
+                ax.loglog(t, y[cs, :], ls=ls, label=str(cs) + "+")
+            else:
+                ax.loglog(t, y[cs, :], label=str(cs) + "+")
     if plot_total:
         ax.plot(t, np.sum(y, axis=0), c="k", ls="--", figure=fig, label="total")
 

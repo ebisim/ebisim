@@ -187,7 +187,7 @@ _RATE_LABELS = {
     Rate.F_EI:dict(
         title="Electron beam overlap",
         ylabel=r"$f_{ei}$",
-        ylim=(0, 1),
+        ylim=(0, 1.1),
     ),
     Rate.TRAPPING_PARAMETER_AXIAL:dict(
         title="Ax. trapping parameter",
@@ -651,6 +651,9 @@ class Result:
 
         if len(rate.shape) == 1:
             rate = rate[np.newaxis, :]
+        if rate.shape[0] == 1:
+            kwargs.setdefault("label_lines", False)
+            kwargs.setdefault("ls", "-")
 
         fig = plotting.plot_generic_evolution(self.t, rate, **kwargs)
         return fig
