@@ -299,6 +299,8 @@ class Result:
             Abundance of each charge state, array index corresponds to charge state.
 
         """
+        if t < self.t.min() or t > self.t.max():
+            raise ValueError("Value for t lies outside the simulated domain.")
         if self.res and self.res.sol:
             if self.model is not None:
                 return self.res.sol(t)[self.model.lb[self.id]:self.model.ub[self.id]]
@@ -325,6 +327,8 @@ class Result:
             Temperature of each charge state, array index corresponds to charge state.
 
         """
+        if t < self.t.min() or t > self.t.max():
+            raise ValueError("Value for t lies outside the simulated domain.")
         if self.kbT is not None:
             if self.res and self.res.sol:
                 return self.res.sol(t)[
@@ -355,6 +359,8 @@ class Result:
         shapes : numpy.ndarray
             The Boltzmann shape factors for each charge state.
         """
+        if t < self.t.min() or t > self.t.max():
+            raise ValueError("Value for t lies outside the simulated domain.")
         if self.res and self.res.sol:
             y = self.res.sol(t)
         else:
@@ -486,6 +492,8 @@ class Result:
         matplotlib.Figure
             Figure handle of the generated plot.
         """
+        if t < self.t.min() or t > self.t.max():
+            raise ValueError("Value for t lies outside the simulated domain.")
         if self.kbT is not None:
             phi, n3d, shapes = self.radial_distribution_at_time(t)
             dens = (n3d * shapes)[self.model.lb[self.id]:self.model.ub[self.id]]
