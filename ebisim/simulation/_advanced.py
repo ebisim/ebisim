@@ -48,7 +48,7 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
     __slots__ = ()
 
     @classmethod
-    def get_gas(cls, element, p, r_e, T=300.0, cx=True):
+    def get_gas(cls, element, p, r_dt, T=300.0, cx=True):
         """
         Factory method for defining a gas injection Target.
         A gas target is a target with constant density in charge state 0, i.e. continuous neutral
@@ -62,9 +62,9 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
         p : float
             <mbar>
             Gas pressure.
-        r_e : float
+        r_dt : float
             <m>
-            Electron beam radius, required to compute linear density.
+            Drift tube radius, required to compute linear density.
         T : float, optional
             <K>
             Gas temperature, by default 300 K (Room temperature)
@@ -79,12 +79,14 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
         element = Element.as_element(element)
         _n = np.full(element.z + 1, MINIMAL_DENSITY, dtype=np.float64)
         _kT = np.full(element.z + 1, MINIMAL_KBT, dtype=np.float64)
-        _n[0] = (p * 100) / (K_B * T) * PI * r_e**2#Convert from mbar to Pa and compute density at T
-        _kT[0] = np.maximum(K_B * T / Q_E, MINIMAL_KBT)
+        _n[0] = (p * 100) / (K_B * T) * PI * r_dt**2#Convert from mbar to Pa and compute density at T
+        if _n[0] < MINIMAL_DENSITY:
+            raise ValueError("The resulting density is smaller than the internal minimal value.")
+        _kT[0] = K_B * T / Q_E
         return cls(*element, n=_n, kT=_kT, cni=True, cx=cx)
 
     @classmethod
-    def get_ions(cls, element, nl, kT_per_q=10, q=1, cx=True):
+    def get_ions(cls, element, nl, kT=10, q=1, cx=True):
         """
         Factory method for defining a pulsed ion injection Target.
         An ion target has a given density in the charge state of choice q.
@@ -99,8 +101,8 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
             Linear density of the initial charge state (ions per unit length).
         kT_per_q : float, optional
             <eV>
-            Temperature / kinetic energy per charge of the injected ions,
-            by default 10 eV /q
+            Temperature / kinetic energy of the injected ions,
+            by default 10 eV
         q : int, optional
             Initial charge state, by default 1
         cx : bool, optional
@@ -111,10 +113,13 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
         ebisim.simulation.Target
             Ready to use Target specification.
         """
+        if nl < MINIMAL_DENSITY:
+            raise ValueError("The density is smaller than the internal minimal value.")
         element = Element.as_element(element)
         _n = np.full(element.z + 1, MINIMAL_DENSITY, dtype=np.float64)
+        _kT = np.full(element.z + 1, MINIMAL_KBT, dtype=np.float64)
         _n[q] = nl
-        _kT = kT_per_q * np.arange(element.z+1, dtype=np.float64)
+        _kT[q] = kT
         return cls(*element, n=_n, kT=_kT, cni=False, cx=cx)
 
     def __repr__(self):
@@ -356,7 +361,7 @@ logger.debug("Defining numba types for AdvancedModel typing.")
 logger.debug("Defining numba types: _T_DEVICE.")
 _T_DEVICE = numba.typeof(Device.get(1, 8000, 1e-4, 0.8, 500, 2, 0.005))
 logger.debug("Defining numba types: _T_TARGET.")
-_T_TARGET = numba.typeof(Target.get_ions("He", 0., 0., 1))
+_T_TARGET = numba.typeof(Target.get_ions("He", 1., 1., 1))
 logger.debug("Defining numba types: _T_BG_GAS.")
 _T_BG_GAS = numba.typeof(BackgroundGas.get("He", 1e-8))
 logger.debug("Defining numba types: _T_MODEL_OPTIONS.")
@@ -532,7 +537,7 @@ class AdvancedModel:
                 q_ = np.atleast_2d(self.q).T
                 n_ = np.atleast_2d(n).T
                 t_ = np.atleast_2d(kT).T
-                shapes = np.exp(-q_ * (phi - phi[0])/t_)
+                shapes = np.exp(-q_ * (phi - phi[0])/t_) #Works for neutrals
                 i_sr = np.atleast_2d(np.trapz(r*shapes, r)).T
                 n3d = n_ / 2 / PI / i_sr
             else:
@@ -550,9 +555,6 @@ class AdvancedModel:
             i_rs_re = np.trapz(shapes[:, :ix+1]*r[:ix+1], r[:ix+1])
             i_rs_rd = np.trapz(shapes*r, r)
             fei = i_rs_re/i_rs_rd
-            for i in self.lb: #Take care of neutrals
-                n3d[i] = n[i]/PI/self.device.r_e**2
-                fei[i] = 1. #full overlap for neutrals
 
             # Ionisation heating
             iheat = (2 / self.device.r_e**2 *
