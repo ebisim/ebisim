@@ -74,6 +74,10 @@ class Rate(IntEnum):
     SPITZER_HEATING = 302
     T_SH = 302
 
+    IONISATION_HEAT = 303
+
+    # CV = 304
+
     COLLISION_RATE_TOTAL = 401
 
     COLLISION_RATE_SELF = 402
@@ -176,6 +180,14 @@ _RATE_LABELS = {
         title="Spitzer heating",
         ylabel="Heating rate " + _EV_PER_S,
     ),
+    Rate.IONISATION_HEAT:dict(
+        title="Ionisation heat",
+        ylabel="Ionisation heat (eV)",
+    ),
+    # Rate.CV:dict(
+    #     title="Heat capacity",
+    #     ylabel="$c_V$ (eV/eV)",
+    # ),
     Rate.COLLISION_RATE_TOTAL:dict(
         title="Total collision rate",
         ylabel=r"$r_i$ " + _PER_S,
