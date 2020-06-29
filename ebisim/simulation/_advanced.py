@@ -15,7 +15,11 @@ from ..elements import Element
 from ..physconst import Q_E, M_P, PI, EPS_0, K_B
 from ..physconst import MINIMAL_DENSITY, MINIMAL_KBT
 from ._result import Result, Rate
-from ._radial_dist import fd_system_nonuniform_grid, boltzmann_radial_potential_linear_density_ebeam
+from ._radial_dist import (
+    fd_system_nonuniform_grid,
+    boltzmann_radial_potential_linear_density_ebeam,
+    # heat_capacity
+)
 
 #Hack for making Enums hashable by numba - hash will differ from CPython
 #This is to make Enums work as numba.typed.Dict keys
@@ -288,9 +292,9 @@ class Device(namedtuple("Device", _DEVICE.keys())):
         if j is None:
             j = current/r_e**2/PI*1e-4
         if fwhm is None:
-            fwhm = 1/2 * current/4/PI/EPS_0/plasma.electron_velocity(e_kin+phi[0])
+            fwhm = 1/2 * current/4/PI/EPS_0/plasma.electron_velocity(e_kin+phi.min())
         if v_ra is None:
-            v_ra = -phi[0]
+            v_ra = -phi.min()
 
         logger.debug(f"Device.get: Create and return Device instance.")
         return cls(
@@ -409,8 +413,6 @@ _ADVMDLSPEC = OrderedDict(
     _drxs=_T_F8_ARRAY,
     _cxxs_bggas=numba.types.ListType(_T_F8_ARRAY),
     _cxxs_trgts=numba.types.ListType(_T_F8_ARRAY),
-    _rad_phi_latest=_T_F8_ARRAY,
-    _t_latest=numba.float64,
 )
 # @numba.experimental.jitclass(_ADVMDLSPEC)
 class AdvancedModel:
@@ -438,8 +440,6 @@ class AdvancedModel:
         self.targets = targets
         self.bg_gases = bg_gases if bg_gases is not None else numba.typed.List.empty_list(_T_BG_GAS)
         self.options = options
-        self._rad_phi_latest = self.device.rad_phi_uncomp.copy()
-        self._t_latest = -1.0
 
 
         # Determine array bounds for different targets in state vector
@@ -521,6 +521,13 @@ class AdvancedModel:
         # Clip low values?
         n = np.maximum(n, MINIMAL_DENSITY) #-> linear density
         kT = np.maximum(kT, MINIMAL_KBT)
+
+        # Transposed helperarrays
+        q_T = np.atleast_2d(self.q).T
+        a_T = np.atleast_2d(self.a).T
+        n_T = np.atleast_2d(n).T
+        kT_T = np.atleast_2d(kT).T
+
         # Preallocate output arrays
         dn  = np.zeros_like(n)
         dkT = np.zeros_like(kT)
@@ -532,38 +539,30 @@ class AdvancedModel:
             ix = self.device.rad_re_idx
             r = self.device.rad_grid
 
-            if _t == self._t_latest:
-                phi = self._rad_phi_latest
-                q_ = np.atleast_2d(self.q).T
-                n_ = np.atleast_2d(n).T
-                t_ = np.atleast_2d(kT).T
-                shapes = np.exp(-q_ * (phi - phi[0])/t_) #Works for neutrals
-                i_sr = np.atleast_2d(np.trapz(r*shapes, r)).T
-                n3d = n_ / 2 / PI / i_sr
-            else:
-                phi, n3d, shapes = boltzmann_radial_potential_linear_density_ebeam(
-                    self.device.rad_grid, self.device.current, self.device.r_e, self.device.e_kin,
-                    np.atleast_2d(n).T, np.atleast_2d(kT).T, np.atleast_2d(self.q).T,
-                    first_guess=self._rad_phi_latest,
-                    ldu=(self.device.rad_fd_l, self.device.rad_fd_d, self.device.rad_fd_u)
-                )
-                # Memorise this solution
-                self._rad_phi_latest = phi
+            phi, n3d, shapes = boltzmann_radial_potential_linear_density_ebeam(
+                r, self.device.current, self.device.r_e, self.device.e_kin,
+                n_T, kT_T, q_T,
+                ldu=(self.device.rad_fd_l, self.device.rad_fd_d, self.device.rad_fd_u)
+            )
             n3d = n3d.T[0] # Adjust shape
 
             # Compute overlap factors
             i_rs_re = np.trapz(shapes[:, :ix+1]*r[:ix+1], r[:ix+1])
             i_rs_rd = np.trapz(shapes*r, r)
+            i_rrs_rd = np.trapz(shapes*r*r, r)
+            ion_rad = i_rrs_rd / i_rs_rd
             fei = i_rs_re/i_rs_rd
+            fij = (ion_rad/np.atleast_2d(ion_rad).T)**2
+            fij = np.minimum(fij, 1.0)
 
             # Ionisation heating
-            iheat = (2 / self.device.r_e**2 *
-                     np.trapz((phi[:ix+1]-phi[0]) * r[:ix+1] * shapes[:, :ix+1], r[:ix+1]))
+            iheat = 2/3*(2 / self.device.r_e**2 *
+                     np.trapz((phi[:ix+1]-phi.min()) * r[:ix+1] * shapes[:, :ix+1], r[:ix+1]))
 
 
             # Compute effective trapping voltages
-            v_ax = (self.device.v_ax + self.device.v_ax_sc) - phi[0]
-            v_ra = -phi[0]
+            v_ax = (self.device.v_ax + self.device.v_ax_sc) - phi.min()
+            v_ra = -phi.min()
 
             # Characteristic beam energies
             _sc_mean = 2*np.trapz(r[:ix+1]*phi[:ix+1], r[:ix+1])/self.device.r_e**2
@@ -576,6 +575,7 @@ class AdvancedModel:
         else:
             n3d = n/PI/self.device.r_e**2
             fei = np.full(self.nq, 1.)
+            fij = np.full((self.nq, self.nq), 1.)
             iheat = np.full(self.nq, self.device.fwhm)
             v_ax = self.device.v_ax
             v_ra = self.device.v_ra
@@ -589,11 +589,11 @@ class AdvancedModel:
 
 
         # Collision rates
-        rij = plasma.ion_coll_rate(
+        rij = fij * plasma.ion_coll_rate(
             np.atleast_2d(n3d).T, n3d,
-            np.atleast_2d(kT).T, kT,
-            np.atleast_2d(self.a).T, self.a,
-            np.atleast_2d(self.q).T, self.q
+            kT_T, kT,
+            a_T, self.a,
+            q_T, self.q
         )
         ri  = np.sum(rij, axis=-1)
         v_th = np.sqrt(8 * Q_E * kT/(PI * self.a * M_P)) # Thermal velocities
@@ -662,7 +662,7 @@ class AdvancedModel:
         if self.options.COLLISIONAL_THERMALISATION:
             _dkT_ct   = np.sum(
                 plasma.collisional_thermalisation(
-                    np.atleast_2d(kT).T, kT, np.atleast_2d(self.a).T, self.a, rij
+                    kT_T, kT, a_T, self.a, rij
                 ), axis=-1
             )
             dkT      += _dkT_ct
@@ -673,7 +673,7 @@ class AdvancedModel:
             w_ax      = plasma.trapping_strength_axial(kT, self.q, v_ax)
             R_ax_co      = plasma.collisional_escape_rate(ri, w_ax) * n
             free_ax, tfact_ax = plasma.roundtrip_escape(w_ax)
-            R_ax_rt   = free_ax * n * f_ax
+            R_ax_rt   = free_ax * n * ri#f_ax
             for k in self.lb:
                 R_ax_rt[k] = 0
                 R_ax_co[k] = 0
@@ -690,7 +690,7 @@ class AdvancedModel:
             )
             R_ra_co      = plasma.collisional_escape_rate(ri, w_ra) * n
             free_ra, tfact_ra = plasma.roundtrip_escape(w_ra)
-            R_ra_rt   = free_ra * n * f_ra
+            R_ra_rt   = free_ra * n * ri#f_ra
             for k in self.lb:
                 R_ra_rt[k] = 0
                 R_ra_co[k] = 0
@@ -703,11 +703,10 @@ class AdvancedModel:
         #TODO: Expansion cooling
 
         #Check if neutrals are depletable or if there is continuous neutral injection
-        for i, trgt in enumerate(self.targets):
-            # if trgt.cni:
+        for k in self.lb:
             # Kill all neutral rates - seems to improve stability
-            dn[self.lb[i]] = 0.0
-            dkT[self.lb[i]] = 0.0
+            dn[k] = 0.0
+            dkT[k] = 0.0
 
 
         if rates is not None:
@@ -742,20 +741,18 @@ class AdvancedModel:
             if self.options.SPITZER_HEATING:
                 rates[Rate.T_SPITZER_HEATING] = _dkT_eh
             if self.options.RADIAL_DYNAMICS:
+                # rates[Rate.CV] = heat_capacity(self.device.rad_grid, phi, q_T, kT_T).T[0]
                 rates[Rate.F_EI] = fei
                 rates[Rate.E_KIN_MEAN] = np.atleast_1d(np.array(e_kin))
                 rates[Rate.E_KIN_FWHM] = np.atleast_1d(np.array(e_kin_fwhm))
                 rates[Rate.V_RA] = np.atleast_1d(np.array(v_ra))
                 rates[Rate.V_AX] = np.atleast_1d(np.array(v_ax))
+                # rates[Rate.CHARGE_COMPENSATION] = comp
+            if self.options.IONISATION_HEATING:
+                rates[Rate.IONISATION_HEAT] = iheat
             rates[Rate.COLLISION_RATE_SELF] = np.diag(rij).copy()
             rates[Rate.COLLISION_RATE_TOTAL] = ri
-            # rates["iheat"] = R_ei[:-1] / n[1:] * iheat[:-1]
-            # rates["n3d"] = n3d
-            # rates[Rate.CHARGE_COMPENSATION] = comp
 
-        self._t_latest = _t
-        dkT[n < 10*MINIMAL_DENSITY] = 0
-        # dn[n<10*MINIMAL_DENSITY] = np.maximum(dn[n<10*MINIMAL_DENSITY], 0)
 
         return np.concatenate((dn, dkT))
 
@@ -830,8 +827,17 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
     model = AdvancedModel(device, targets, bg_gases, options)
 
     _n0 = np.concatenate([t.n for t in targets])
-    _kT0 = np.concatenate([t.kT for t in targets])
+    _kT0 = []
+    for t in targets: # Make sure that initial temperature is not unreasonably small
+        kT = t.kT.copy()
+        minkT = np.maximum(device.fwhm * np.arange(t.z+1), MINIMAL_KBT)
+        kT[t.n < 1.00001 * MINIMAL_DENSITY] = np.maximum(kT[t.n < 1.00001 * MINIMAL_DENSITY], minkT[t.n < 1.00001 * MINIMAL_DENSITY])
+        if np.logical_and(np.not_equal(kT, t.kT), t.n > 1.00001 * MINIMAL_DENSITY).any():
+            logger.warn(f"Initial temperature vector adjusted for {t}, new: {kT}")
+        _kT0.append(kT)
+    _kT0 = np.concatenate(_kT0)
     n_kT_initial = np.concatenate([_n0, _kT0])
+
     # prepare solver options
     if not solver_kwargs:
         solver_kwargs = {}

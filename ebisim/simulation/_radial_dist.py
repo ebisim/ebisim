@@ -519,22 +519,24 @@ def boltzmann_radial_potential_linear_density_ebeam(
         l, d, u = ldu
     else:
         l, d, u = fd_system_nonuniform_grid(r) # Set up tridiagonal system
-    # A = np.diag(d) + np.diag(u[:-1], 1) + np.diag(l[1:], -1)
-
-    if first_guess is None:
-        phi = radial_potential_nonuniform_grid(r, cden/np.sqrt(2 * Q_E * e_kin/M_E))
-    else:
-        phi = first_guess
 
     nl = np.atleast_2d(np.asarray(nl))
     kT = np.atleast_2d(np.asarray(kT))
     q = np.atleast_2d(np.asarray(q))
 
+    if first_guess is None:
+        irho = np.zeros(r.size)
+        irho[r < r_e] = np.sum(q * Q_E * nl / (PI*r_e**2), axis=0)
+        # phi = radial_potential_nonuniform_grid(r, cden/np.sqrt(2 * Q_E * e_kin/M_E))
+        phi = radial_potential_nonuniform_grid(r, cden/np.sqrt(2 * Q_E * e_kin/M_E) + irho)
+    else:
+        phi = first_guess
+
     for _ in range(500):
 
-        shape = np.exp(-q * (phi - phi[0])/kT)
+        shape = np.exp(-q * (phi - phi.min())/kT)
         i_sr = np.atleast_2d(np.trapz(r*shape, r)).T
-        nax = nl / 2 / PI / i_sr
+        nax = nl / 2 / PI / i_sr * np.atleast_2d(shape[:, 0]).T
 
         # dynamic rhs term
         _bx_a = - nax * q * shape * Q_E / EPS_0 # dynamic rhs term
@@ -554,9 +556,8 @@ def boltzmann_radial_potential_linear_density_ebeam(
                 + Q_E/M_E*_bx_b/(2 * Q_E * (e_kin+phi)/M_E))#Diagonal of the Jacobian df/dphi_i
 
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
-        res = np.linalg.norm(y)/phi.size
+        res = np.max(np.abs(y[:-1]/phi[:-1]))
         phi = phi - y
         if res < 1e-3:
             break
-    # print("CONV", 1+_)
     return phi, nax, shape
