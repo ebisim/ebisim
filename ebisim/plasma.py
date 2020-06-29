@@ -24,7 +24,7 @@ def _erfc_approx(x):
 logger.debug("Defining electron_velocity.")
 @njit(cache=True)
 def electron_velocity(e_kin):
-    """
+    r"""
     Computes the electron velocity corresponding to a kinetic energy.
 
     Parameters
@@ -39,6 +39,10 @@ def electron_velocity(e_kin):
         <m/s>
         Speed of the electron.
 
+    Notes
+    -----
+    .. math::
+        c\sqrt{1-\left(\dfrac{m_e c^2}{m_e c^2 + E_e}\right)^2}
     """
     return C_L * np.sqrt(1 - (M_E_EV / (M_E_EV + e_kin))**2)
 
@@ -49,8 +53,8 @@ logger.debug("Defining clog_ei.")
     cache=True, nopython=True
 )
 def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
-    """
-    The coulomb logarithm for ion electron collisions.
+    r"""
+    The coulomb logarithm for ion electron collisions [CLOGEI]_.
 
     Parameters
     ----------
@@ -76,6 +80,34 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
     float or numpy.ndarray
         Ion electron coulomb logarithm.
 
+    References
+    ----------
+    .. [CLOGEI] "NRL Plasma Formulary",
+           J. D. Huba,
+           Naval Research Laboratory (2019),
+           https://www.nrl.navy.mil/ppd/sites/www.nrl.navy.mil.ppd/files/pdfs/NRL_Formulary_2019.pdf
+
+    Notes
+    -----
+    .. math::
+            23 - \ln\left(N_e^{1/2} (T_e)^{-3/2} q_i\right)
+                 \quad\text{if } T_i m_e/m_i < T_e < 10 q_i^2\text{ eV}
+
+    .. math::
+            24 - \ln\left(N_e^{1/2} (T_e)^{-1}\right)
+                 \quad\text{if } T_i m_e/m_i < 10 q_i^2\text{ eV} < T_e
+
+    .. math::
+            16 - \ln\left(N_i^{1/2} (T_i)^{-3/2} q_i^2 \mu_i\right)
+                 \quad\text{if } T_e < T_i m_e/m_i
+
+    .. math::
+            \left[24 - \ln\left(N_e^{1/2} (T_e)^{-1/2}\right)
+                 \quad\text{else (fallback)} \right]
+
+    In these formulas N and T are given in cm^-3 and eV respectively.
+    As documented, the function itself expects the density to be given in 1/m^3.
+
     """
     Ni = Ni * 1e-6 # go from 1/m**3 to 1/cm**3
     Ne = Ne * 1e-6
@@ -100,7 +132,7 @@ logger.debug("Defining clog_ii.")
 )
 def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     r"""
-    The coulomb logarithm for ion ion collisions.
+    The coulomb logarithm for ion ion collisions [CLOGII]_.
 
     Parameters
     ----------
@@ -130,6 +162,13 @@ def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     float or numpy.ndarray
         Ion ion coulomb logarithm.
 
+    References
+    ----------
+    .. [CLOGII] "NRL Plasma Formulary",
+           J. D. Huba,
+           Naval Research Laboratory (2019),
+           https://www.nrl.navy.mil/ppd/sites/www.nrl.navy.mil.ppd/files/pdfs/NRL_Formulary_2019.pdf
+
     Notes
     -----
     .. math::
@@ -139,6 +178,9 @@ def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
                 \frac{n_i q_i^2}{T_i} + \frac{n_j q_j^2}{T_j}
             \right)^{1/2}
         \right)
+
+    In these formulas N and T are given in cm^-3 and eV respectively.
+    As documented, the function itself expects the density to be given in 1/m^3.
 
     """
     A = qi * qj * (Ai + Aj) / (Ai * kbTj + Aj * kbTi)
@@ -152,7 +194,7 @@ logger.debug("Defining coulomb_xs.")
     cache=True, nopython=True
 )
 def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
-    """
+    r"""
     Computes the Coulomb cross section for elastic electron ion collisions
 
     Parameters
@@ -180,6 +222,13 @@ def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
         <m^2>
         Coulomb cross section.
 
+    Notes
+    -----
+    .. math::
+
+        4 \pi \left( \dfrac{q_i q_e^2}{4\pi\epsilon_0 m_e} \right)^2
+        \dfrac{\ln \Lambda_{ei}}{v_e^4}
+
     """
     if qi == 0:
         return 0.
@@ -194,7 +243,7 @@ logger.debug("Defining ion_coll_rate.")
     cache=True, nopython=True
 )
 def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
-    """
+    r"""
     Collision rates for ions species "i" and target species "j"
 
     Parameters
@@ -229,6 +278,14 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     See Also
     --------
     ebisim.plasma.ion_coll_rate_mat : Similar method for all charge states.
+
+    Notes
+    -----
+    .. math::
+
+        \dfrac{1}{(4\pi\epsilon_0)^2}\dfrac{4\sqrt{2\pi}}{3}N_j\left(
+            \dfrac{q_i q_j q_e^2}{m_i}
+        \right)^2 \left(\dfrac{m_i}{k_B T_i}\right)^{3/2} \ln \Lambda_{ij}
 
     """
     # Artifically clamp collision rate to zero if either density is very small
