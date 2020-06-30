@@ -31,7 +31,7 @@ def enum_hash(val):
     return impl
 
 logger.debug("Defining Target.")
-class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
+class Target(namedtuple("Target", Element._fields + ("n", "kT", "cx"))):
     """
     Use the static `get_ions()` or `get_gas()` factory methods to create instances of this class.
 
@@ -40,8 +40,6 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
 
     There are four extra fields for a more convenient setup of advanced simulations:
     n and kT are vectors holding initial conditions.
-    cni is a boolean flag determining whether the neutral particles are continuously injected,
-    if yes, then neutrals cannot be depleted or heated.
     cx is a boolean flag determining whether the neutral particles contribute to charge exchange.
 
     See Also
@@ -54,9 +52,8 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
     @classmethod
     def get_gas(cls, element, p, r_dt, T=300.0, cx=True):
         """
-        Factory method for defining a gas injection Target.
-        A gas target is a target with constant density in charge state 0, i.e. continuous neutral
-        injection (cni=True).
+        Factory method for defining a neutral gas injection Target.
+        A gas target is a target with constant density in charge state 0.
 
         Parameters
         ----------
@@ -87,7 +84,7 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
         if _n[0] < MINIMAL_DENSITY:
             raise ValueError("The resulting density is smaller than the internal minimal value.")
         _kT[0] = K_B * T / Q_E
-        return cls(*element, n=_n, kT=_kT, cni=True, cx=cx)
+        return cls(*element, n=_n, kT=_kT, cx=cx)
 
     @classmethod
     def get_ions(cls, element, nl, kT=10, q=1, cx=True):
@@ -124,7 +121,7 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cni", "cx"))):
         _kT = np.full(element.z + 1, MINIMAL_KBT, dtype=np.float64)
         _n[q] = nl
         _kT[q] = kT
-        return cls(*element, n=_n, kT=_kT, cni=False, cx=cx)
+        return cls(*element, n=_n, kT=_kT, cx=cx)
 
     def __repr__(self):
         return f"Target({Element.as_element(self)})"
@@ -135,8 +132,6 @@ for f in Element._fields:
     setattr(getattr(Target, f), "__doc__", getattr(getattr(Element, f), "__doc__"))
 Target.n.__doc__ = """<1/m> Array holding the initial linear density of each charge state."""
 Target.kT.__doc__ = """<eV> Array holding the initial temperature of each charge state."""
-Target.cni.__doc__ = """Boolean flag determining whether neutral particles of this target are
-continuously injected, and hence cannot be depleted or heated."""
 Target.cx.__doc__ = """Boolean flag determining whether neutral particles of this target are
 considered as charge exchange partners."""
 
