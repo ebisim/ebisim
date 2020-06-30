@@ -843,32 +843,32 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
         logger.debug("Wrapping rhs in progress meter.")
         k = 0
         print("")
-        def _rhs(t, y, rates=None):
+        def rhs(t, y, rates=None):
             nonlocal k
             k += 1
             if k%100 == 0:
                 print("\r", f"Integration: {k} calls, t = {t:.4e} s", end="")
             return model.rhs(t, y, rates)
     else:
-        _rhs = model.rhs
+        rhs = model.rhs
 
-    if rates:
-        logger.debug("Wrapping rhs in rate extractor.")
-        _rates = dict()
-        def rhs(t, y):
-            # nonlocal _rates
-            if t not in _rates:
-                extractor = numba.typed.Dict.empty(
-                key_type=numba.typeof(Rate.EI),
-                    value_type=numba.types.float64[:]
-                )
-                dydt = _rhs(t, y, extractor)
-                _rates[t] = extractor
-                return dydt
-            else:
-                return _rhs(t, y, None)
-    else:
-        rhs = _rhs
+    # if rates:
+    #     logger.debug("Wrapping rhs in rate extractor.")
+    #     _rates = dict()
+    #     def rhs(t, y):
+    #         # nonlocal _rates
+    #         if t not in _rates:
+    #             extractor = numba.typed.Dict.empty(
+    #             key_type=numba.typeof(Rate.EI),
+    #                 value_type=numba.types.float64[:]
+    #             )
+    #             dydt = _rhs(t, y, extractor)
+    #             _rates[t] = extractor
+    #             return dydt
+    #         else:
+    #             return _rhs(t, y, None)
+    # else:
+    #     rhs = _rhs
 
     logger.debug("Starting integration.")
     res = scipy.integrate.solve_ivp(
@@ -888,7 +888,9 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
         nt = res.t.size
 
         #Poll once to get the available rates
-        extractor = list(_rates.values())[0]
+        # extractor = list(_rates.values())[0]
+        extractor = {}
+        _ = model.rhs(res.t[0], res.y[:, 0], extractor)
         rates = {}
         for k in extractor:
             if len(extractor[k].shape) == 1:
@@ -898,10 +900,11 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
         for idx in range(nt):
             if verbose and idx%100 == 0:
                 print("\r", f"Rates: {idx+1} / {nt}", end="")
-            if res.t[idx] in _rates: #Technically this data should already exist
-                extractor = _rates[res.t[idx]]
-            else: #In case it does not -> recompute
-                _ = model.rhs(res.t[idx], res.y[:, idx], extractor)
+            # if res.t[idx] in _rates: #Technically this data should already exist
+            #     extractor = _rates[res.t[idx]]
+            # else: #In case it does not -> recompute
+            #     _ = model.rhs(res.t[idx], res.y[:, idx], extractor)
+            _ = model.rhs(res.t[idx], res.y[:, idx], extractor)
             for key, val in extractor.items():
                 if len(val.shape) == 1:
                     rates[key][:, idx] = val
