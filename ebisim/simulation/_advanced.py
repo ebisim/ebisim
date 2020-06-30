@@ -13,7 +13,7 @@ from .. import xs
 from .. import plasma
 from ..elements import Element
 from ..physconst import Q_E, M_P, PI, EPS_0, K_B
-from ..physconst import MINIMAL_DENSITY, MINIMAL_KBT
+from ..physconst import MINIMAL_N_1D, MINIMAL_KBT
 from ._result import Result, Rate
 from ._radial_dist import (
     fd_system_nonuniform_grid,
@@ -78,10 +78,10 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cx"))):
             Ready to use Target specification.
         """
         element = Element.as_element(element)
-        _n = np.full(element.z + 1, MINIMAL_DENSITY, dtype=np.float64)
+        _n = np.full(element.z + 1, MINIMAL_N_1D, dtype=np.float64)
         _kT = np.full(element.z + 1, MINIMAL_KBT, dtype=np.float64)
         _n[0] = (p * 100) / (K_B * T) * PI * r_dt**2#Convert from mbar to Pa and compute density at T
-        if _n[0] < MINIMAL_DENSITY:
+        if _n[0] < MINIMAL_N_1D:
             raise ValueError("The resulting density is smaller than the internal minimal value.")
         _kT[0] = K_B * T / Q_E
         return cls(*element, n=_n, kT=_kT, cx=cx)
@@ -114,10 +114,10 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cx"))):
         ebisim.simulation.Target
             Ready to use Target specification.
         """
-        if nl < MINIMAL_DENSITY:
+        if nl < MINIMAL_N_1D:
             raise ValueError("The density is smaller than the internal minimal value.")
         element = Element.as_element(element)
-        _n = np.full(element.z + 1, MINIMAL_DENSITY, dtype=np.float64)
+        _n = np.full(element.z + 1, MINIMAL_N_1D, dtype=np.float64)
         _kT = np.full(element.z + 1, MINIMAL_KBT, dtype=np.float64)
         _n[q] = nl
         _kT[q] = kT
@@ -360,7 +360,7 @@ logger.debug("Defining numba types for AdvancedModel typing.")
 logger.debug("Defining numba types: _T_DEVICE.")
 _T_DEVICE = numba.typeof(Device.get(1, 8000, 1e-4, 0.8, 500, 2, 0.005))
 logger.debug("Defining numba types: _T_TARGET.")
-_T_TARGET = numba.typeof(Target.get_ions("He", 1., 1., 1))
+_T_TARGET = numba.typeof(Target.get_ions("He", 1000., 1., 1))
 logger.debug("Defining numba types: _T_BG_GAS.")
 _T_BG_GAS = numba.typeof(BackgroundGas.get("He", 1e-8))
 logger.debug("Defining numba types: _T_MODEL_OPTIONS.")
@@ -503,7 +503,7 @@ class AdvancedModel:
         n   = y[:self.nq]
         kT  = y[self.nq:]
         # Clip low values?
-        n = np.maximum(n, MINIMAL_DENSITY) #-> linear density
+        n = np.maximum(n, MINIMAL_N_1D) #-> linear density
         kT = np.maximum(kT, MINIMAL_KBT)
 
         # Transposed helperarrays
@@ -670,8 +670,8 @@ class AdvancedModel:
             for k in self.lb:
                 R_ax_rt[k] = 0
                 R_ax_co[k] = 0
-            R_ax_co[n < 10*MINIMAL_DENSITY] = 0
-            R_ax_rt[n < 10*MINIMAL_DENSITY] = 0
+            R_ax_co[n < 10*MINIMAL_N_1D] = 0
+            R_ax_rt[n < 10*MINIMAL_N_1D] = 0
             dn       -= R_ax_co + R_ax_rt
             dkT      -= R_ax_co / n * w_ax * kT + R_ax_rt / n * (tfact_ax - 1) * kT
 
@@ -687,8 +687,8 @@ class AdvancedModel:
             for k in self.lb:
                 R_ra_rt[k] = 0
                 R_ra_co[k] = 0
-            R_ra_co[n < 10*MINIMAL_DENSITY] = 0
-            R_ra_rt[n < 10*MINIMAL_DENSITY] = 0
+            R_ra_co[n < 10*MINIMAL_N_1D] = 0
+            R_ra_rt[n < 10*MINIMAL_N_1D] = 0
             dn       -= R_ra_co + R_ra_rt
             dkT      -= R_ra_co / n * w_ra * kT + R_ra_rt / n * (tfact_ra - 1) * kT
 
@@ -824,8 +824,8 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
     for t in targets: # Make sure that initial temperature is not unreasonably small
         kT = t.kT.copy()
         minkT = np.maximum(device.fwhm * np.arange(t.z+1), MINIMAL_KBT)
-        kT[t.n < 1.00001 * MINIMAL_DENSITY] = np.maximum(kT[t.n < 1.00001 * MINIMAL_DENSITY], minkT[t.n < 1.00001 * MINIMAL_DENSITY])
-        if np.logical_and(np.not_equal(kT, t.kT), t.n > 1.00001 * MINIMAL_DENSITY).any():
+        kT[t.n < 1.00001 * MINIMAL_N_1D] = np.maximum(kT[t.n < 1.00001 * MINIMAL_N_1D], minkT[t.n < 1.00001 * MINIMAL_N_1D])
+        if np.logical_and(np.not_equal(kT, t.kT), t.n > 1.00001 * MINIMAL_N_1D).any():
             logger.warn(f"Initial temperature vector adjusted for {t}, new: {kT}")
         _kT0.append(kT)
     _kT0 = np.concatenate(_kT0)

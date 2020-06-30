@@ -7,7 +7,7 @@ from numba import njit, vectorize#, float64, int64
 import numpy as np
 
 from .physconst import M_E, M_P, PI, EPS_0, Q_E, C_L, M_E_EV
-from .physconst import MINIMAL_DENSITY
+from .physconst import MINIMAL_N_3D
 
 
 logger.debug("Defining _erfc_appprox.")
@@ -290,7 +290,7 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     """
     # Artifically clamp collision rate to zero if either density is very small
     # This is a reasonable assumption and prevents instabilities when calling the coulomb logarithm
-    if Ni <= MINIMAL_DENSITY or Nj <= MINIMAL_DENSITY or kbTi <= 0 or kbTj <= 0:
+    if Ni <= MINIMAL_N_3D or Nj <= MINIMAL_N_3D or kbTi <= 0 or kbTj <= 0:
         return 0.
     if qi == 0 or qj == 0:
         return 0.
@@ -298,7 +298,7 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     kbTi_SI = kbTi * Q_E
     Mi = Ai * M_P
     const = 4 / 3 / (4 * PI * EPS_0)**2 * np.sqrt(2 * PI)
-    return const * Nj * (qi * qj * Q_E * Q_E / Mi)**2 * (Mi/kbTi_SI)**1.5 * clog
+    return np.maximum(const * Nj * (qi * qj * Q_E * Q_E / Mi)**2 * (Mi/kbTi_SI)**1.5 * clog, 0)
 
 
 logger.debug("Defining spitzer_heating.")
@@ -334,10 +334,10 @@ def spitzer_heating(Ni, Ne, kbTi, Ee, Ai, qi):
         Vector of electron heating rate (temperature increase) for each charge state.
 
     """
-    if Ni < MINIMAL_DENSITY:
+    if Ni < MINIMAL_N_3D:
         return 0.
-    return Ne * electron_velocity(Ee) * 2 * M_E / (Ai * M_P) * Ee \
-           * coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi)
+    return np.maximum(0, Ne * electron_velocity(Ee) * 2 * M_E / (Ai * M_P) * Ee \
+                         * coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi))
 
 
 logger.debug("Defining collisional_thermalisation.")

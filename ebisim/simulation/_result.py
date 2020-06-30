@@ -11,7 +11,7 @@ import scipy.interpolate
 from .. import plotting
 from ..elements import Element
 from ._radial_dist import boltzmann_radial_potential_linear_density_ebeam
-from ..physconst import MINIMAL_DENSITY, MINIMAL_KBT
+from ..physconst import MINIMAL_N_1D, MINIMAL_KBT
 
 logger.debug("Defining Rate(IntEnum).")
 class Rate(IntEnum):
@@ -380,7 +380,7 @@ class Result:
             # y = interp(t)
             y = self.res.y[:, np.argmin((t-self.res.t)**2)]
         n = y[:self.model.ub[-1]]
-        n = np.maximum(n, MINIMAL_DENSITY)
+        n = np.maximum(n, MINIMAL_N_1D)
         kT = y[self.model.ub[-1]:]
         kT = np.maximum(kT, MINIMAL_KBT)
         phi, n3d, shapes = boltzmann_radial_potential_linear_density_ebeam(
@@ -568,7 +568,7 @@ class Result:
         return fig
 
 
-    def plot_temperature(self, dens_threshold=1000*MINIMAL_DENSITY, **kwargs):
+    def plot_temperature(self, dens_threshold=1000*MINIMAL_N_1D, **kwargs):
         """
         Plot the temperature evolution of this result object.
 
@@ -614,7 +614,7 @@ class Result:
         return fig
 
 
-    def plot_rate(self, rate_key, dens_threshold=1000*MINIMAL_DENSITY, **kwargs):
+    def plot_rate(self, rate_key, dens_threshold=1000*MINIMAL_N_1D, **kwargs):
         """
         Plots the requested ionisation- or energy flow rates.
 
