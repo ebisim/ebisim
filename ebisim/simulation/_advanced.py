@@ -524,52 +524,55 @@ class AdvancedModel:
         # Radial dynamics
         if self.options.RADIAL_DYNAMICS:
             # Solve radial problem
-
-            ix = self.device.rad_re_idx
-            r = self.device.rad_grid
-
-            phi, n3d, shapes = boltzmann_radial_potential_linear_density_ebeam(
-                r, self.device.current, self.device.r_e, self.device.e_kin,
+            phi, _n3d, _shapes = boltzmann_radial_potential_linear_density_ebeam(
+                self.device.rad_grid, self.device.current, self.device.r_e, self.device.e_kin,
                 n_T, kT_T, q_T,
                 ldu=(self.device.rad_fd_l, self.device.rad_fd_d, self.device.rad_fd_u)
             )
-            n3d = n3d.T[0] # Adjust shape
-
-            # Compute overlap factors
-            i_rs_re = np.trapz(shapes[:, :ix+1]*r[:ix+1], r[:ix+1])
-            i_rs_rd = np.trapz(shapes*r, r)
-            i_rrs_rd = np.trapz(shapes*r*r, r)
-            ion_rad = i_rrs_rd / i_rs_rd
-            fei = i_rs_re/i_rs_rd
-            fij = (ion_rad/np.atleast_2d(ion_rad).T)**2
-            fij = np.minimum(fij, 1.0)
-
-            # Ionisation heating
-            iheat = 2/3*(2 / self.device.r_e**2 *
-                     np.trapz((phi[:ix+1]-phi.min()) * r[:ix+1] * shapes[:, :ix+1], r[:ix+1]))
-
-
-            # Compute effective trapping voltages
-            v_ax = (self.device.v_ax + self.device.v_ax_sc) - phi.min()
-            v_ra = -phi.min()
-
-            # Characteristic beam energies
-            _sc_mean = 2*np.trapz(r[:ix+1]*phi[:ix+1], r[:ix+1])/self.device.r_e**2
-            e_kin = self.device.e_kin + _sc_mean
-            e_kin_fwhm = 2.355*np.sqrt(
-                2*np.trapz(r[:ix+1]*(phi[:ix+1]-_sc_mean)**2, r[:ix+1])/self.device.r_e**2
-            )
-            # iheat = np.minimum(iheat, e_kin_fwhm)
 
         else:
-            n3d = n/PI/self.device.r_e**2
-            fei = np.full(self.nq, 1.)
-            fij = np.full((self.nq, self.nq), 1.)
-            iheat = np.full(self.nq, self.device.fwhm)
-            v_ax = self.device.v_ax
-            v_ra = self.device.v_ra
-            e_kin = self.device.e_kin
-            e_kin_fwhm = self.device.fwhm
+            phi = self.device.rad_phi_uncomp
+
+        ix = self.device.rad_re_idx
+        r = self.device.rad_grid
+
+        # Boltzmann distribution shape functions
+        shapes = np.exp(-q_T * (phi - phi.min())/kT_T) #Works for neutrals
+
+        # Radial integrals
+        i_rs_re = np.trapz(shapes[:, :ix+1] * r[:ix+1], r[:ix+1])
+        i_rsp_re = np.trapz(shapes[:, :ix+1] * r[:ix+1] * (phi[:ix+1]-phi.min()), r[:ix+1])
+        i_rs_rd = np.trapz(shapes * r, r)
+        i_rrs_rd = np.trapz(shapes * r * r, r)
+
+        # On axis 3d density
+        n3d = n_T / 2 / PI / np.atleast_2d(i_rs_rd).T * np.atleast_2d(shapes[:, 0]).T
+        n3d = n3d.T[0] # Adjust shape
+
+        # Compute overlap factors
+        ion_rad = i_rrs_rd / i_rs_rd
+        fei = i_rs_re/i_rs_rd
+        fij = (ion_rad/np.atleast_2d(ion_rad).T)**2
+        fij = np.minimum(fij, 1.0)
+
+        # Compute effective trapping voltages
+        v_ax = (self.device.v_ax + self.device.v_ax_sc) - phi.min()
+        v_ra = -phi.min()
+
+        # Characteristic beam energies
+        _sc_mean = 2*np.trapz(r[:ix+1]*phi[:ix+1], r[:ix+1])/self.device.r_e**2
+        e_kin = self.device.e_kin + _sc_mean
+        e_kin_fwhm = 2.355*np.sqrt(
+            2*np.trapz(r[:ix+1]*(phi[:ix+1]-_sc_mean)**2, r[:ix+1])/self.device.r_e**2
+        )
+
+        # Ionisation heating (mean)
+        if self.options.IONISATION_HEATING:
+            # iheat = 2/3*(2 / self.device.r_e**2 * i_rsp_re)
+            iheat = 2/3 * i_rsp_re / i_rs_re
+        else:
+            iheat = np.zeros(self.nq)
+
 
         # Compute some electron beam quantities
         je = self.device.j / Q_E * 1e4 # electron number current density
@@ -585,11 +588,11 @@ class AdvancedModel:
             q_T, self.q
         )
         ri  = np.sum(rij, axis=-1)
+        # Thermal ion velocities
         v_th = np.sqrt(8 * Q_E * kT/(PI * self.a * M_P)) # Thermal velocities
-        # Thermal ions properties
-        v_z = np.sqrt(kT/(self.a*M_P))
-        f_ax = v_z/(2*self.device.length) # Axial roundtrip frequency
-        f_ra = v_z/(2*self.device.r_dt) #Radial single pass frequency
+        # v_z = np.sqrt(kT/(self.a*M_P))
+        # f_ax = v_z/(2*self.device.length) # Axial roundtrip frequency
+        # f_ra = v_z/(2*self.device.r_dt) #Radial single pass frequency
 
         # update cross sections?
         if self.options.RECOMPUTE_CROSS_SECTIONS:
@@ -611,8 +614,7 @@ class AdvancedModel:
             dn       -= R_ei
             dn[1:]   += R_ei[:-1]
             dkT[1:]  += R_ei[:-1] / n[1:] * (kT[:-1] - kT[1:])
-            if self.options.IONISATION_HEATING:
-                dkT[1:]  += R_ei[:-1] / n[1:] * iheat[:-1]
+            dkT[1:]  += R_ei[:-1] / n[1:] * iheat[:-1]
 
 
         # RR
@@ -621,8 +623,7 @@ class AdvancedModel:
             dn       -= R_rr
             dn[:-1]  += R_rr[1:]
             dkT[:-1] += R_rr[1:] / n[:-1] * (kT[1:] - kT[:-1])
-            if self.options.IONISATION_HEATING:
-                dkT[:-1]  -= R_rr[1:] / n[:-1] * iheat[1:]
+            dkT[:-1]  -= R_rr[1:] / n[:-1] * iheat[1:]
 
 
         # DR
@@ -631,8 +632,7 @@ class AdvancedModel:
             dn       -= R_dr
             dn[:-1]  += R_dr[1:]
             dkT[:-1] += R_dr[1:] / n[:-1] * (kT[1:] - kT[:-1])
-            if self.options.IONISATION_HEATING:
-                dkT[:-1]  -= R_dr[1:] / n[:-1] * iheat[1:]
+            dkT[:-1]  -= R_dr[1:] / n[:-1] * iheat[1:]
 
 
         # CX
@@ -646,8 +646,7 @@ class AdvancedModel:
             dn       -= R_cx
             dn[:-1]  += R_cx[1:]
             dkT[:-1] += R_cx[1:] / n[:-1] * (kT[1:] - kT[:-1])
-            if self.options.IONISATION_HEATING:
-                dkT[:-1]  -= R_cx[1:] / n[:-1] * iheat[1:]
+            dkT[:-1]  -= R_cx[1:] / n[:-1] * iheat[1:]
 
 
         # Electron heating / Spitzer heating
