@@ -98,10 +98,10 @@ def plot_energy_time_scan(energies, times, abundance, **kwargs):
     ax = fig.add_subplot(111)
 
     e_kin, t = np.meshgrid(energies, times)
-    levels = np.arange(21)/20
+    levels = np.arange(21)/20 * abundance.max()
 
     plot = ax.contourf(e_kin, t, abundance, levels=levels, cmap="plasma")
-    plt.colorbar(plot, ticks=np.arange(0, 1.1, 0.1))
+    plt.colorbar(plot, ticks=np.arange(0, 1.1, 0.1) * abundance.max())
     ax.contour(e_kin, t, abundance, levels=levels, colors="k", linewidths=.5)
 
     kwargs.setdefault("xlabel", "Electron energy (eV)")
