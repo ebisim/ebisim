@@ -441,7 +441,6 @@ class AdvancedModel:
         self.bg_gases = bg_gases if bg_gases is not None else numba.typed.List.empty_list(_T_BG_GAS)
         self.options = options
 
-
         # Determine array bounds for different targets in state vector
         self.lb = np.zeros(len(targets), dtype=np.int32)
         self.ub = np.zeros(len(targets), dtype=np.int32)
@@ -451,10 +450,8 @@ class AdvancedModel:
             self.ub[i] = self.lb[i] + trgt.z + 1
             offset = self.ub[i]
 
-
         # Compute total number of charge states for all targets (len of "n" or "kT" state vector)
         self.nq = self.ub[-1]
-
 
         # Define vectors listing the charge state and mass for each state
         self.q = np.zeros(self.nq, dtype=np.int32)
@@ -463,12 +460,15 @@ class AdvancedModel:
             self.q[self.lb[i]:self.ub[i]] = np.arange(trgt.z + 1, dtype=np.int32)
             self.a[self.lb[i]:self.ub[i]] = np.full(trgt.z + 1, trgt.a, dtype=np.int32)
 
-
         # Initialise cross section vectors
         self._eixs = np.zeros(self.nq)
         self._rrxs = np.zeros(self.nq)
         self._drxs = np.zeros(self.nq)
-        self._update_eirrdrxs(self.device.e_kin, self.device.fwhm)
+        for i, trgt in enumerate(self.targets):
+            self._eixs[self.lb[i]:self.ub[i]] = xs.eixs_vec(trgt, self.device.e_kin)
+            self._rrxs[self.lb[i]:self.ub[i]] = xs.rrxs_vec(trgt, self.device.e_kin)
+            self._drxs[self.lb[i]:self.ub[i]] = xs.drxs_vec(trgt, self.device.e_kin, self.device.fwhm)
+
         # Precompute CX cross sections (invariant)
         self._cxxs_bggas = numba.typed.List.empty_list(_T_F8_ARRAY)
         self._cxxs_trgts = numba.typed.List.empty_list(_T_F8_ARRAY)
@@ -476,16 +476,6 @@ class AdvancedModel:
             self._cxxs_bggas.append(xs.cxxs(self.q, gas.ip))
         for trgt in self.targets:
             self._cxxs_trgts.append(xs.cxxs(self.q, trgt.ip))
-
-
-    def _update_eirrdrxs(self, e_kin, drfwhm):
-        for i, trgt in enumerate(self.targets):
-            if self.options.EI:
-                self._eixs[self.lb[i]:self.ub[i]] = xs.eixs_vec(trgt, e_kin)
-            if self.options.RR:
-                self._rrxs[self.lb[i]:self.ub[i]] = xs.rrxs_vec(trgt, e_kin)
-            if self.options.DR:
-                self._drxs[self.lb[i]:self.ub[i]] = xs.drxs_vec(trgt, e_kin, drfwhm)
 
 
     def rhs(self, _t, y, rates=None):
@@ -514,7 +504,6 @@ class AdvancedModel:
             dy/dt
         """
         # pylint: disable=bad-whitespace
-        # print(_t)
         # Split y into useful parts
         n   = y[:self.nq]
         kT  = y[self.nq:]
@@ -604,11 +593,21 @@ class AdvancedModel:
 
         # update cross sections?
         if self.options.RECOMPUTE_CROSS_SECTIONS:
-            self._update_eirrdrxs(e_kin, e_kin_fwhm)
+            eixs = np.zeros(self.nq)
+            rrxs = np.zeros(self.nq)
+            drxs = np.zeros(self.nq)
+            for i, trgt in enumerate(self.targets):
+                eixs[self.lb[i]:self.ub[i]] = xs.eixs_vec(trgt, e_kin)
+                rrxs[self.lb[i]:self.ub[i]] = xs.rrxs_vec(trgt, e_kin)
+                drxs[self.lb[i]:self.ub[i]] = xs.drxs_vec(trgt, e_kin, e_kin_fwhm)
+        else:
+            eixs = self._eixs
+            rrxs = self._rrxs
+            drxs = self._drxs
 
         # EI
         if self.options.EI:
-            R_ei      = self._eixs * n * je * fei
+            R_ei      = eixs * n * je * fei
             dn       -= R_ei
             dn[1:]   += R_ei[:-1]
             dkT[1:]  += R_ei[:-1] / n[1:] * (kT[:-1] - kT[1:])
@@ -618,7 +617,7 @@ class AdvancedModel:
 
         # RR
         if self.options.RR:
-            R_rr      = self._rrxs * n * je * fei
+            R_rr      = rrxs * n * je * fei
             dn       -= R_rr
             dn[:-1]  += R_rr[1:]
             dkT[:-1] += R_rr[1:] / n[:-1] * (kT[1:] - kT[:-1])
@@ -628,7 +627,7 @@ class AdvancedModel:
 
         # DR
         if self.options.DR:
-            R_dr      = self._drxs * n * je * fei
+            R_dr      = drxs * n * je * fei
             dn       -= R_dr
             dn[:-1]  += R_dr[1:]
             dkT[:-1] += R_dr[1:] / n[:-1] * (kT[1:] - kT[:-1])
