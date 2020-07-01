@@ -888,7 +888,10 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
 
         #Poll once to get the available rates
         # extractor = list(_rates.values())[0]
-        extractor = {}
+        extractor = numba.typed.Dict.empty(
+            key_type=numba.typeof(Rate.EI),
+            value_type=numba.types.float64[:]
+        )
         _ = model.rhs(res.t[0], res.y[:, 0], extractor)
         rates = {}
         for k in extractor:
