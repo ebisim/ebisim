@@ -42,7 +42,7 @@ def electron_velocity(e_kin):
     Notes
     -----
     .. math::
-        c\sqrt{1-\left(\dfrac{m_e c^2}{m_e c^2 + E_e}\right)^2}
+        v_e = c\sqrt{1-\left(\dfrac{m_e c^2}{m_e c^2 + E_e}\right)^2}
     """
     return C_L * np.sqrt(1 - (M_E_EV / (M_E_EV + e_kin))**2)
 
@@ -90,19 +90,19 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
     Notes
     -----
     .. math::
-            23 - \ln\left(N_e^{1/2} (T_e)^{-3/2} q_i\right)
+            \lambda_{ei} = 23 - \ln\left(N_e^{1/2} (T_e)^{-3/2} q_i\right)
                  \quad\text{if } T_i m_e/m_i < T_e < 10 q_i^2\text{ eV}
 
     .. math::
-            24 - \ln\left(N_e^{1/2} (T_e)^{-1}\right)
+            \lambda_{ei} = 24 - \ln\left(N_e^{1/2} (T_e)^{-1}\right)
                  \quad\text{if } T_i m_e/m_i < 10 q_i^2\text{ eV} < T_e
 
     .. math::
-            16 - \ln\left(N_i^{1/2} (T_i)^{-3/2} q_i^2 \mu_i\right)
+            \lambda_{ei} = 16 - \ln\left(N_i^{1/2} (T_i)^{-3/2} q_i^2 \mu_i\right)
                  \quad\text{if } T_e < T_i m_e/m_i
 
     .. math::
-            \left[24 - \ln\left(N_e^{1/2} (T_e)^{-1/2}\right)
+            \left[\lambda_{ei} = 24 - \ln\left(N_e^{1/2} (T_e)^{-1/2}\right)
                  \quad\text{else (fallback)} \right]
 
     In these formulas N and T are given in cm^-3 and eV respectively.
@@ -172,7 +172,6 @@ def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     Notes
     -----
     .. math::
-
         \lambda_{ij} = \lambda_{ji} = 23 - \ln \left(
             \frac{q_i q_j(\mu_i+\mu_j)}{\mu_i T_j+\mu_j T_i} \left(
                 \frac{n_i q_i^2}{T_i} + \frac{n_j q_j^2}{T_j}
@@ -225,8 +224,7 @@ def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
     Notes
     -----
     .. math::
-
-        4 \pi \left( \dfrac{q_i q_e^2}{4\pi\epsilon_0 m_e} \right)^2
+        \sigma_i = 4 \pi \left( \dfrac{q_i q_e^2}{4\pi\epsilon_0 m_e} \right)^2
         \dfrac{\ln \Lambda_{ei}}{v_e^4}
 
     """
@@ -282,8 +280,7 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
     Notes
     -----
     .. math::
-
-        \dfrac{1}{(4\pi\epsilon_0)^2}\dfrac{4\sqrt{2\pi}}{3}N_j\left(
+        \nu_{ij} = \dfrac{1}{(4\pi\epsilon_0)^2}\dfrac{4\sqrt{2\pi}}{3}N_j\left(
             \dfrac{q_i q_j q_e^2}{m_i}
         \right)^2 \left(\dfrac{m_i}{k_B T_i}\right)^{3/2} \ln \Lambda_{ij}
 
@@ -336,11 +333,10 @@ def spitzer_heating(Ni, Ne, kbTi, Ee, Ai, qi):
     Notes
     -----
     .. math::
-
         \left(\dfrac{d k_B T_i}{d t}\right)^{\text{Spitzer}} =
-        \dfrac{2}{3} N_e v_e \sigma 2 \dfrac{m_e}{m_i} E_e
+        \dfrac{2}{3} N_e v_e \sigma_i 2 \dfrac{m_e}{m_i} E_e
 
-    where sigma is the cross section for Coulomb collisions (cf. ebisim.plasma.coulomb_xs).
+    where sigma_i is the cross section for Coulomb collisions (cf. ebisim.plasma.coulomb_xs).
 
     """
     if Ni < MINIMAL_N_3D:
@@ -354,8 +350,8 @@ logger.debug("Defining collisional_thermalisation.")
     # [float64(float64, float64, float64, float64, float64)],
     cache=True, nopython=True
 )
-def collisional_thermalisation(kbTi, kbTj, Ai, Aj, rij):
-    """
+def collisional_thermalisation(kbTi, kbTj, Ai, Aj, nuij):
+    r"""
     Computes the collisional energy transfer rates for species "i" with respect to species "j".
 
     Parameters
@@ -370,7 +366,7 @@ def collisional_thermalisation(kbTi, kbTj, Ai, Aj, rij):
         Ion species "i" mass number.
     Aj : float or numpy.ndarray
         Ion species "j" mass number.
-    rij : float or numpy.ndarray
+    nuij : float or numpy.ndarray
         <1/s>
         Collision rate matrix for the ions (cf. ion_coll_mat).
 
@@ -380,11 +376,17 @@ def collisional_thermalisation(kbTi, kbTj, Ai, Aj, rij):
         <eV/s>
         Vector of temperature change rate for each charge state.
 
+    Notes
+    -----
+    .. math::
+        \left(\dfrac{d k_B T_i}{d t}\right)_j =
+        2 \nu_{ij} \dfrac{m_i}{m_j} \dfrac{k_B T_j - k_B T_i}{(1 + m_i k_B T_j / m_j k_B T_i)^{3/2}}
+
     """
     if kbTi <= 0 or kbTj <= 0:
         return 0
     else:
-        return 2 * rij * Ai/Aj * (kbTj - kbTi) / \
+        return 2 * nuij * Ai/Aj * (kbTj - kbTi) / \
                         (1 + (Ai * kbTj) / (Aj * kbTi))**1.5
 
 
@@ -394,7 +396,7 @@ logger.debug("Defining trapping_strength_axial.")
     cache=True, nopython=True
 )
 def trapping_strength_axial(kbTi, qi, V):
-    """
+    r"""
     Computes the axial trapping strenghts.
 
     Parameters
@@ -414,6 +416,11 @@ def trapping_strength_axial(kbTi, qi, V):
         <1/s>
         Vector of axial ion trapping strenghts for each charge state.
 
+    Notes
+    -----
+    .. math::
+        \omega_i^{ax} = \dfrac{q_i V_{ax}}{k_B T_i}
+
     """
     # if qi == 0 or kbTi <= 0:
     # if kbTi <= 0:
@@ -432,7 +439,7 @@ logger.debug("Defining trapping_strength_radial.")
     cache=True, nopython=True
 )
 def trapping_strength_radial(kbTi, qi, Ai, V, B, r_dt):
-    """
+    r"""
     Radial trapping strenghts.
 
     Parameters
@@ -460,6 +467,12 @@ def trapping_strength_radial(kbTi, qi, Ai, V, B, r_dt):
         <1/s>
         Vector of radial ion trapping strenghts for each charge state.
 
+    Notes
+    -----
+    .. math::
+        \omega_i^{rad} =
+        \dfrac{q_i \left(V_{rad} + B r_{dt} \sqrt{2 k_B T_i/(3 m_i)} \right)}{k_B T_i}
+
     """
     # if qi == 0 or kbTi <= 0:
     # if kbTi <= 0:
@@ -476,13 +489,13 @@ logger.debug("Defining collisional_escape_rate.")
     # [float64(float64, float64, float64)],
     cache=True, nopython=True
 )
-def collisional_escape_rate(ri, w):
-    """
+def collisional_escape_rate(nui, w):
+    r"""
     Generic escape rate - to be called by axial and radial escape
 
     Parameters
     ----------
-    ri : float or numpy.ndarray
+    nui : float or numpy.ndarray
         <1/s>
         Vector of total ion ion collision rates for each charge state.
     w : float or numpy.ndarray
@@ -495,11 +508,16 @@ def collisional_escape_rate(ri, w):
         <1/s>
         Vector of ion loss rates for each charge state.
 
+    Notes
+    -----
+    .. math::
+        \dfrac{3}{\sqrt{2}} \nu_i \dfrac{e^{-\omega_i}}{\omega_i}
+
     """
     if w == 0:
-        esc = ri
+        esc = nui
     else:
-        esc = 3 / np.sqrt(2) * ri * np.exp(-w) / w
+        esc = 3 / np.sqrt(2) * nui * np.exp(-w) / w
     # if esc < 0:
     #     esc = 0.
     return esc
