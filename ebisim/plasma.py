@@ -307,7 +307,7 @@ logger.debug("Defining spitzer_heating.")
     cache=True, nopython=True
 )
 def spitzer_heating(Ni, Ne, kbTi, Ee, Ai, qi):
-    """
+    r"""
     Computes the heating rates due to elastic electron ion collisions ('Spitzer Heating')
 
     Parameters
@@ -333,10 +333,19 @@ def spitzer_heating(Ni, Ne, kbTi, Ee, Ai, qi):
         <eV/s>
         Vector of electron heating rate (temperature increase) for each charge state.
 
+    Notes
+    -----
+    .. math::
+
+        \left(\dfrac{d k_B T_i}{d t}\right)^{\text{Spitzer}} =
+        \dfrac{2}{3} N_e v_e \sigma 2 \dfrac{m_e}{m_i} E_e
+
+    where sigma is the cross section for Coulomb collisions (cf. ebisim.plasma.coulomb_xs).
+
     """
     if Ni < MINIMAL_N_3D:
         return 0.
-    return np.maximum(0, Ne * electron_velocity(Ee) * 2 * M_E / (Ai * M_P) * Ee \
+    return np.maximum(0, 2/3 * Ne * electron_velocity(Ee) * 2 * M_E / (Ai * M_P) * Ee \
                          * coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi))
 
 

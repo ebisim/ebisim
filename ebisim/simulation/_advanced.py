@@ -646,7 +646,6 @@ class AdvancedModel:
 
         # Electron heating / Spitzer heating
         if self.options.SPITZER_HEATING:
-            # TODO: Check spitzer heating factor
             _dkT_eh   = plasma.spitzer_heating(n3d, ne, kT, e_kin, self.a, self.q) * fei
             dkT      += _dkT_eh
 
