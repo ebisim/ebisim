@@ -732,16 +732,15 @@ class AdvancedModel:
                 rates[Rate.T_COLLISIONAL_THERMALISATION] = _dkT_ct
             if self.options.SPITZER_HEATING:
                 rates[Rate.T_SPITZER_HEATING] = _dkT_eh
-            if self.options.RADIAL_DYNAMICS:
-                # rates[Rate.CV] = heat_capacity(self.device.rad_grid, phi, q_T, kT_T).T[0]
-                rates[Rate.F_EI] = fei
-                rates[Rate.E_KIN_MEAN] = np.atleast_1d(np.array(e_kin))
-                rates[Rate.E_KIN_FWHM] = np.atleast_1d(np.array(e_kin_fwhm))
-                rates[Rate.V_RA] = np.atleast_1d(np.array(v_ra))
-                rates[Rate.V_AX] = np.atleast_1d(np.array(v_ax))
-                # rates[Rate.CHARGE_COMPENSATION] = comp
             if self.options.IONISATION_HEATING:
                 rates[Rate.IONISATION_HEAT] = iheat
+            # rates[Rate.CV] = heat_capacity(self.device.rad_grid, phi, q_T, kT_T).T[0]
+            # rates[Rate.CHARGE_COMPENSATION] = comp
+            rates[Rate.F_EI] = fei
+            rates[Rate.E_KIN_MEAN] = np.atleast_1d(np.array(e_kin))
+            rates[Rate.E_KIN_FWHM] = np.atleast_1d(np.array(e_kin_fwhm))
+            rates[Rate.V_RA] = np.atleast_1d(np.array(v_ra))
+            rates[Rate.V_AX] = np.atleast_1d(np.array(v_ax))
             rates[Rate.COLLISION_RATE_SELF] = np.diag(rij).copy()
             rates[Rate.COLLISION_RATE_TOTAL] = ri
 
