@@ -232,7 +232,7 @@ def plot_radial_distribution(r, dens, phi=None, r_e=None, ax=None, ax2=None, **k
 #### XS Plotting #######
 ########################
 
-def _plot_xs(e_samp, xs_scan, ax=None, ls="-", **kwargs):
+def _plot_xs(e_samp, xs_scan, ax=None, **kwargs):
     """
     Low level plotting routine serving plot_eixs, plot_rrxs and plot_drxs
 
@@ -247,8 +247,6 @@ def _plot_xs(e_samp, xs_scan, ax=None, ls="-", **kwargs):
         and the columns correspond to the different sampling energies.
     ax : matplotlib.Axes, optional
         Provide if you want to add this plot to existing Axes, by default None.
-    ls : str, optional
-        Can be provided to define a linestyle for the plot, by default "-".
     **kwargs
         Keyword arguments are handed down to ebisim.plotting.decorate_axes,
         cf. documentation thereof.
@@ -274,7 +272,7 @@ def _plot_xs(e_samp, xs_scan, ax=None, ls="-", **kwargs):
         if np.array_equal(np.unique(xs_cs), np.array([0])):
             plt.plot([], []) # If all xs are zero, do a ghost plot to advance color cycle
         else:
-            plt.plot(e_samp, 1e4*xs_cs, figure=fig, ls=ls, label=str(cs)+"+") # otherwise plot data
+            plt.plot(e_samp, 1e4*xs_cs, figure=fig, label=str(cs)+"+") # otherwise plot data
 
     kwargs.setdefault("xlim", (e_samp[0], e_samp[-1]))
     kwargs.setdefault("xscale", "log")
