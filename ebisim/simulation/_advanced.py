@@ -637,7 +637,7 @@ class AdvancedModel:
                 R_cx += self._cxxs_bggas[g] * gas.n0 * n * v_th
             for j, jtrgt in enumerate(self.targets):
                 if jtrgt.cx: # Only compute cx with target gas if wished by user
-                    R_cx += self._cxxs_trgts[j] * n[self.lb[j]] * n * v_th
+                    R_cx += self._cxxs_trgts[j] * n3d[self.lb[j]] * n * v_th
             dn       -= R_cx
             dn[:-1]  += R_cx[1:]
             dkT[:-1] += R_cx[1:] / n[:-1] * (kT[1:] - kT[:-1])
