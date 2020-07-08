@@ -51,8 +51,10 @@ def basic_simulation(element, j, e_kin, t_max,
         amount of neutral atoms in the case of CNI.
         By default None.
     CNI : bool, optional
-        Determines whether there is a continuous addition of neutral atoms to the distribution.
-        If True, the feed rate is 1/s.
+        If Continuous Neutral Injection is activated, the neutrals are assumed to form an
+        infinite reservoir. Their absolute number will not change over time and hence they act as a
+        constant source of new singly charged ions. Therefore the absolute amount of ions increases
+        over time.
         By default False.
     solver_kwargs : None or dict, optional
         If supplied these keyword arguments are unpacked in the solver call.
@@ -72,7 +74,7 @@ def basic_simulation(element, j, e_kin, t_max,
     if not N_initial:
         N_initial = np.zeros(element.z + 1)
         if CNI:
-            N_initial[0] = 1e-12
+            N_initial[0] = 1
         else:
             N_initial[1] = 1
 
@@ -91,6 +93,8 @@ def basic_simulation(element, j, e_kin, t_max,
     xs_mat = xs.eixs_mat(element, e_kin) + xs.rrxs_mat(element, e_kin)
     if dr_fwhm:
         xs_mat += xs.drxs_mat(element, e_kin, dr_fwhm)
+    if CNI:
+        xs_mat[0] = 0
 
     # the jacobian of a basic simulation
     _jac = j * xs_mat
@@ -99,13 +103,7 @@ def basic_simulation(element, j, e_kin, t_max,
     else:
         jac = _jac
 
-    # the rate equation
-    if CNI:
-        feed = np.zeros(element.z + 1)
-        feed[0] = 1
-        dNdt = lambda _, N: _jac.dot(N) + feed
-    else:
-        dNdt = lambda _, N: _jac.dot(N)
+    dNdt = lambda _, N: _jac.dot(N)
 
     res = scipy.integrate.solve_ivp(dNdt, (0, t_max), N_initial, jac=jac, **solver_kwargs)
     return Result(param=param, t=res.t, N=res.y, res=res)
