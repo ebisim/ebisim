@@ -515,7 +515,12 @@ class AdvancedModel:
         n   = y[:self.nq]
         kT  = y[self.nq:]
         # Clip low values?
-        n = np.maximum(n, MINIMAL_N_1D) #-> linear density
+        # n = np.maximum(n, MINIMAL_N_1D) #-> linear density
+        n_r = n[:]
+        # n = np.maximum(n, 0) #-> linear density
+        n[n < .001*MINIMAL_N_1D] = 0
+
+        # kT = np.maximum(kT, 0)
         kT = np.maximum(kT, MINIMAL_KBT)
 
         # Transposed helperarrays
@@ -591,7 +596,7 @@ class AdvancedModel:
 
 
         # Collision rates
-        rij = fij * plasma.ion_coll_rate(
+        rij = plasma.ion_coll_rate(
             np.atleast_2d(n3d).T, n3d,
             kT_T, kT,
             a_T, self.a,
@@ -623,8 +628,8 @@ class AdvancedModel:
             R_ei      = eixs * n * je * fei
             dn       -= R_ei
             dn[1:]   += R_ei[:-1]
-            dkT[1:]  += R_ei[:-1] / n[1:] * (kT[:-1] - kT[1:])
-            dkT[1:]  += R_ei[:-1] / n[1:] * iheat[:-1]
+            dkT[1:]  += R_ei[:-1] / n_r[1:] * (kT[:-1] - kT[1:])
+            dkT[1:]  += R_ei[:-1] / n_r[1:] * iheat[:-1]
 
 
         # RR
@@ -632,8 +637,8 @@ class AdvancedModel:
             R_rr      = rrxs * n * je * fei
             dn       -= R_rr
             dn[:-1]  += R_rr[1:]
-            dkT[:-1] += R_rr[1:] / n[:-1] * (kT[1:] - kT[:-1])
-            dkT[:-1]  -= R_rr[1:] / n[:-1] * iheat[1:]
+            dkT[:-1] += R_rr[1:] / n_r[:-1] * (kT[1:] - kT[:-1])
+            dkT[:-1]  -= R_rr[1:] / n_r[:-1] * iheat[1:]
 
 
         # DR
@@ -641,8 +646,8 @@ class AdvancedModel:
             R_dr      = drxs * n * je * fei
             dn       -= R_dr
             dn[:-1]  += R_dr[1:]
-            dkT[:-1] += R_dr[1:] / n[:-1] * (kT[1:] - kT[:-1])
-            dkT[:-1]  -= R_dr[1:] / n[:-1] * iheat[1:]
+            dkT[:-1] += R_dr[1:] / n_r[:-1] * (kT[1:] - kT[:-1])
+            dkT[:-1]  -= R_dr[1:] / n_r[:-1] * iheat[1:]
 
 
         # CX
@@ -655,8 +660,8 @@ class AdvancedModel:
                     R_cx += self._cxxs_trgts[j] * n3d[self.lb[j]] * n * v_th
             dn       -= R_cx
             dn[:-1]  += R_cx[1:]
-            dkT[:-1] += R_cx[1:] / n[:-1] * (kT[1:] - kT[:-1])
-            dkT[:-1]  -= R_cx[1:] / n[:-1] * iheat[1:]
+            dkT[:-1] += R_cx[1:] / n_r[:-1] * (kT[1:] - kT[:-1])
+            dkT[:-1]  -= R_cx[1:] / n_r[:-1] * iheat[1:]
 
 
         # Electron heating / Spitzer heating
@@ -668,7 +673,7 @@ class AdvancedModel:
         # Ion-ion heat transfer (collisional thermalisation)
         if self.options.COLLISIONAL_THERMALISATION:
             _dkT_ct   = np.sum(
-                plasma.collisional_thermalisation(
+                fij*plasma.collisional_thermalisation(
                     kT_T, kT, a_T, self.a, rij
                 ), axis=-1
             )
@@ -684,10 +689,10 @@ class AdvancedModel:
             for k in self.lb:
                 R_ax_rt[k] = 0
                 R_ax_co[k] = 0
-            R_ax_co[n < 10*MINIMAL_N_1D] = 0
-            R_ax_rt[n < 10*MINIMAL_N_1D] = 0
+            # R_ax_co[n < 10*MINIMAL_N_1D] = 0
+            # R_ax_rt[n < 10*MINIMAL_N_1D] = 0
             dn       -= R_ax_co + R_ax_rt
-            dkT      -= R_ax_co / n * w_ax * kT + R_ax_rt / n * (tfact_ax - 1) * kT
+            dkT      -= R_ax_co / n_r * w_ax * kT + R_ax_rt / n_r * (tfact_ax - 1) * kT
 
 
         # Radial escape
@@ -701,10 +706,10 @@ class AdvancedModel:
             for k in self.lb:
                 R_ra_rt[k] = 0
                 R_ra_co[k] = 0
-            R_ra_co[n < 10*MINIMAL_N_1D] = 0
-            R_ra_rt[n < 10*MINIMAL_N_1D] = 0
+            # R_ra_co[n < 10*MINIMAL_N_1D] = 0
+            # R_ra_rt[n < 10*MINIMAL_N_1D] = 0
             dn       -= R_ra_co + R_ra_rt
-            dkT      -= R_ra_co / n * w_ra * kT + R_ra_rt / n * (tfact_ra - 1) * kT
+            dkT      -= R_ra_co / n_r * w_ra * kT + R_ra_rt / n_r * (tfact_ra - 1) * kT
 
 
         #TODO: Expansion cooling
@@ -732,16 +737,16 @@ class AdvancedModel:
             if self.options.ESCAPE_AXIAL:
                 rates[Rate.W_AX]    = w_ax
                 rates[Rate.AX_CO] = R_ax_co
-                rates[Rate.T_AX_CO] = R_ax_co * (kT + w_ax * kT)/n
+                rates[Rate.T_AX_CO] = R_ax_co * (kT + w_ax * kT)/n_r
                 rates[Rate.AX_RT] = R_ax_rt
-                rates[Rate.T_AX_RT] = R_ax_rt * (tfact_ax - 1) * kT/n
+                rates[Rate.T_AX_RT] = R_ax_rt * (tfact_ax - 1) * kT/n_r
                 # rates["free_ax"] = free_ax
             if self.options.ESCAPE_RADIAL:
                 rates[Rate.W_RA]    = w_ra
                 rates[Rate.RA_CO] = R_ra_co
-                rates[Rate.T_RA_CO] = R_ra_co * (kT + w_ra * kT)/n
+                rates[Rate.T_RA_CO] = R_ra_co * (kT + w_ra * kT)/n_r
                 rates[Rate.RA_RT] = R_ra_rt
-                rates[Rate.T_RA_RT] = R_ra_rt * (tfact_ra - 1) * kT/n
+                rates[Rate.T_RA_RT] = R_ra_rt * (tfact_ra - 1) * kT/n_r
                 # rates["free_ra"] = free_ra
             if self.options.COLLISIONAL_THERMALISATION:
                 rates[Rate.T_COLLISIONAL_THERMALISATION] = _dkT_ct
@@ -759,7 +764,10 @@ class AdvancedModel:
             rates[Rate.COLLISION_RATE_SELF] = np.diag(rij).copy()
             rates[Rate.COLLISION_RATE_TOTAL] = ri
 
-
+        dn[n < .1 * MINIMAL_N_1D] = np.maximum(dn[n < .1 * MINIMAL_N_1D], 0)
+        # dkT[kT < 1 * MINIMAL_KBT] = np.maximum(dkT[kT < 1 * MINIMAL_KBT], 0)
+        dkT[n < .1 * MINIMAL_N_1D] = 0
+        # dn[n < MINIMAL_N_1D] = 0
         return np.concatenate((dn, dkT))
 
 
@@ -824,10 +832,11 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
         bg_gases = numba.typed.List(bg_gases)
 
     # device = Device(*tuple([float(_f) for _f in device])) #Device is easy to mess up, safety rope
-    assert numba.typeof(device) == _T_DEVICE, "Numba type mismatch for device"
-    assert numba.typeof(options) == _T_MODEL_OPTIONS, "Numba type mismatch for options"
-    assert numba.typeof(targets) == _T_TARGET_LIST, "Numba type mismatch for Target list"
-    assert numba.typeof(bg_gases) == _T_BG_GAS_LIST, "Numba type mismatch for BgGas list"
+    if hasattr(AdvancedModel, "_ctor_sig"):
+        assert numba.typeof(device) == _T_DEVICE, "Numba type mismatch for device"
+        assert numba.typeof(options) == _T_MODEL_OPTIONS, "Numba type mismatch for options"
+        assert numba.typeof(targets) == _T_TARGET_LIST, "Numba type mismatch for Target list"
+        assert numba.typeof(bg_gases) == _T_BG_GAS_LIST, "Numba type mismatch for BgGas list"
 
     logger.debug("Initialising AdvancedModel object.")
     model = AdvancedModel(device, targets, bg_gases, options)

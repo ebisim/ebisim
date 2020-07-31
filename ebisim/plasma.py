@@ -427,8 +427,8 @@ def trapping_strength_axial(kbTi, qi, V):
     #     return np.inf # fake value for neutrals -> essentially infinite trap
     # else:
     w = qi * V / kbTi
-    if w < 1:
-        return 0.
+    # if w < 1e-10:
+    #     return 0.
     return w
 
 
@@ -479,8 +479,8 @@ def trapping_strength_radial(kbTi, qi, Ai, V, B, r_dt):
     #     return np.inf # fake value for neutrals -> essentially infinite trap
     # else:
     w = qi * (V + B * r_dt * np.sqrt(2 * kbTi * Q_E /(3*M_P*Ai))) / kbTi
-    if w < 1:
-        return 0.
+    # if w < 1e-10:
+    #     return 0.
     return w
 
 
@@ -514,7 +514,7 @@ def collisional_escape_rate(nui, w):
         \dfrac{3}{\sqrt{2}} \nu_i \dfrac{e^{-\omega_i}}{\omega_i}
 
     """
-    if w == 0:
+    if w <= 0:
         esc = nui
     else:
         esc = 3 / np.sqrt(2) * nui * np.exp(-w) / w
@@ -548,10 +548,10 @@ def roundtrip_escape(w):
     _sqrtw = np.sqrt(w)
     _erfc = _erfc_approx(_sqrtw)
     free_fraction = _erfc + 2*_INVSQRTPI*_sqrtw*np.exp(-w)
-    free_fraction[w == 0] = 1
+    free_fraction[w <= 0] = 1
     temperature_factor = (1.5*_erfc + _INVSQRTPI*_sqrtw*np.exp(-w)*(2*w+3))/free_fraction
     temperature_factor[free_fraction == 0] = 1
-    temperature_factor[w == 0] = 1
+    temperature_factor[w <= 0] = 1
     return free_fraction, temperature_factor
 
 
