@@ -338,6 +338,7 @@ _MODEL_OPTIONS_DEFAULTS = OrderedDict(
     SPITZER_HEATING=True, COLLISIONAL_THERMALISATION=True,
     ESCAPE_AXIAL=True, ESCAPE_RADIAL=True,
     RECOMPUTE_CROSS_SECTIONS=False, RADIAL_DYNAMICS=False, IONISATION_HEATING=True,
+    OVERRIDE_FWHM=False
 )
 ModelOptions = namedtuple(
     "ModelOptions", _MODEL_OPTIONS_DEFAULTS.keys(), defaults=_MODEL_OPTIONS_DEFAULTS.values()
@@ -362,6 +363,8 @@ given shell. Default False."""
 ModelOptions.RADIAL_DYNAMICS.__doc__ = """Switch for effects of radial ion cloud extent.
 May be computationally very intensive"""
 ModelOptions.IONISATION_HEATING.__doc__ = """Switch for ionisation heating/recombination cooling"""
+ModelOptions.OVERRIDE_FWHM.__doc__ = """If set use FWHM from device definition instead of computed
+value."""
 
 
 # Typedefs for AdvancedModel
@@ -566,9 +569,12 @@ class AdvancedModel:
         # Characteristic beam energies
         _sc_mean = 2*np.trapz(r[:ix+1]*phi[:ix+1], r[:ix+1])/self.device.r_e**2
         e_kin = self.device.e_kin + _sc_mean
-        e_kin_fwhm = 2.355*np.sqrt(
-            2*np.trapz(r[:ix+1]*(phi[:ix+1]-_sc_mean)**2, r[:ix+1])/self.device.r_e**2
-        )
+        if not self.options.OVERRIDE_FWHM:
+            e_kin_fwhm = 2.355*np.sqrt(
+                2*np.trapz(r[:ix+1]*(phi[:ix+1]-_sc_mean)**2, r[:ix+1])/self.device.r_e**2
+            )
+        else:
+            e_kin_fwhm = self.device.fwhm
 
         # Ionisation heating (mean)
         if self.options.IONISATION_HEATING:
