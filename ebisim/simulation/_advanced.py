@@ -217,7 +217,7 @@ class Device(namedtuple("Device", _DEVICE.keys())):
     @classmethod
     def get(
             cls, current, e_kin, r_e, length, v_ax, b_ax, r_dt,
-            v_ra=None, j=None, fwhm=None, n_grid=100
+            v_ra=None, j=None, fwhm=None, n_grid=100, r_dt_bar=None
         ):
         """
         Factory method for defining a device.
@@ -278,11 +278,20 @@ class Device(namedtuple("Device", _DEVICE.keys())):
         )
         rad_phi_uncomp = phi
 
-        logger.debug(f"Device.get: Barrier - Call boltzmann_radial_potential_linear_density_ebeam.")
-        phi_barrier, _, __ = boltzmann_radial_potential_linear_density_ebeam(
-            rad_grid, current, r_e, e_kin+v_ax, 0, 1, 1, ldu=rad_ldu
-        )
-        v_ax_sc = phi_barrier[0]
+        if r_dt_bar is None:
+            logger.debug(f"Device.get: Barrier - Call boltzmann_radial_potential_linear_density_ebeam.")
+            phi_barrier, _, __ = boltzmann_radial_potential_linear_density_ebeam(
+                rad_grid, current, r_e, e_kin+v_ax, 0, 1, 1, ldu=rad_ldu
+            )
+            v_ax_sc = phi_barrier[0]
+        else:
+            _rad_grid = np.geomspace(r_e/100, r_dt_bar, num=n_grid)
+            _rad_grid[0] = 0
+            logger.debug(f"Device.get: Barrier - Call boltzmann_radial_potential_linear_density_ebeam.")
+            phi_barrier, _, __ = boltzmann_radial_potential_linear_density_ebeam(
+                _rad_grid, current, r_e, e_kin+v_ax, 0, 1, 1,
+            )
+            v_ax_sc = phi_barrier[0]
 
         if j is None:
             j = current/r_e**2/PI*1e-4
