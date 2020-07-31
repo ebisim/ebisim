@@ -163,7 +163,7 @@ def plot_generic_evolution(t, y, plot_total=False, ax=None, **kwargs):
             else:
                 ax.loglog(t, y[cs, :], label=str(cs) + "+")
     if plot_total:
-        ax.plot(t, np.sum(y, axis=0), c="k", ls="--", figure=fig, label="total")
+        ax.plot(t, np.nansum(y, axis=0), c="k", ls="--", figure=fig, label="total")
 
     kwargs.setdefault("xlim", (1e-4, 1e3))
     kwargs.setdefault("xlabel", "Time (s)")
