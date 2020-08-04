@@ -2,7 +2,6 @@
 This module contains the advanced simulation method and related resources.
 """
 import logging
-logger = logging.getLogger(__name__)
 from collections import namedtuple, OrderedDict
 import numpy as np
 import scipy.integrate
@@ -21,6 +20,7 @@ from ._radial_dist import (
     # heat_capacity
 )
 
+logger = logging.getLogger(__name__)
 #Hack for making Enums hashable by numba - hash will differ from CPython
 #This is to make Enums work as numba.typed.Dict keys
 logger.debug("Patching numba.types.EnumMember __hash__.")
@@ -400,19 +400,19 @@ logger.debug("Defining numba types: _T_RATE_ENUM.")
 _T_RATE_ENUM = numba.typeof(Rate.EI)
 
 
-#TODO: This trick does not reexport the updated Model, so ebisim.AdvancedModel
-# and ebisim.simulation.AdvancedModel remain unjitted - this could cause trouble in weird scenarios
-logger.debug("Defining compile_adv_model.")
-def compile_adv_model():
-    global AdvancedModel
-    if not hasattr(AdvancedModel, "_ctor_sig"):
-        logger.debug("Arming compilation of AdvancedModel class.")
-        print("Arming compilation of AdvancedModel class.")
-        print("The next calls to this class and its methods may take a while.")
-        print("The compiled instance lives as long as the python interpreter.")
-        AdvancedModel = numba.experimental.jitclass(_ADVMDLSPEC)(AdvancedModel)
-    else:
-        print("Compilation already triggered.")
+# #TODO: This trick does not reexport the updated Model, so ebisim.AdvancedModel
+# # and ebisim.simulation.AdvancedModel remain unjitted - this could cause trouble in weird scenarios
+# logger.debug("Defining compile_adv_model.")
+# def compile_adv_model():
+#     global AdvancedModel
+#     if not hasattr(AdvancedModel, "_ctor_sig"):
+#         logger.debug("Arming compilation of AdvancedModel class.")
+#         print("Arming compilation of AdvancedModel class.")
+#         print("The next calls to this class and its methods may take a while.")
+#         print("The compiled instance lives as long as the python interpreter.")
+#         AdvancedModel = numba.experimental.jitclass(_ADVMDLSPEC)(AdvancedModel)
+#     else:
+#         print("Compilation already triggered.")
 
 
 logger.debug("Defining AdvancedModel.")
@@ -426,14 +426,14 @@ _ADVMDLSPEC = OrderedDict(
     nq=numba.int32,
     q=_T_I4_ARRAY,
     a=_T_I4_ARRAY,
-    _eixs=_T_F8_ARRAY,
-    _rrxs=_T_F8_ARRAY,
-    _drxs=_T_F8_ARRAY,
-    _cxxs_bggas=numba.types.ListType(_T_F8_ARRAY),
-    _cxxs_trgts=numba.types.ListType(_T_F8_ARRAY),
+    eixs=_T_F8_ARRAY,
+    rrxs=_T_F8_ARRAY,
+    drxs=_T_F8_ARRAY,
+    cxxs_bggas=numba.types.ListType(_T_F8_ARRAY),
+    cxxs_trgts=numba.types.ListType(_T_F8_ARRAY),
 )
 # @numba.experimental.jitclass(_ADVMDLSPEC)
-class AdvancedModel:
+class AdvancedModel(namedtuple("AdvancedModel", _ADVMDLSPEC.keys())):
     """
     The advanced model class is the base for ebisim.simulation.advanced_simulation.
     It acts as a fast datacontainer for the underlying rhs function which represents the right hand
@@ -452,334 +452,348 @@ class AdvancedModel:
         Switches for effects considered in the simulation, see default values of
         ebisim.simulation.ModelOptions.
     """
-    def __init__(self, device, targets, bg_gases=None, options=DEFAULT_MODEL_OPTIONS):
+    @classmethod
+    def get(cls, device, targets, bg_gases=None, options=DEFAULT_MODEL_OPTIONS):
         # Bind parameters
-        self.device = device
-        self.targets = targets
-        self.bg_gases = bg_gases if bg_gases is not None else numba.typed.List.empty_list(_T_BG_GAS)
-        self.options = options
+        bg_gases = bg_gases if bg_gases is not None else numba.typed.List.empty_list(_T_BG_GAS)
 
         # Determine array bounds for different targets in state vector
-        self.lb = np.zeros(len(targets), dtype=np.int32)
-        self.ub = np.zeros(len(targets), dtype=np.int32)
+        lb = np.zeros(len(targets), dtype=np.int32)
+        ub = np.zeros(len(targets), dtype=np.int32)
         offset = 0
         for i, trgt in enumerate(targets):
-            self.lb[i] = offset
-            self.ub[i] = self.lb[i] + trgt.z + 1
-            offset = self.ub[i]
+            lb[i] = offset
+            ub[i] = lb[i] + trgt.z + 1
+            offset = ub[i]
 
         # Compute total number of charge states for all targets (len of "n" or "kT" state vector)
-        self.nq = self.ub[-1]
+        nq = ub[-1]
 
         # Define vectors listing the charge state and mass for each state
-        self.q = np.zeros(self.nq, dtype=np.int32)
-        self.a = np.zeros(self.nq, dtype=np.int32)
-        for i, trgt in enumerate(self.targets):
-            self.q[self.lb[i]:self.ub[i]] = np.arange(trgt.z + 1, dtype=np.int32)
-            self.a[self.lb[i]:self.ub[i]] = np.full(trgt.z + 1, trgt.a, dtype=np.int32)
+        q = np.zeros(nq, dtype=np.int32)
+        a = np.zeros(nq, dtype=np.int32)
+        for i, trgt in enumerate(targets):
+            q[lb[i]:ub[i]] = np.arange(trgt.z + 1, dtype=np.int32)
+            a[lb[i]:ub[i]] = np.full(trgt.z + 1, trgt.a, dtype=np.int32)
 
         # Initialise cross section vectors
-        self._eixs = np.zeros(self.nq)
-        self._rrxs = np.zeros(self.nq)
-        self._drxs = np.zeros(self.nq)
-        for i, trgt in enumerate(self.targets):
-            self._eixs[self.lb[i]:self.ub[i]] = xs.eixs_vec(trgt, self.device.e_kin)
-            self._rrxs[self.lb[i]:self.ub[i]] = xs.rrxs_vec(trgt, self.device.e_kin)
-            self._drxs[self.lb[i]:self.ub[i]] = xs.drxs_vec(trgt, self.device.e_kin, self.device.fwhm)
+        _eixs = np.zeros(nq)
+        _rrxs = np.zeros(nq)
+        _drxs = np.zeros(nq)
+        for i, trgt in enumerate(targets):
+            _eixs[lb[i]:ub[i]] = xs.eixs_vec(trgt, device.e_kin)
+            _rrxs[lb[i]:ub[i]] = xs.rrxs_vec(trgt, device.e_kin)
+            _drxs[lb[i]:ub[i]] = xs.drxs_vec(trgt, device.e_kin, device.fwhm)
 
         # Precompute CX cross sections (invariant)
-        self._cxxs_bggas = numba.typed.List.empty_list(_T_F8_ARRAY)
-        self._cxxs_trgts = numba.typed.List.empty_list(_T_F8_ARRAY)
-        for gas in self.bg_gases:
-            self._cxxs_bggas.append(xs.cxxs(self.q, gas.ip))
-        for trgt in self.targets:
-            self._cxxs_trgts.append(xs.cxxs(self.q, trgt.ip))
-
-
-    def rhs(self, _t, y, rates=None):
-        """
-        The right hand side of the differential equation set.
-
-        Parameters
-        ----------
-        _t : float
-            <s> Time, currently no effect.
-        y : numpy.ndarray
-            <1/m^3> and <eV>
-            Joint array of ion densities and temperatures.
-            Array must have the following structure:
-            z+1 elements holding the density for each Target in self.targets (same order)
-            followed by
-            z+1 elements holding the temperature for each Target in self.targets (same order)
-        rates: numba.typed.Dict[numpy.ndarray], optional
-            If a dictionary object is passed into rates it will be populated with the arrays
-            holding the reaction rates.
-
-
-        Returns
-        -------
-        numpy.ndarray
-            dy/dt
-        """
-        # pylint: disable=bad-whitespace
-        # Split y into useful parts
-        n   = y[:self.nq]
-        kT  = y[self.nq:]
-        # Clip low values?
-        # n = np.maximum(n, MINIMAL_N_1D) #-> linear density
-        n_r = n[:]
-        # n = np.maximum(n, 0) #-> linear density
-        n[n < .001*MINIMAL_N_1D] = 0
-
-        # kT = np.maximum(kT, 0)
-        kT = np.maximum(kT, MINIMAL_KBT)
-
-        # Transposed helperarrays
-        q_T = np.atleast_2d(self.q).T
-        a_T = np.atleast_2d(self.a).T
-        n_T = np.atleast_2d(n).T
-        kT_T = np.atleast_2d(kT).T
-
-        # Preallocate output arrays
-        dn  = np.zeros_like(n)
-        dkT = np.zeros_like(kT)
-
-        # Radial dynamics
-        if self.options.RADIAL_DYNAMICS:
-            # Solve radial problem
-            phi, _n3d, _shapes = boltzmann_radial_potential_linear_density_ebeam(
-                self.device.rad_grid, self.device.current, self.device.r_e, self.device.e_kin,
-                n_T, kT_T, q_T,
-                ldu=(self.device.rad_fd_l, self.device.rad_fd_d, self.device.rad_fd_u)
-            )
-
-        else:
-            phi = self.device.rad_phi_uncomp
-
-        ix = self.device.rad_re_idx
-        r = self.device.rad_grid
-
-        # Boltzmann distribution shape functions
-        shapes = np.exp(-q_T * (phi - phi.min())/kT_T) #Works for neutrals
-
-        # Radial integrals
-        i_rs_re = np.trapz(shapes[:, :ix+1] * r[:ix+1], r[:ix+1])
-        i_rsp_re = np.trapz(shapes[:, :ix+1] * r[:ix+1] * (phi[:ix+1]-phi.min()), r[:ix+1])
-        i_rs_rd = np.trapz(shapes * r, r)
-        i_rrs_rd = np.trapz(shapes * r * r, r)
-
-        # On axis 3d density
-        n3d = n_T / 2 / PI / np.atleast_2d(i_rs_rd).T * np.atleast_2d(shapes[:, 0]).T
-        n3d = n3d.T[0] # Adjust shape
-
-        # Compute overlap factors
-        ion_rad = i_rrs_rd / i_rs_rd
-        fei = i_rs_re/i_rs_rd
-        fij = (ion_rad/np.atleast_2d(ion_rad).T)**2
-        fij = np.minimum(fij, 1.0)
-
-        # Compute effective trapping voltages
-        v_ax = (self.device.v_ax + self.device.v_ax_sc) - phi.min()
-        v_ra = -phi.min()
-
-        # Characteristic beam energies
-        _sc_mean = 2*np.trapz(r[:ix+1]*phi[:ix+1], r[:ix+1])/self.device.r_e**2
-        e_kin = self.device.e_kin + _sc_mean
-        if not self.options.OVERRIDE_FWHM:
-            e_kin_fwhm = 2.355*np.sqrt(
-                2*np.trapz(r[:ix+1]*(phi[:ix+1]-_sc_mean)**2, r[:ix+1])/self.device.r_e**2
-            )
-        else:
-            e_kin_fwhm = self.device.fwhm
-
-        # Ionisation heating (mean)
-        if self.options.IONISATION_HEATING:
-            # iheat = 2/3*(2 / self.device.r_e**2 * i_rsp_re)
-            iheat = 2/3 * i_rsp_re / i_rs_re
-        else:
-            iheat = np.zeros(self.nq)
-
-
-        # Compute some electron beam quantities
-        je = self.device.j / Q_E * 1e4 # electron number current density
-        ve = plasma.electron_velocity(e_kin)
-        ne = je/ve # Electron number density
-
-
-        # Collision rates
-        rij = plasma.ion_coll_rate(
-            np.atleast_2d(n3d).T, n3d,
-            kT_T, kT,
-            a_T, self.a,
-            q_T, self.q
+        _cxxs_bggas = numba.typed.List.empty_list(_T_F8_ARRAY)
+        _cxxs_trgts = numba.typed.List.empty_list(_T_F8_ARRAY)
+        for gas in bg_gases:
+            _cxxs_bggas.append(xs.cxxs(q, gas.ip))
+        for trgt in targets:
+            _cxxs_trgts.append(xs.cxxs(q, trgt.ip))
+        return cls(
+            device=device,
+            targets=targets,
+            bg_gases=bg_gases,
+            options=options,
+            lb=lb,
+            ub=ub,
+            nq=nq,
+            q=q,
+            a=a,
+            eixs=_eixs,
+            rrxs=_rrxs,
+            drxs=_drxs,
+            cxxs_bggas=_cxxs_bggas,
+            cxxs_trgts=_cxxs_trgts
         )
-        ri  = np.sum(rij, axis=-1)
-        # Thermal ion velocities
-        v_th = np.sqrt(8 * Q_E * kT/(PI * self.a * M_P)) # Thermal velocities
-        # v_z = np.sqrt(kT/(self.a*M_P))
-        # f_ax = v_z/(2*self.device.length) # Axial roundtrip frequency
-        # f_ra = v_z/(2*self.device.r_dt) #Radial single pass frequency
 
-        # update cross sections?
-        if self.options.RECOMPUTE_CROSS_SECTIONS:
-            eixs = np.zeros(self.nq)
-            rrxs = np.zeros(self.nq)
-            drxs = np.zeros(self.nq)
-            for i, trgt in enumerate(self.targets):
-                eixs[self.lb[i]:self.ub[i]] = xs.eixs_vec(trgt, e_kin)
-                rrxs[self.lb[i]:self.ub[i]] = xs.rrxs_vec(trgt, e_kin)
-                drxs[self.lb[i]:self.ub[i]] = xs.drxs_vec(trgt, e_kin, e_kin_fwhm)
-        else:
-            eixs = self._eixs
-            rrxs = self._rrxs
-            drxs = self._drxs
+@numba.njit(cache=True, nogil=True)
+def _rhs(model, _t, y, rates=None):
+    """
+    The right hand side of the differential equation set.
 
-        # EI
-        if self.options.EI:
-            R_ei      = eixs * n * je * fei
-            dn       -= R_ei
-            dn[1:]   += R_ei[:-1]
-            dkT[1:]  += R_ei[:-1] / n_r[1:] * (kT[:-1] - kT[1:])
-            dkT[1:]  += R_ei[:-1] / n_r[1:] * iheat[:-1]
+    Parameters
+    ----------
+    _t : float
+        <s> Time, currently no effect.
+    y : numpy.ndarray
+        <1/m^3> and <eV>
+        Joint array of ion densities and temperatures.
+        Array must have the following structure:
+        z+1 elements holding the density for each Target in self.targets (same order)
+        followed by
+        z+1 elements holding the temperature for each Target in self.targets (same order)
+    rates: numba.typed.Dict[numpy.ndarray], optional
+        If a dictionary object is passed into rates it will be populated with the arrays
+        holding the reaction rates.
 
 
-        # RR
-        if self.options.RR:
-            R_rr      = rrxs * n * je * fei
-            dn       -= R_rr
-            dn[:-1]  += R_rr[1:]
-            dkT[:-1] += R_rr[1:] / n_r[:-1] * (kT[1:] - kT[:-1])
-            dkT[:-1]  -= R_rr[1:] / n_r[:-1] * iheat[1:]
+    Returns
+    -------
+    numpy.ndarray
+        dy/dt
+    """
+    # pylint: disable=bad-whitespace
+    # Split y into useful parts
+    n   = y[:model.nq]
+    kT  = y[model.nq:]
+    # Clip low values?
+    # n = np.maximum(n, MINIMAL_N_1D) #-> linear density
+    n_r = n[:]
+    # n = np.maximum(n, 0) #-> linear density
+    n[n < .001*MINIMAL_N_1D] = 0
+
+    # kT = np.maximum(kT, 0)
+    kT = np.maximum(kT, MINIMAL_KBT)
+
+    # Transposed helperarrays
+    q_T = np.atleast_2d(model.q).T
+    a_T = np.atleast_2d(model.a).T
+    n_T = np.atleast_2d(n).T
+    kT_T = np.atleast_2d(kT).T
+
+    # Preallocate output arrays
+    dn  = np.zeros_like(n)
+    dkT = np.zeros_like(kT)
+
+    # Radial dynamics
+    if model.options.RADIAL_DYNAMICS:
+        # Solve radial problem
+        phi, _n3d, _shapes = boltzmann_radial_potential_linear_density_ebeam(
+            model.device.rad_grid, model.device.current, model.device.r_e, model.device.e_kin,
+            n_T, kT_T, q_T,
+            ldu=(model.device.rad_fd_l, model.device.rad_fd_d, model.device.rad_fd_u)
+        )
+
+    else:
+        phi = model.device.rad_phi_uncomp
+
+    ix = model.device.rad_re_idx
+    r = model.device.rad_grid
+
+    # Boltzmann distribution shape functions
+    shapes = np.exp(-q_T * (phi - phi.min())/kT_T) #Works for neutrals
+
+    # Radial integrals
+    i_rs_re = np.trapz(shapes[:, :ix+1] * r[:ix+1], r[:ix+1])
+    i_rsp_re = np.trapz(shapes[:, :ix+1] * r[:ix+1] * (phi[:ix+1]-phi.min()), r[:ix+1])
+    i_rs_rd = np.trapz(shapes * r, r)
+    i_rrs_rd = np.trapz(shapes * r * r, r)
+
+    # On axis 3d density
+    n3d = n_T / 2 / PI / np.atleast_2d(i_rs_rd).T * np.atleast_2d(shapes[:, 0]).T
+    n3d = n3d.T[0] # Adjust shape
+
+    # Compute overlap factors
+    ion_rad = i_rrs_rd / i_rs_rd
+    fei = i_rs_re/i_rs_rd
+    fij = (ion_rad/np.atleast_2d(ion_rad).T)**2
+    fij = np.minimum(fij, 1.0)
+
+    # Compute effective trapping voltages
+    v_ax = (model.device.v_ax + model.device.v_ax_sc) - phi.min()
+    v_ra = -phi.min()
+
+    # Characteristic beam energies
+    _sc_mean = 2*np.trapz(r[:ix+1]*phi[:ix+1], r[:ix+1])/model.device.r_e**2
+    e_kin = model.device.e_kin + _sc_mean
+    if not model.options.OVERRIDE_FWHM:
+        e_kin_fwhm = 2.355*np.sqrt(
+            2*np.trapz(r[:ix+1]*(phi[:ix+1]-_sc_mean)**2, r[:ix+1])/model.device.r_e**2
+        )
+    else:
+        e_kin_fwhm = model.device.fwhm
+
+    # Ionisation heating (mean)
+    if model.options.IONISATION_HEATING:
+        # iheat = 2/3*(2 / self.device.r_e**2 * i_rsp_re)
+        iheat = 2/3 * i_rsp_re / i_rs_re
+    else:
+        iheat = np.zeros(model.nq)
 
 
-        # DR
-        if self.options.DR:
-            R_dr      = drxs * n * je * fei
-            dn       -= R_dr
-            dn[:-1]  += R_dr[1:]
-            dkT[:-1] += R_dr[1:] / n_r[:-1] * (kT[1:] - kT[:-1])
-            dkT[:-1]  -= R_dr[1:] / n_r[:-1] * iheat[1:]
+    # Compute some electron beam quantities
+    je = model.device.j / Q_E * 1e4 # electron number current density
+    ve = plasma.electron_velocity(e_kin)
+    ne = je/ve # Electron number density
 
 
-        # CX
-        if self.options.CX:
-            R_cx      = np.zeros_like(n)
-            for g, gas in enumerate(self.bg_gases):
-                R_cx += self._cxxs_bggas[g] * gas.n0 * n * v_th
-            for j, jtrgt in enumerate(self.targets):
-                if jtrgt.cx: # Only compute cx with target gas if wished by user
-                    R_cx += self._cxxs_trgts[j] * n3d[self.lb[j]] * n * v_th
-            dn       -= R_cx
-            dn[:-1]  += R_cx[1:]
-            dkT[:-1] += R_cx[1:] / n_r[:-1] * (kT[1:] - kT[:-1])
-            dkT[:-1]  -= R_cx[1:] / n_r[:-1] * iheat[1:]
+    # Collision rates
+    rij = plasma.ion_coll_rate(
+        np.atleast_2d(n3d).T, n3d,
+        kT_T, kT,
+        a_T, model.a,
+        q_T, model.q
+    )
+    ri  = np.sum(rij, axis=-1)
+    # Thermal ion velocities
+    v_th = np.sqrt(8 * Q_E * kT/(PI * model.a * M_P)) # Thermal velocities
+    # v_z = np.sqrt(kT/(self.a*M_P))
+    # f_ax = v_z/(2*self.device.length) # Axial roundtrip frequency
+    # f_ra = v_z/(2*self.device.r_dt) #Radial single pass frequency
+
+    # update cross sections?
+    if model.options.RECOMPUTE_CROSS_SECTIONS:
+        eixs = np.zeros(model.nq)
+        rrxs = np.zeros(model.nq)
+        drxs = np.zeros(model.nq)
+        for i, trgt in enumerate(model.targets):
+            eixs[model.lb[i]:model.ub[i]] = xs.eixs_vec(trgt, e_kin)
+            rrxs[model.lb[i]:model.ub[i]] = xs.rrxs_vec(trgt, e_kin)
+            drxs[model.lb[i]:model.ub[i]] = xs.drxs_vec(trgt, e_kin, e_kin_fwhm)
+    else:
+        eixs = model.eixs
+        rrxs = model.rrxs
+        drxs = model.drxs
+
+    # EI
+    if model.options.EI:
+        R_ei      = eixs * n * je * fei
+        dn       -= R_ei
+        dn[1:]   += R_ei[:-1]
+        dkT[1:]  += R_ei[:-1] / n_r[1:] * (kT[:-1] - kT[1:])
+        dkT[1:]  += R_ei[:-1] / n_r[1:] * iheat[:-1]
 
 
-        # Electron heating / Spitzer heating
-        if self.options.SPITZER_HEATING:
-            _dkT_eh   = plasma.spitzer_heating(n3d, ne, kT, e_kin, self.a, self.q) * fei
-            dkT      += _dkT_eh
+    # RR
+    if model.options.RR:
+        R_rr      = rrxs * n * je * fei
+        dn       -= R_rr
+        dn[:-1]  += R_rr[1:]
+        dkT[:-1] += R_rr[1:] / n_r[:-1] * (kT[1:] - kT[:-1])
+        dkT[:-1]  -= R_rr[1:] / n_r[:-1] * iheat[1:]
 
 
-        # Ion-ion heat transfer (collisional thermalisation)
-        if self.options.COLLISIONAL_THERMALISATION:
-            _dkT_ct   = np.sum(
-                fij*plasma.collisional_thermalisation(
-                    kT_T, kT, a_T, self.a, rij
-                ), axis=-1
-            )
-            dkT      += _dkT_ct
+    # DR
+    if model.options.DR:
+        R_dr      = drxs * n * je * fei
+        dn       -= R_dr
+        dn[:-1]  += R_dr[1:]
+        dkT[:-1] += R_dr[1:] / n_r[:-1] * (kT[1:] - kT[:-1])
+        dkT[:-1]  -= R_dr[1:] / n_r[:-1] * iheat[1:]
 
 
-        # Axial escape
-        if self.options.ESCAPE_AXIAL:
-            w_ax      = plasma.trapping_strength_axial(kT, self.q, v_ax)
-            R_ax_co      = plasma.collisional_escape_rate(ri, w_ax) * n
-            free_ax, tfact_ax = plasma.roundtrip_escape(w_ax)
-            R_ax_rt   = free_ax * n * ri#f_ax
-            for k in self.lb:
-                R_ax_rt[k] = 0
-                R_ax_co[k] = 0
-            # R_ax_co[n < 10*MINIMAL_N_1D] = 0
-            # R_ax_rt[n < 10*MINIMAL_N_1D] = 0
-            dn       -= R_ax_co + R_ax_rt
-            dkT      -= R_ax_co / n_r * w_ax * kT + R_ax_rt / n_r * (tfact_ax - 1) * kT
+    # CX
+    if model.options.CX:
+        R_cx      = np.zeros_like(n)
+        for g, gas in enumerate(model.bg_gases):
+            R_cx += model.cxxs_bggas[g] * gas.n0 * n * v_th
+        for j, jtrgt in enumerate(model.targets):
+            if jtrgt.cx: # Only compute cx with target gas if wished by user
+                R_cx += model.cxxs_trgts[j] * n3d[model.lb[j]] * n * v_th
+        dn       -= R_cx
+        dn[:-1]  += R_cx[1:]
+        dkT[:-1] += R_cx[1:] / n_r[:-1] * (kT[1:] - kT[:-1])
+        dkT[:-1]  -= R_cx[1:] / n_r[:-1] * iheat[1:]
 
 
-        # Radial escape
-        if self.options.ESCAPE_RADIAL:
-            w_ra      = plasma.trapping_strength_radial(
-                kT, self.q, self.a, v_ra, self.device.b_ax, self.device.r_dt
-            )
-            R_ra_co      = plasma.collisional_escape_rate(ri, w_ra) * n
-            free_ra, tfact_ra = plasma.roundtrip_escape(w_ra)
-            R_ra_rt   = free_ra * n * ri#f_ra
-            for k in self.lb:
-                R_ra_rt[k] = 0
-                R_ra_co[k] = 0
-            # R_ra_co[n < 10*MINIMAL_N_1D] = 0
-            # R_ra_rt[n < 10*MINIMAL_N_1D] = 0
-            dn       -= R_ra_co + R_ra_rt
-            dkT      -= R_ra_co / n_r * w_ra * kT + R_ra_rt / n_r * (tfact_ra - 1) * kT
+    # Electron heating / Spitzer heating
+    if model.options.SPITZER_HEATING:
+        _dkT_eh   = plasma.spitzer_heating(n3d, ne, kT, e_kin, model.a, model.q) * fei
+        dkT      += _dkT_eh
 
 
-        #TODO: Expansion cooling
+    # Ion-ion heat transfer (collisional thermalisation)
+    if model.options.COLLISIONAL_THERMALISATION:
+        _dkT_ct   = np.sum(
+            fij*plasma.collisional_thermalisation(
+                kT_T, kT, a_T, model.a, rij
+            ), axis=-1
+        )
+        dkT      += _dkT_ct
 
-        #Check if neutrals are depletable or if there is continuous neutral injection
-        for k in self.lb:
-            # Kill all neutral rates - seems to improve stability
-            dn[k] = 0.0
-            dkT[k] = 0.0
+
+    # Axial escape
+    if model.options.ESCAPE_AXIAL:
+        w_ax      = plasma.trapping_strength_axial(kT, model.q, v_ax)
+        R_ax_co      = plasma.collisional_escape_rate(ri, w_ax) * n
+        free_ax, tfact_ax = plasma.roundtrip_escape(w_ax)
+        R_ax_rt   = free_ax * n * ri#f_ax
+        for k in model.lb:
+            R_ax_rt[k] = 0
+            R_ax_co[k] = 0
+        # R_ax_co[n < 10*MINIMAL_N_1D] = 0
+        # R_ax_rt[n < 10*MINIMAL_N_1D] = 0
+        dn       -= R_ax_co + R_ax_rt
+        dkT      -= R_ax_co / n_r * w_ax * kT + R_ax_rt / n_r * (tfact_ax - 1) * kT
 
 
-        if rates is not None:
-            if self.options.EI:
-                rates[Rate.EI] = R_ei
-                # rates[Rate.T_EI] = R_ei * kT/n
-            if self.options.RR:
-                rates[Rate.RR] = R_rr
-                # rates[Rate.T_RR] = R_rr * kT/n
-            if self.options.CX:
-                rates[Rate.CX] = R_cx
-                # rates[Rate.T_CX] = R_cx * kT/n
-            if self.options.DR:
-                rates[Rate.DR] = R_dr
-                # rates[Rate.T_DR] = R_dr * kT/n
-            if self.options.ESCAPE_AXIAL:
-                rates[Rate.W_AX]    = w_ax
-                rates[Rate.AX_CO] = R_ax_co
-                rates[Rate.T_AX_CO] = R_ax_co * (kT + w_ax * kT)/n_r
-                rates[Rate.AX_RT] = R_ax_rt
-                rates[Rate.T_AX_RT] = R_ax_rt * (tfact_ax - 1) * kT/n_r
-                # rates["free_ax"] = free_ax
-            if self.options.ESCAPE_RADIAL:
-                rates[Rate.W_RA]    = w_ra
-                rates[Rate.RA_CO] = R_ra_co
-                rates[Rate.T_RA_CO] = R_ra_co * (kT + w_ra * kT)/n_r
-                rates[Rate.RA_RT] = R_ra_rt
-                rates[Rate.T_RA_RT] = R_ra_rt * (tfact_ra - 1) * kT/n_r
-                # rates["free_ra"] = free_ra
-            if self.options.COLLISIONAL_THERMALISATION:
-                rates[Rate.T_COLLISIONAL_THERMALISATION] = _dkT_ct
-            if self.options.SPITZER_HEATING:
-                rates[Rate.T_SPITZER_HEATING] = _dkT_eh
-            if self.options.IONISATION_HEATING:
-                rates[Rate.IONISATION_HEAT] = iheat
-            # rates[Rate.CV] = heat_capacity(self.device.rad_grid, phi, q_T, kT_T).T[0]
-            # rates[Rate.CHARGE_COMPENSATION] = comp
-            rates[Rate.F_EI] = fei
-            rates[Rate.E_KIN_MEAN] = np.atleast_1d(np.array(e_kin))
-            rates[Rate.E_KIN_FWHM] = np.atleast_1d(np.array(e_kin_fwhm))
-            rates[Rate.V_RA] = np.atleast_1d(np.array(v_ra))
-            rates[Rate.V_AX] = np.atleast_1d(np.array(v_ax))
-            rates[Rate.COLLISION_RATE_SELF] = np.diag(rij).copy()
-            rates[Rate.COLLISION_RATE_TOTAL] = ri
+    # Radial escape
+    if model.options.ESCAPE_RADIAL:
+        w_ra      = plasma.trapping_strength_radial(
+            kT, model.q, model.a, v_ra, model.device.b_ax, model.device.r_dt
+        )
+        R_ra_co      = plasma.collisional_escape_rate(ri, w_ra) * n
+        free_ra, tfact_ra = plasma.roundtrip_escape(w_ra)
+        R_ra_rt   = free_ra * n * ri#f_ra
+        for k in model.lb:
+            R_ra_rt[k] = 0
+            R_ra_co[k] = 0
+        # R_ra_co[n < 10*MINIMAL_N_1D] = 0
+        # R_ra_rt[n < 10*MINIMAL_N_1D] = 0
+        dn       -= R_ra_co + R_ra_rt
+        dkT      -= R_ra_co / n_r * w_ra * kT + R_ra_rt / n_r * (tfact_ra - 1) * kT
 
-        dn[n < .1 * MINIMAL_N_1D] = np.maximum(dn[n < .1 * MINIMAL_N_1D], 0)
-        # dkT[kT < 1 * MINIMAL_KBT] = np.maximum(dkT[kT < 1 * MINIMAL_KBT], 0)
-        dkT[n < .1 * MINIMAL_N_1D] = 0
-        # dn[n < MINIMAL_N_1D] = 0
-        return np.concatenate((dn, dkT))
+
+    #TODO: Expansion cooling
+
+    #Check if neutrals are depletable or if there is continuous neutral injection
+    for k in model.lb:
+        # Kill all neutral rates - seems to improve stability
+        dn[k] = 0.0
+        dkT[k] = 0.0
+
+
+    if rates is not None:
+        if model.options.EI:
+            rates[Rate.EI] = R_ei
+            # rates[Rate.T_EI] = R_ei * kT/n
+        if model.options.RR:
+            rates[Rate.RR] = R_rr
+            # rates[Rate.T_RR] = R_rr * kT/n
+        if model.options.CX:
+            rates[Rate.CX] = R_cx
+            # rates[Rate.T_CX] = R_cx * kT/n
+        if model.options.DR:
+            rates[Rate.DR] = R_dr
+            # rates[Rate.T_DR] = R_dr * kT/n
+        if model.options.ESCAPE_AXIAL:
+            rates[Rate.W_AX]    = w_ax
+            rates[Rate.AX_CO] = R_ax_co
+            rates[Rate.T_AX_CO] = R_ax_co * (kT + w_ax * kT)/n_r
+            rates[Rate.AX_RT] = R_ax_rt
+            rates[Rate.T_AX_RT] = R_ax_rt * (tfact_ax - 1) * kT/n_r
+            # rates["free_ax"] = free_ax
+        if model.options.ESCAPE_RADIAL:
+            rates[Rate.W_RA]    = w_ra
+            rates[Rate.RA_CO] = R_ra_co
+            rates[Rate.T_RA_CO] = R_ra_co * (kT + w_ra * kT)/n_r
+            rates[Rate.RA_RT] = R_ra_rt
+            rates[Rate.T_RA_RT] = R_ra_rt * (tfact_ra - 1) * kT/n_r
+            # rates["free_ra"] = free_ra
+        if model.options.COLLISIONAL_THERMALISATION:
+            rates[Rate.T_COLLISIONAL_THERMALISATION] = _dkT_ct
+        if model.options.SPITZER_HEATING:
+            rates[Rate.T_SPITZER_HEATING] = _dkT_eh
+        if model.options.IONISATION_HEATING:
+            rates[Rate.IONISATION_HEAT] = iheat
+        # rates[Rate.CV] = heat_capacity(self.device.rad_grid, phi, q_T, kT_T).T[0]
+        # rates[Rate.CHARGE_COMPENSATION] = comp
+        rates[Rate.F_EI] = fei
+        rates[Rate.E_KIN_MEAN] = np.atleast_1d(np.array(e_kin))
+        rates[Rate.E_KIN_FWHM] = np.atleast_1d(np.array(e_kin_fwhm))
+        rates[Rate.V_RA] = np.atleast_1d(np.array(v_ra))
+        rates[Rate.V_AX] = np.atleast_1d(np.array(v_ax))
+        rates[Rate.COLLISION_RATE_SELF] = np.diag(rij).copy()
+        rates[Rate.COLLISION_RATE_TOTAL] = ri
+
+    dn[n < .1 * MINIMAL_N_1D] = np.maximum(dn[n < .1 * MINIMAL_N_1D], 0)
+    # dkT[kT < 1 * MINIMAL_KBT] = np.maximum(dkT[kT < 1 * MINIMAL_KBT], 0)
+    dkT[n < .1 * MINIMAL_N_1D] = 0
+    # dn[n < MINIMAL_N_1D] = 0
+    return np.concatenate((dn, dkT))
 
 
 logger.debug("Defining advanced_simulation.")
@@ -843,14 +857,14 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
         bg_gases = numba.typed.List(bg_gases)
 
     # device = Device(*tuple([float(_f) for _f in device])) #Device is easy to mess up, safety rope
-    if hasattr(AdvancedModel, "_ctor_sig"):
-        assert numba.typeof(device) == _T_DEVICE, "Numba type mismatch for device"
-        assert numba.typeof(options) == _T_MODEL_OPTIONS, "Numba type mismatch for options"
-        assert numba.typeof(targets) == _T_TARGET_LIST, "Numba type mismatch for Target list"
-        assert numba.typeof(bg_gases) == _T_BG_GAS_LIST, "Numba type mismatch for BgGas list"
+    # if hasattr(AdvancedModel, "_ctor_sig"):
+    #     assert numba.typeof(device) == _T_DEVICE, "Numba type mismatch for device"
+    #     assert numba.typeof(options) == _T_MODEL_OPTIONS, "Numba type mismatch for options"
+    #     assert numba.typeof(targets) == _T_TARGET_LIST, "Numba type mismatch for Target list"
+    #     assert numba.typeof(bg_gases) == _T_BG_GAS_LIST, "Numba type mismatch for BgGas list"
 
     logger.debug("Initialising AdvancedModel object.")
-    model = AdvancedModel(device, targets, bg_gases, options)
+    model = AdvancedModel.get(device, targets, bg_gases, options)
 
     _n0 = np.concatenate([t.n for t in targets])
     _kT0 = []
@@ -881,9 +895,9 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
             k += 1
             if k%100 == 0:
                 print("\r", f"Integration: {k} calls, t = {t:.4e} s", end="")
-            return model.rhs(t, y, rates)
+            return _rhs(model, t, y, rates)
     else:
-        rhs = model.rhs
+        rhs = lambda t, y, rates=None: _rhs(model, t, y, rates)
 
     # if rates:
     #     logger.debug("Wrapping rhs in rate extractor.")
@@ -926,7 +940,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
             key_type=numba.typeof(Rate.EI),
             value_type=numba.types.float64[:]
         )
-        _ = model.rhs(res.t[0], res.y[:, 0], extractor)
+        _ = rhs(res.t[0], res.y[:, 0], extractor)
         rates = {}
         for k in extractor:
             if len(extractor[k].shape) == 1:
@@ -940,7 +954,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
             #     extractor = _rates[res.t[idx]]
             # else: #In case it does not -> recompute
             #     _ = model.rhs(res.t[idx], res.y[:, idx], extractor)
-            _ = model.rhs(res.t[idx], res.y[:, idx], extractor)
+            _ = rhs(res.t[idx], res.y[:, idx], extractor)
             for key, val in extractor.items():
                 if len(val.shape) == 1:
                     rates[key][:, idx] = val

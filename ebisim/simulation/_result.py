@@ -278,11 +278,12 @@ class Result:
         self.rates = rates
         self.target = target
         self.device = device
-        if not hasattr(model, "_ctor_sig"): #If not compiled, make normal Py lists for pickling
-            model.targets = list(model.targets)
-            model.bg_gases = list(model.bg_gases)
-            model._cxxs_bggas = list(model._cxxs_bggas)
-            model._cxxs_trgts = list(model._cxxs_trgts)
+        model._replace(
+            targets=list(model.targets),
+            bg_gases=list(model.bg_gases),
+            cxxs_bggas=list(model.cxxs_bggas),
+            cxxs_trgts=list(model.cxxs_trgts)
+        )
         self.model = model
         self.id = id_
 
