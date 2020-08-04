@@ -197,6 +197,7 @@ _DEVICE = OrderedDict(
     v_ra="<V> Radial barrier voltage.",
     b_ax="<T> Axial magnetic field density.",
     r_dt="<m> Drift tube radius.",
+    r_dt_bar="<m> Drift tube radius of the barrier drift tubes.",
     fwhm="<eV> Electron beam energy spread.",
     rad_grid="<m> Radial grid for finite difference computations.",
     rad_fd_l="Lower diagonal vector of finite difference scheme.",
@@ -258,6 +259,9 @@ class Device(namedtuple("Device", _DEVICE.keys())):
             Only effective if ModelOptions.RADIAL_DYNAMICS=False.
         n_grid : int, optional
             Approximate number of nodes for the radial mesh, by default 200.
+        r_dt_bar : float, optional
+            Radius of the barrier drift tubes.
+            If not passed, assuming equal radius as trap drift tube.
 
         Returns
         -------
@@ -318,6 +322,7 @@ class Device(namedtuple("Device", _DEVICE.keys())):
             v_ra=float(v_ra),
             b_ax=float(b_ax),
             r_dt=float(r_dt),
+            r_dt_bar=float(r_dt_bar if r_dt_bar else r_dt),
             fwhm=float(fwhm),
             rad_grid=rad_grid,
             rad_fd_l=rad_ldu[0],
