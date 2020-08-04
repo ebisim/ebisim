@@ -217,7 +217,7 @@ class Device(namedtuple("Device", _DEVICE.keys())):
     @classmethod
     def get(
             cls, current, e_kin, r_e, length, v_ax, b_ax, r_dt,
-            v_ra=None, j=None, fwhm=None, n_grid=100, r_dt_bar=None
+            v_ra=None, j=None, fwhm=None, n_grid=200, r_dt_bar=None
         ):
         """
         Factory method for defining a device.
@@ -257,7 +257,7 @@ class Device(namedtuple("Device", _DEVICE.keys())):
             Override for the electron beam energy spread, by default None.
             Only effective if ModelOptions.RADIAL_DYNAMICS=False.
         n_grid : int, optional
-            Number of nodes for the radial mesh, by default 100.
+            Approximate number of nodes for the radial mesh, by default 200.
 
         Returns
         -------
@@ -266,8 +266,11 @@ class Device(namedtuple("Device", _DEVICE.keys())):
         """
         logger.debug(f"Device.get({current}, {e_kin}, {r_e}, {length}, "\
                      f"{v_ax}, {b_ax}, {r_dt}, {v_ra}, {j}, {fwhm}, {n_grid})")
-        rad_grid = np.geomspace(r_e/100, r_dt, num=n_grid)
-        rad_grid[0] = 0
+        rad_grid = np.concatenate((
+            np.linspace(0, r_e, n_grid//6, endpoint=False),
+            np.linspace(r_e, 2*r_e, n_grid//6, endpoint=False),
+            np.geomspace(2*r_e, r_dt, n_grid//6*4)
+        ))
         logger.debug(f"Device.get: Call fd_system_nonuniform_grid.")
         rad_ldu = fd_system_nonuniform_grid(rad_grid)
         rad_re_idx = np.argmin((rad_grid-r_e)**2)
@@ -285,8 +288,11 @@ class Device(namedtuple("Device", _DEVICE.keys())):
             )
             v_ax_sc = phi_barrier[0]
         else:
-            _rad_grid = np.geomspace(r_e/100, r_dt_bar, num=n_grid)
-            _rad_grid[0] = 0
+            _rad_grid = np.concatenate((
+                np.linspace(0, r_e, n_grid//6, endpoint=False),
+                np.linspace(r_e, 2*r_e, n_grid//6, endpoint=False),
+                np.geomspace(2*r_e, r_dt_bar, n_grid//6*4)
+            ))
             logger.debug(f"Device.get: Barrier - Call boltzmann_radial_potential_linear_density_ebeam.")
             phi_barrier, _, __ = boltzmann_radial_potential_linear_density_ebeam(
                 _rad_grid, current, r_e, e_kin+v_ax, 0, 1, 1,
