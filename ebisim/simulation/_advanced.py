@@ -7,6 +7,7 @@ import numpy as np
 import scipy.integrate
 import scipy.interpolate
 import numba
+from joblib import Parallel, delayed
 
 from .. import xs
 from .. import plasma
@@ -499,7 +500,17 @@ class AdvancedModel(namedtuple("AdvancedModel", _ADVMDLSPEC.keys())):
         )
 
 @numba.njit(cache=True, nogil=True)
-def _rhs(model, _t, y, rates=None):
+def _chunked_adv_rhs(model, t, y, rates=None):
+    if y.ndim == 1:
+        return _adv_rhs(model, t, y, rates)
+    elif y.ndim == 2:
+        ret = np.zeros_like(y)
+        for k in range(y.shape[1]):
+            ret[:, k] = _adv_rhs(model, t, y[:, k], None)
+        return ret
+
+@numba.njit(cache=True, nogil=True)
+def _adv_rhs(model, _t, y, rates=None):
     """
     The right hand side of the differential equation set.
 
@@ -787,7 +798,7 @@ def _rhs(model, _t, y, rates=None):
 
 logger.debug("Defining advanced_simulation.")
 def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rates=False,
-                        solver_kwargs=None, verbose=True):
+                        solver_kwargs=None, verbose=True, n_threads=1):
     """
     Interface for performing advanced charge breeding simulations.
 
@@ -816,6 +827,9 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
         By default None.
     verbose : bool, optional
         Print a little progress indicator and some status messages, by default True.
+    n_threads : int
+        How many threads to use (mostly for jacbion estimation which can evaluate the RHS
+        in parallel with different inputs.)
 
     Returns
     -------
@@ -869,64 +883,84 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
     # save adjusted call parameters for passing on to Result
     param = locals().copy()
 
-    if verbose:
-        logger.debug("Wrapping rhs in progress meter.")
-        k = 0
-        print("")
-        def rhs(t, y, rates=None):
-            nonlocal k
-            k += 1
-            if k%100 == 0:
-                print("\r", f"Integration: {k} calls, t = {t:.4e} s", end="")
-            return _rhs(model, t, y, rates)
-    else:
-        rhs = lambda t, y, rates=None: _rhs(model, t, y, rates)
+    with Parallel(n_jobs=n_threads, prefer="threads") as parallel:
+        def mt(model, t, y, rates):
+            if rates is not None:
+                return _chunked_adv_rhs(model, t, y, rates)
 
+            nc = 1 if y.ndim == 1 else y.shape[1]
+            cl = n_threads * [nc//n_threads,]
+            for _k in range(n_threads):
+                if _k < nc%n_threads:
+                    cl[_k] += 1
+            jobs = []
+            for _k in range(n_threads):
+                if cl[_k] > 0:
+                    jobs.append(
+                        delayed(_chunked_adv_rhs)(model, t, y[:, sum(cl[:_k]):sum(cl[:_k+1])])
+                    )
+            res = parallel(jobs)
+            return np.concatenate(res, axis=-1)
 
-    logger.debug("Starting integration.")
-    res = scipy.integrate.solve_ivp(
-        rhs, (0, t_max), n_kT_initial, **solver_kwargs
-    )
-    if verbose:
-        print("\rIntegration finished:", k, "calls                    ")
-        print(res.message)
-        print(f"Calls: {k} of which ~{res.nfev} normal ({res.nfev/k:.2%}) and " \
-              f"~{res.y.shape[0]*res.njev} for jacobian approximation "\
-              f"({res.y.shape[0]*res.njev/k:.2%})")
-
-    if rates:
-        logger.debug("Assembling rate arrays.")
-        # Recompute rates for final solution (this cannot be done parasitically due to
-        # the solver approximating the jacobian and calling rhs with bogus values).
-        nt = res.t.size
-
-        #Poll once to get the available rates
-        # extractor = list(_rates.values())[0]
-        extractor = numba.typed.Dict.empty(
-            key_type=numba.typeof(Rate.EI),
-            value_type=numba.types.float64[:]
-        )
-        _ = rhs(res.t[0], res.y[:, 0], extractor)
-        rates = {}
-        for k in extractor:
-            if len(extractor[k].shape) == 1:
-                rates[k] = np.zeros((extractor[k].size, nt))
-
-        # Poll all steps
-        for idx in range(nt):
-            if verbose and idx%100 == 0:
-                print("\r", f"Rates: {idx+1} / {nt}", end="")
-            # if res.t[idx] in _rates: #Technically this data should already exist
-            #     extractor = _rates[res.t[idx]]
-            # else: #In case it does not -> recompute
-            #     _ = model.rhs(res.t[idx], res.y[:, idx], extractor)
-            _ = rhs(res.t[idx], res.y[:, idx], extractor)
-            for key, val in extractor.items():
-                if len(val.shape) == 1:
-                    rates[key][:, idx] = val
 
         if verbose:
-            print("\rRates finished:", nt, "rates")
+            logger.debug("Wrapping rhs in progress meter.")
+            k = 0
+            print("")
+            def rhs(t, y, rates=None):
+                nonlocal k
+                k += 1 if len(y.shape) == 1 else y.shape[1]
+                if k%100 == 0:
+                    print("\r", f"Integration: {k} calls, t = {t:.4e} s", end="")
+                return mt(model, t, y, rates)
+        else:
+            rhs = lambda t, y, rates=None: mt(model, t, y, rates)
+
+
+        logger.debug("Starting integration.")
+        res = scipy.integrate.solve_ivp(
+            rhs, (0, t_max), n_kT_initial, vectorized=True, **solver_kwargs
+        )
+        if verbose:
+            print("\rIntegration finished:", k, "calls                    ")
+            print(res.message)
+            print(f"Calls: {k} of which ~{res.nfev} normal ({res.nfev/k:.2%}) and " \
+                f"~{res.y.shape[0]*res.njev} for jacobian approximation "\
+                f"({res.y.shape[0]*res.njev/k:.2%})")
+
+        if rates:
+            logger.debug("Assembling rate arrays.")
+            # Recompute rates for final solution (this cannot be done parasitically due to
+            # the solver approximating the jacobian and calling rhs with bogus values).
+            nt = res.t.size
+
+            #Poll once to get the available rates
+            # extractor = list(_rates.values())[0]
+            extractor = numba.typed.Dict.empty(
+                key_type=numba.typeof(Rate.EI),
+                value_type=numba.types.float64[:]
+            )
+            _ = rhs(res.t[0], res.y[:, 0], extractor)
+            rates = {}
+            for k in extractor:
+                if len(extractor[k].shape) == 1:
+                    rates[k] = np.zeros((extractor[k].size, nt))
+
+            # Poll all steps
+            for idx in range(nt):
+                if verbose and idx%100 == 0:
+                    print("\r", f"Rates: {idx+1} / {nt}", end="")
+                # if res.t[idx] in _rates: #Technically this data should already exist
+                #     extractor = _rates[res.t[idx]]
+                # else: #In case it does not -> recompute
+                #     _ = model.rhs(res.t[idx], res.y[:, idx], extractor)
+                _ = rhs(res.t[idx], res.y[:, idx], extractor)
+                for key, val in extractor.items():
+                    if len(val.shape) == 1:
+                        rates[key][:, idx] = val
+
+            if verbose:
+                print("\rRates finished:", nt, "rates")
 
     out = []
     for i, trgt in enumerate(model.targets):
