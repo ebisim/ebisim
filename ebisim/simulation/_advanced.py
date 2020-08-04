@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 #This is to make Enums work as numba.typed.Dict keys
 logger.debug("Patching numba.types.EnumMember __hash__.")
 @numba.extending.overload_method(numba.types.EnumMember, '__hash__')
-def enum_hash(val):
+def enum_hash(val): # pylint: disable=unused-argument
     def impl(val):
         return hash(val.value)
     return impl
@@ -80,7 +80,7 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cx"))):
         element = Element.as_element(element)
         _n = np.full(element.z + 1, MINIMAL_N_1D, dtype=np.float64)
         _kT = np.full(element.z + 1, MINIMAL_KBT, dtype=np.float64)
-        _n[0] = (p * 100) / (K_B * T) * PI * r_dt**2#Convert from mbar to Pa and compute density at T
+        _n[0] = (p * 100) / (K_B * T) * PI * r_dt**2#Convert from mbar to Pa and compute density
         if _n[0] < MINIMAL_N_1D:
             raise ValueError("The resulting density is smaller than the internal minimal value.")
         _kT[0] = K_B * T / Q_E
@@ -275,18 +275,20 @@ class Device(namedtuple("Device", _DEVICE.keys())):
             np.linspace(r_e, 2*r_e, n_grid//6, endpoint=False),
             np.geomspace(2*r_e, r_dt, n_grid//6*4)
         ))
-        logger.debug(f"Device.get: Call fd_system_nonuniform_grid.")
+        logger.debug("Device.get: Call fd_system_nonuniform_grid.")
         rad_ldu = fd_system_nonuniform_grid(rad_grid)
         rad_re_idx = np.argmin((rad_grid-r_e)**2)
 
-        logger.debug(f"Device.get: Trap - Call boltzmann_radial_potential_linear_density_ebeam.")
+        logger.debug("Device.get: Trap - Call boltzmann_radial_potential_linear_density_ebeam.")
         phi, _, __ = boltzmann_radial_potential_linear_density_ebeam(
             rad_grid, current, r_e, e_kin, 0, 1, 1, ldu=rad_ldu
         )
         rad_phi_uncomp = phi
 
         if r_dt_bar is None:
-            logger.debug(f"Device.get: Barrier - Call boltzmann_radial_potential_linear_density_ebeam.")
+            logger.debug(
+                "Device.get: Barrier - Call boltzmann_radial_potential_linear_density_ebeam."
+            )
             phi_barrier, _, __ = boltzmann_radial_potential_linear_density_ebeam(
                 rad_grid, current, r_e, e_kin+v_ax, 0, 1, 1, ldu=rad_ldu
             )
@@ -297,7 +299,9 @@ class Device(namedtuple("Device", _DEVICE.keys())):
                 np.linspace(r_e, 2*r_e, n_grid//6, endpoint=False),
                 np.geomspace(2*r_e, r_dt_bar, n_grid//6*4)
             ))
-            logger.debug(f"Device.get: Barrier - Call boltzmann_radial_potential_linear_density_ebeam.")
+            logger.debug(
+                "Device.get: Barrier - Call boltzmann_radial_potential_linear_density_ebeam."
+            )
             phi_barrier, _, __ = boltzmann_radial_potential_linear_density_ebeam(
                 _rad_grid, current, r_e, e_kin+v_ax, 0, 1, 1,
             )
@@ -310,7 +314,7 @@ class Device(namedtuple("Device", _DEVICE.keys())):
         if v_ra is None:
             v_ra = -phi.min()
 
-        logger.debug(f"Device.get: Create and return Device instance.")
+        logger.debug("Device.get: Create and return Device instance.")
         return cls(
             current=float(current),
             e_kin=float(e_kin),
@@ -339,8 +343,8 @@ class Device(namedtuple("Device", _DEVICE.keys())):
                 f"{len(self.rad_grid)})"
 
 logger.debug("Patching Device docstrings.")
-for k, v in _DEVICE.items():
-    setattr(getattr(Device, k), "__doc__", v)
+for _k, _v in _DEVICE.items():
+    setattr(getattr(Device, _k), "__doc__", _v)
 
 
 logger.debug("Defining ModelOptions.")
@@ -398,21 +402,6 @@ logger.debug("Defining numba types: _T_I4_ARRAY.")
 _T_I4_ARRAY = numba.int32[:]
 logger.debug("Defining numba types: _T_RATE_ENUM.")
 _T_RATE_ENUM = numba.typeof(Rate.EI)
-
-
-# #TODO: This trick does not reexport the updated Model, so ebisim.AdvancedModel
-# # and ebisim.simulation.AdvancedModel remain unjitted - this could cause trouble in weird scenarios
-# logger.debug("Defining compile_adv_model.")
-# def compile_adv_model():
-#     global AdvancedModel
-#     if not hasattr(AdvancedModel, "_ctor_sig"):
-#         logger.debug("Arming compilation of AdvancedModel class.")
-#         print("Arming compilation of AdvancedModel class.")
-#         print("The next calls to this class and its methods may take a while.")
-#         print("The compiled instance lives as long as the python interpreter.")
-#         AdvancedModel = numba.experimental.jitclass(_ADVMDLSPEC)(AdvancedModel)
-#     else:
-#         print("Compilation already triggered.")
 
 
 logger.debug("Defining AdvancedModel.")
@@ -856,13 +845,6 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
             bg_gases = [bg_gases]
         bg_gases = numba.typed.List(bg_gases)
 
-    # device = Device(*tuple([float(_f) for _f in device])) #Device is easy to mess up, safety rope
-    # if hasattr(AdvancedModel, "_ctor_sig"):
-    #     assert numba.typeof(device) == _T_DEVICE, "Numba type mismatch for device"
-    #     assert numba.typeof(options) == _T_MODEL_OPTIONS, "Numba type mismatch for options"
-    #     assert numba.typeof(targets) == _T_TARGET_LIST, "Numba type mismatch for Target list"
-    #     assert numba.typeof(bg_gases) == _T_BG_GAS_LIST, "Numba type mismatch for BgGas list"
-
     logger.debug("Initialising AdvancedModel object.")
     model = AdvancedModel.get(device, targets, bg_gases, options)
 
@@ -871,9 +853,10 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
     for t in targets: # Make sure that initial temperature is not unreasonably small
         kT = t.kT.copy()
         minkT = np.maximum(device.fwhm * np.arange(t.z+1), MINIMAL_KBT)
-        kT[t.n < 1.00001 * MINIMAL_N_1D] = np.maximum(kT[t.n < 1.00001 * MINIMAL_N_1D], minkT[t.n < 1.00001 * MINIMAL_N_1D])
+        kT[t.n < 1.00001 * MINIMAL_N_1D] = \
+            np.maximum(kT[t.n < 1.00001 * MINIMAL_N_1D], minkT[t.n < 1.00001 * MINIMAL_N_1D])
         if np.logical_and(np.not_equal(kT, t.kT), t.n > 1.00001 * MINIMAL_N_1D).any():
-            logger.warn(f"Initial temperature vector adjusted for {t}, new: {kT}")
+            logger.warning(f"Initial temperature vector adjusted for {t}, new: {kT}")
         _kT0.append(kT)
     _kT0 = np.concatenate(_kT0)
     n_kT_initial = np.concatenate([_n0, _kT0])
@@ -899,23 +882,6 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
     else:
         rhs = lambda t, y, rates=None: _rhs(model, t, y, rates)
 
-    # if rates:
-    #     logger.debug("Wrapping rhs in rate extractor.")
-    #     _rates = dict()
-    #     def rhs(t, y):
-    #         # nonlocal _rates
-    #         if t not in _rates:
-    #             extractor = numba.typed.Dict.empty(
-    #             key_type=numba.typeof(Rate.EI),
-    #                 value_type=numba.types.float64[:]
-    #             )
-    #             dydt = _rhs(t, y, extractor)
-    #             _rates[t] = extractor
-    #             return dydt
-    #         else:
-    #             return _rhs(t, y, None)
-    # else:
-    #     rhs = _rhs
 
     logger.debug("Starting integration.")
     res = scipy.integrate.solve_ivp(

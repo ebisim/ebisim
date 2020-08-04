@@ -4,12 +4,12 @@ The ions are assumed to follow a Boltzmann statistic in the radial trapping pote
 in turn also shapes the potential once the number of ions becomes significant.
 """
 import logging
-logger = logging.getLogger(__name__)
 import numpy as np
 from numba import njit
 
 from ..physconst import EPS_0, Q_E, PI, M_E
 
+logger = logging.getLogger(__name__)
 
 logger.debug("Defining tridiagonal_matrix_algorithm.")
 @njit(cache=True)
