@@ -905,13 +905,15 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
 
         if verbose:
             logger.debug("Wrapping rhs in progress meter.")
-            k = 0
+            k_old = k = 0
             print("")
             def rhs(t, y, rates=None):
                 nonlocal k
+                nonlocal k_old
                 k += 1 if len(y.shape) == 1 else y.shape[1]
-                if k%100 == 0:
+                if k-k_old > 99:
                     print("\r", f"Integration: {k} calls, t = {t:.4e} s", end="")
+                    k_old = k
                 return mt(model, t, y, rates)
         else:
             rhs = lambda t, y, rates=None: mt(model, t, y, rates)
