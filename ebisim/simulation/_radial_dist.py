@@ -246,6 +246,36 @@ def heat_capacity(r, phi, q, kT):
     return 3/2 + 1/kT**2 * (a/c - b**2/c**2)
 
 
+logger.debug("Defining _tridiag_targetfun.")
+@njit(cache=True, inline="always")
+def _tridiag_targetfun(ldu, x, b):
+    """
+    Targetfunction for nonlinear problem with tridiagonal structure
+    F = A.dot(phi) - b, where A is tridiagonal and represented by ldu
+
+    Parameters
+    ----------
+    ldu : (np.ndarray, np.ndarray, np.ndarray)
+        The lower diagonal, diagonal, and upper diagonal vector describing the finite difference
+        scheme. Can be provided if they have been pre-computed.
+        [description]
+    x : np.ndarray
+        Guessed solution
+    b : np.ndarray
+        Constant term, possibly nonlinear
+
+    Returns
+    -------
+    F : np.ndarray
+        Vector valued deviation from target root
+    """
+    l, d, u = ldu
+    f = d * x - b # Target function
+    f[:-1] += u[:-1] * x[1:]
+    f[1:] += l[1:] * x[:-1]
+    return f
+
+
 logger.debug("Defining boltzmann_radial_potential_onaxis_density.")
 @njit(cache=True)
 def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=None, ldu=None):
@@ -306,10 +336,9 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
     b0 = - rho_0/EPS_0 # static rhs term
 
 
-    if ldu is not None:
-        l, d, u = ldu
-    else:
-        l, d, u = fd_system_nonuniform_grid(r) # Set up tridiagonal system
+    if ldu is None:
+        ldu = fd_system_nonuniform_grid(r) # Set up tridiagonal system
+    l, d, u = ldu
     # A = np.diag(d) + np.diag(u[:-1], 1) + np.diag(l[1:], -1)
 
     if first_guess is None:
@@ -329,9 +358,7 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
         bx = np.sum(_bx, axis=0)
 
         # f = A.dot(phi) - (b0 + bx) # Target function
-        f = d * phi - (b0 + bx) # Target function
-        f[:-1] += u[:-1] * phi[1:]
-        f[1:] += l[1:] * phi[:-1]
+        f = _tridiag_targetfun(ldu, phi, b0 + bx)
 
         j_d = - np.sum(_bx * q/kT, axis=0) #Diagonal of the Jacobian Jacobian df/dphi_i
 
@@ -353,7 +380,7 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
 
     Below, nRS and nCS are the number of radial sampling points and charge states.
 
-    Solution is found through Newton iterations, cf. [PICNPSb]_.
+    Solution is found through Newton Raphson iterations, cf. [PICNPSb]_.
 
     Parameters
     ----------
@@ -403,10 +430,9 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
     rho_0[-1] = 0 #Boundary condition
     b0 = - rho_0/EPS_0 # static rhs term
 
-    if ldu is not None:
-        l, d, u = ldu
-    else:
-        l, d, u = fd_system_nonuniform_grid(r) # Set up tridiagonal system
+    if ldu is None:
+        ldu = fd_system_nonuniform_grid(r) # Set up tridiagonal system
+    l, d, u = ldu
     # A = np.diag(d) + np.diag(u[:-1], 1) + np.diag(l[1:], -1)
 
     if first_guess is None:
@@ -429,9 +455,7 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
         bx = np.sum(_bx, axis=0)
 
         # F = A.dot(phi) - (b0 + bx)
-        f = d * phi - (b0 + bx) # Target function
-        f[:-1] += u[:-1] * phi[1:]
-        f[1:] += l[1:] * phi[:-1]
+        f = _tridiag_targetfun(ldu, phi, b0 + bx)
 
         _c = np.zeros_like(shape)
         _c[:, :-1] = r[:-1] * (r[1:]-r[:-1]) * shape[:, :-1]
@@ -459,7 +483,7 @@ def boltzmann_radial_potential_linear_density_ebeam(
 
     Below, nRS and nCS are the number of radial sampling points and charge states.
 
-    Solution is found through Newton iterations, cf. [PICNPS]_.
+    Solution is found through Newton Raphson iterations, cf. [PICNPS]_.
 
     Parameters
     ----------
@@ -515,10 +539,9 @@ def boltzmann_radial_potential_linear_density_ebeam(
     cden[r < r_e] = -current/PI/r_e**2
 
 
-    if ldu is not None:
-        l, d, u = ldu
-    else:
-        l, d, u = fd_system_nonuniform_grid(r) # Set up tridiagonal system
+    if ldu is None:
+        ldu = fd_system_nonuniform_grid(r) # Set up tridiagonal system
+    l, d, u = ldu
 
     nl = np.atleast_2d(np.asarray(nl))
     kT = np.atleast_2d(np.asarray(kT))
@@ -527,8 +550,9 @@ def boltzmann_radial_potential_linear_density_ebeam(
     if first_guess is None:
         irho = np.zeros(r.size)
         irho[r < r_e] = np.sum(q * Q_E * nl / (PI*r_e**2), axis=0)
-        # phi = radial_potential_nonuniform_grid(r, cden/np.sqrt(2 * Q_E * e_kin/M_E))
-        phi = radial_potential_nonuniform_grid(r, cden/np.sqrt(2 * Q_E * e_kin/M_E) + irho)
+        erho = cden/np.sqrt(2 * Q_E * e_kin/M_E)
+        # phi = radial_potential_nonuniform_grid(r, erho)
+        phi = radial_potential_nonuniform_grid(r, erho + irho)
     else:
         phi = first_guess
 
@@ -545,9 +569,7 @@ def boltzmann_radial_potential_linear_density_ebeam(
         bx = np.sum(_bx_a, axis=0) + _bx_b
 
         # F = A.dot(phi) - (b0 + bx)
-        f = d * phi - bx # Target function
-        f[:-1] += u[:-1] * phi[1:]
-        f[1:] += l[1:] * phi[:-1]
+        f = _tridiag_targetfun(ldu, phi, bx)
 
         _c = np.zeros_like(shape)
         _c[:, :-1] = r[:-1] * (r[1:]-r[:-1]) * shape[:, :-1]
