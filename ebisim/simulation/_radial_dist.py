@@ -586,3 +586,129 @@ def boltzmann_radial_potential_linear_density_ebeam(
         if res < 1e-3:
             break
     return phi, nax, shape
+
+
+logger.debug("Defining boltzmann_radial_potential_linear_density_ebeam_sor.")
+@njit(cache=True)
+def boltzmann_radial_potential_linear_density_ebeam_sor(
+        r, current, r_e, e_kin, nl, kT, q, first_guess=None, ldu=None
+    ):
+    """
+    Solves the Boltzmann Poisson equation for a static background charge density rho_0 and particles
+    with line number density n, Temperature kT and charge state q.
+    The electron beam charge density is computed from a uniform current density and
+    the iteratively corrected velocity profile of the electron beam.
+
+    Below, nRS and nCS are the number of radial sampling points and charge states.
+
+    Solution is found through Newton Raphson iterations with over relaxation.
+
+    Parameters
+    ----------
+    r : np.ndarray
+        <m>
+        Radial grid points, with r[0] = 0, r[-1] = r_max.
+    current : float
+        <A>
+        Electron beam current (positive sign).
+    r_e : float
+        <m>
+        Electron beam radius.
+    e_kin : float
+        <eV>
+        Uncorrected electron beam energy.
+    nl : np.ndarray (1, nCS)
+        <1/m>
+        Line number density of Boltzmann distributed particles.
+    kT : np.ndarray (1, nCS)
+        <eV>
+        Temperature of Boltzmann distributed particles.
+    q : np.ndarray (1, nCS)
+        Charge state of Boltzmann distributed particles.
+    ldu : (np.ndarray, np.ndarray, np.ndarray)
+        The lower diagonal, diagonal, and upper diagonal vector describing the finite difference
+        scheme. Can be provided if they have been pre-computed.
+
+    Returns
+    -------
+    phi : np.ndarray (nRS, )
+        <V>
+        Potential at r.
+    nax : np.ndarray (1, nCS)
+        <1/m^3>
+        On axis number densities.
+    shape : np.ndarray (nRS, nCS)
+        Radial shape factor of the particle distributions.
+
+    """
+    # Solves the nonlinear radial poisson equation for a dynamic charge distribution following
+    # the Boltzmann law
+    # A * phi = b0 + bx (where b0 and bx are the static and dynamic terms)
+    # Define cost function f = A * phi - b0 - bx
+    # Compute jacobian J = A - diag(d bx_i / d phi_i)
+    # Solve J y = f
+    # Next guess: phi = phi - y
+    # Iterate until adjustment is small
+    cden = np.zeros(r.size)
+    cden[r < r_e] = -current/PI/r_e**2
+
+
+    if ldu is None:
+        ldu = fd_system_nonuniform_grid(r) # Set up tridiagonal system
+    l, d, u = ldu
+
+    nl = np.atleast_2d(np.asarray(nl))
+    kT = np.atleast_2d(np.asarray(kT))
+    q = np.atleast_2d(np.asarray(q))
+
+    if first_guess is None:
+        irho = np.zeros(r.size)
+        irho[r < r_e] = np.sum(q * Q_E * nl / (PI*r_e**2), axis=0)
+        erho = cden/np.sqrt(2 * Q_E * e_kin/M_E)
+        if irho[0] < -erho[0]:
+            phi = radial_potential_nonuniform_grid(r, erho + irho)
+        else:
+            phi = radial_potential_nonuniform_grid(r, erho)
+    else:
+        phi = first_guess
+
+    phi_m1 = np.zeros_like(phi)
+    phi_m2 = np.zeros_like(phi)
+    for k in range(1, 500):
+        # ion dist
+        shape = np.exp(-q * (phi - phi.min())/kT)
+        i_sr = np.atleast_2d(np.trapz(r*shape, r)).T
+        nax = nl / 2 / PI / i_sr * np.atleast_2d(shape[:, 0]).T
+
+        # dynamic rhs term
+        _bx_a = - nax * q * shape * Q_E / EPS_0 # dynamic rhs term
+        _bx_b = - cden/np.sqrt(2 * Q_E * (e_kin+phi)/M_E) / EPS_0
+        _bx_a[:, -1] = 0  # boundary condition
+        bx = np.sum(_bx_a, axis=0) + _bx_b
+
+        # F = A.dot(phi) - (b0 + bx)
+        f = _tridiag_targetfun(ldu, phi, bx)
+
+        #Diagonal of the Jacobian df/dphi_i
+        _c = np.zeros_like(shape)
+        _c[:, :-1] = r[:-1] * (r[1:]-r[:-1]) * shape[:, :-1]
+        j_d = -(np.sum(_bx_a * q/kT *(i_sr-_c)/i_sr, axis=0)
+                + Q_E/M_E*_bx_b/(2 * Q_E * (e_kin+phi)/M_E))#Diagonal of the Jacobian df/dphi_i
+
+        y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
+        phi = phi - y
+
+        if k % 10 == 0:
+            rk = phi - phi_m1
+            rk_m1 = phi_m1 - phi_m2
+            drk = rk - rk_m1
+            mu = 1 - np.dot(rk, drk)/np.dot(drk, drk)
+            phi = phi_m1 + mu*rk
+
+        if np.linalg.norm(phi - phi_m1)/np.linalg.norm(phi) < 1e-6:
+        # if np.max(np.abs((phi-phi_m1)[:-1]/phi[:-1])) < 1e-3:
+            break
+
+        phi_m2 = phi_m1
+        phi_m1 = phi
+    return phi, nax, shape
