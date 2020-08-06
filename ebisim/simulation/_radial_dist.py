@@ -351,6 +351,7 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
     q = np.atleast_2d(np.asarray(q))
 
     for _ in range(500):
+        # ion dist
         shape = np.exp(-q * (phi - phi[0])/kT)
 
         _bx = - n * q * shape * Q_E / EPS_0 # dynamic rhs term
@@ -445,7 +446,7 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
     q = np.atleast_2d(np.asarray(q))
 
     for _ in range(500):
-
+        # ion dist
         shape = np.exp(-q * (phi - phi[0])/kT)
         i_sr = np.atleast_2d(np.trapz(r*shape, r)).T
         nax = nl / 2 / PI / i_sr
@@ -551,13 +552,15 @@ def boltzmann_radial_potential_linear_density_ebeam(
         irho = np.zeros(r.size)
         irho[r < r_e] = np.sum(q * Q_E * nl / (PI*r_e**2), axis=0)
         erho = cden/np.sqrt(2 * Q_E * e_kin/M_E)
-        # phi = radial_potential_nonuniform_grid(r, erho)
-        phi = radial_potential_nonuniform_grid(r, erho + irho)
+        if irho[0] < -erho[0]:
+            phi = radial_potential_nonuniform_grid(r, erho + irho)
+        else:
+            phi = radial_potential_nonuniform_grid(r, erho)
     else:
         phi = first_guess
 
     for _ in range(500):
-
+        # ion dist
         shape = np.exp(-q * (phi - phi.min())/kT)
         i_sr = np.atleast_2d(np.trapz(r*shape, r)).T
         nax = nl / 2 / PI / i_sr * np.atleast_2d(shape[:, 0]).T
@@ -571,9 +574,9 @@ def boltzmann_radial_potential_linear_density_ebeam(
         # F = A.dot(phi) - (b0 + bx)
         f = _tridiag_targetfun(ldu, phi, bx)
 
+        #Diagonal of the Jacobian df/dphi_i
         _c = np.zeros_like(shape)
         _c[:, :-1] = r[:-1] * (r[1:]-r[:-1]) * shape[:, :-1]
-        #Diagonal of the Jacobian df/dphi_i
         j_d = -(np.sum(_bx_a * q/kT *(i_sr-_c)/i_sr, axis=0)
                 + Q_E/M_E*_bx_b/(2 * Q_E * (e_kin+phi)/M_E))#Diagonal of the Jacobian df/dphi_i
 
