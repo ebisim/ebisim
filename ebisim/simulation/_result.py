@@ -279,12 +279,13 @@ class Result:
         self.rates = rates
         self.target = target
         self.device = device
-        model._replace(
-            targets=list(model.targets),
-            bg_gases=list(model.bg_gases),
-            cxxs_bggas=list(model.cxxs_bggas),
-            cxxs_trgts=list(model.cxxs_trgts)
-        )
+        if model is not None:
+            model._replace(
+                targets=list(model.targets),
+                bg_gases=list(model.bg_gases),
+                cxxs_bggas=list(model.cxxs_bggas),
+                cxxs_trgts=list(model.cxxs_trgts)
+            )
         self.model = model
         self.id = id_
 

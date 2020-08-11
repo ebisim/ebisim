@@ -266,13 +266,17 @@ def _plot_xs(e_samp, xs_scan, ax=None, **kwargs):
 
     ax.set_prop_cycle(None) # Reset property (color) cycle, needed when plotting on existing fig
     _set_line_prop_cycle(ax, n)
+    ls = kwargs.pop("ls", None)
 
     for cs in range(n):
         xs_cs = xs_scan[cs, :]
         if np.array_equal(np.unique(xs_cs), np.array([0])):
             plt.plot([], []) # If all xs are zero, do a ghost plot to advance color cycle
         else:
-            plt.plot(e_samp, 1e4*xs_cs, figure=fig, label=str(cs)+"+") # otherwise plot data
+            if ls is None:
+                plt.plot(e_samp, 1e4*xs_cs, figure=fig, label=str(cs)+"+") # otherwise plot data
+            else:
+                plt.plot(e_samp, 1e4*xs_cs, ls=ls, figure=fig, label=str(cs)+"+")
 
     kwargs.setdefault("xlim", (e_samp[0], e_samp[-1]))
     kwargs.setdefault("xscale", "log")
