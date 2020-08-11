@@ -543,7 +543,9 @@ def _adv_rhs(model, _t, y, rates=None):
     # n = np.maximum(n, MINIMAL_N_1D) #-> linear density
     n_r = n[:]
     # n = np.maximum(n, 0) #-> linear density
-    n[n < .001*MINIMAL_N_1D] = 0
+    # n[n < .001*MINIMAL_N_1D] = 0
+    n[n < MINIMAL_N_1D**2] = MINIMAL_N_1D**2
+    # n[n < 0] = 0
 
     # kT = np.maximum(kT, 0)
     kT = np.maximum(kT, MINIMAL_KBT)
@@ -789,9 +791,9 @@ def _adv_rhs(model, _t, y, rates=None):
         rates[Rate.COLLISION_RATE_SELF] = np.diag(rij).copy()
         rates[Rate.COLLISION_RATE_TOTAL] = ri
 
-    dn[n < .1 * MINIMAL_N_1D] = np.maximum(dn[n < .1 * MINIMAL_N_1D], 0)
+    dn[n < MINIMAL_N_1D] = np.maximum(dn[n < MINIMAL_N_1D], 0)
     # dkT[kT < 1 * MINIMAL_KBT] = np.maximum(dkT[kT < 1 * MINIMAL_KBT], 0)
-    dkT[n < .1 * MINIMAL_N_1D] = 0
+    # dkT[n < .1 * MINIMAL_N_1D] = 0
     # dn[n < MINIMAL_N_1D] = 0
     return np.concatenate((dn, dkT))
 

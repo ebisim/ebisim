@@ -537,7 +537,7 @@ def boltzmann_radial_potential_linear_density_ebeam(
     # Next guess: phi = phi - y
     # Iterate until adjustment is small
     cden = np.zeros(r.size)
-    cden[r < r_e] = -current/PI/r_e**2
+    cden[r <= r_e] = -current/PI/r_e**2
 
 
     if ldu is None:
@@ -550,12 +550,13 @@ def boltzmann_radial_potential_linear_density_ebeam(
 
     if first_guess is None:
         irho = np.zeros(r.size)
-        irho[r < r_e] = np.sum(q * Q_E * nl / (PI*r_e**2), axis=0)
+        irho[r <= r_e] = np.sum(q * Q_E * nl / (PI*r_e**2), axis=0)
         erho = cden/np.sqrt(2 * Q_E * e_kin/M_E)
-        if irho[0] < -erho[0]:
-            phi = radial_potential_nonuniform_grid(r, erho + irho)
-        else:
-            phi = radial_potential_nonuniform_grid(r, erho)
+        irho[r <= r_e] = np.minimum(-.95 * erho[r <= r_e], irho[r <= r_e])
+        # if irho[0] < -erho[0]:
+        phi = radial_potential_nonuniform_grid(r, erho + irho)
+        # else:
+        # phi = radial_potential_nonuniform_grid(r, erho)
     else:
         phi = first_guess
 
@@ -583,7 +584,7 @@ def boltzmann_radial_potential_linear_density_ebeam(
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         res = np.max(np.abs(y[:-1]/phi[:-1]))
         phi = phi - y
-        if res < 1e-3:
+        if res < 1e-5:
             break
     return phi, nax, shape
 
