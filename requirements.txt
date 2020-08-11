@@ -7,3 +7,4 @@ matplotlib
 sphinx>=3.0.4
 sphinxcontrib-apidoc
 sphinx_rtd_theme
+joblib
