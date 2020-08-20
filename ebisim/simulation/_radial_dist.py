@@ -584,7 +584,7 @@ def boltzmann_radial_potential_linear_density_ebeam(
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         res = np.max(np.abs(y[:-1]/phi[:-1]))
         phi = phi - y
-        if res < 1e-5:
+        if res < 1e-3:
             break
     return phi, nax, shape
 

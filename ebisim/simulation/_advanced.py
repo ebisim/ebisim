@@ -499,6 +499,27 @@ class AdvancedModel(namedtuple("AdvancedModel", _ADVMDLSPEC.keys())):
             cxxs_trgts=_cxxs_trgts
         )
 
+
+@numba.njit(cache=True)
+def _cubic_spline(x, x1, x2, y1, y2, k1, k2):
+    t = (x-x1)/(x2-x1)
+    a = k1*(x2-x1) - (y2-y1)
+    b = -k2*(x2-x1) + (y2-y1)
+    q = (1-t) * y1 + t*y2 + t*(1-t)*((1-t)*a+t*b)
+    return q
+
+
+@numba.njit(cache=True)
+def _smooth_to_zero(x):
+    N1 = MINIMAL_N_1D
+    N2 = 1000*N1
+    x = x.copy()
+    x[x<N1] = 0
+    fil = np.logical_and(N1<x, x<N2)
+    x[fil] = _cubic_spline(x[fil], N1, N2, 0., N2, 0., 1.)
+    return x
+
+
 @numba.njit(cache=True, nogil=True)
 def _chunked_adv_rhs(model, t, y, rates=None):
     if y.ndim == 1:
@@ -508,6 +529,7 @@ def _chunked_adv_rhs(model, t, y, rates=None):
         for k in range(y.shape[1]):
             ret[:, k] = _adv_rhs(model, t, y[:, k], None)
         return ret
+
 
 @numba.njit(cache=True, nogil=True)
 def _adv_rhs(model, _t, y, rates=None):
@@ -540,14 +562,9 @@ def _adv_rhs(model, _t, y, rates=None):
     n   = y[:model.nq]
     kT  = y[model.nq:]
     # Clip low values?
-    # n = np.maximum(n, MINIMAL_N_1D) #-> linear density
     n_r = n[:]
-    # n = np.maximum(n, 0) #-> linear density
-    # n[n < .001*MINIMAL_N_1D] = 0
-    n[n < MINIMAL_N_1D**2] = MINIMAL_N_1D**2
-    # n[n < 0] = 0
+    n = _smooth_to_zero(n)
 
-    # kT = np.maximum(kT, 0)
     kT = np.maximum(kT, MINIMAL_KBT)
 
     # Transposed helperarrays
@@ -791,10 +808,7 @@ def _adv_rhs(model, _t, y, rates=None):
         rates[Rate.COLLISION_RATE_SELF] = np.diag(rij).copy()
         rates[Rate.COLLISION_RATE_TOTAL] = ri
 
-    dn[n < MINIMAL_N_1D] = np.maximum(dn[n < MINIMAL_N_1D], 0)
-    # dkT[kT < 1 * MINIMAL_KBT] = np.maximum(dkT[kT < 1 * MINIMAL_KBT], 0)
-    # dkT[n < .1 * MINIMAL_N_1D] = 0
-    # dn[n < MINIMAL_N_1D] = 0
+    dkT[n < MINIMAL_N_1D/10.] = 0
     return np.concatenate((dn, dkT))
 
 
