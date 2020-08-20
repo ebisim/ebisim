@@ -280,7 +280,7 @@ class Result:
         self.target = target
         self.device = device
         if model is not None:
-            model._replace(
+            model = model._replace(
                 targets=list(model.targets),
                 bg_gases=list(model.bg_gases),
                 cxxs_bggas=list(model.cxxs_bggas),
