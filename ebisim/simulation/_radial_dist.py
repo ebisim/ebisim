@@ -651,7 +651,7 @@ def boltzmann_radial_potential_linear_density_ebeam_sor(
     # Next guess: phi = phi - y
     # Iterate until adjustment is small
     cden = np.zeros(r.size)
-    cden[r < r_e] = -current/PI/r_e**2
+    cden[r <= r_e] = -current/PI/r_e**2
 
 
     if ldu is None:
@@ -664,17 +664,29 @@ def boltzmann_radial_potential_linear_density_ebeam_sor(
 
     if first_guess is None:
         irho = np.zeros(r.size)
-        irho[r < r_e] = np.sum(q * Q_E * nl / (PI*r_e**2), axis=0)
+        irho[r <= r_e] = np.sum(q * Q_E * nl / (PI*r_e**2), axis=0)
         erho = cden/np.sqrt(2 * Q_E * e_kin/M_E)
-        if irho[0] < -erho[0]:
-            phi = radial_potential_nonuniform_grid(r, erho + irho)
-        else:
-            phi = radial_potential_nonuniform_grid(r, erho)
+        irho[r <= r_e] = np.minimum(-.95 * erho[r <= r_e], irho[r <= r_e])
+        # if irho[0] < -erho[0]:
+        phi = radial_potential_nonuniform_grid(r, erho + irho)
+        # else:
+        # phi = radial_potential_nonuniform_grid(r, erho)
     else:
         phi = first_guess
 
     phi_m1 = np.zeros_like(phi)
     phi_m2 = np.zeros_like(phi)
+
+    shape = np.exp(-q * (phi - phi.min())/kT)
+    # shape[:, np.argmax(phi):] = 0
+    i_sr = np.atleast_2d(np.trapz(r*shape, r)).T
+    nax = nl / 2 / PI / i_sr * np.atleast_2d(shape[:, 0]).T
+    _bx_a = - nax * q * shape * Q_E / EPS_0 # dynamic rhs term
+    _bx_b = - cden/np.sqrt(2 * Q_E * (e_kin+phi)/M_E) / EPS_0
+    _bx_a[:, -1] = 0  # boundary condition
+    bx0 = np.sum(_bx_a, axis=0) + _bx_b
+    f0 = _tridiag_targetfun(ldu, phi, bx0)
+    f0n = np.linalg.norm(f0)
     for k in range(1, 500):
         # ion dist
         shape = np.exp(-q * (phi - phi.min())/kT)
@@ -699,14 +711,14 @@ def boltzmann_radial_potential_linear_density_ebeam_sor(
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         phi = phi - y
 
-        if k % 10 == 0:
+        if k % 5 == 0:
             rk = phi - phi_m1
             rk_m1 = phi_m1 - phi_m2
             drk = rk - rk_m1
             mu = 1 - np.dot(rk, drk)/np.dot(drk, drk)
             phi = phi_m1 + mu*rk
 
-        if np.linalg.norm(phi - phi_m1)/np.linalg.norm(phi) < 1e-6:
+        elif np.linalg.norm(phi - phi_m1)/np.linalg.norm(phi) < 1e-10 and np.linalg.norm(f)/f0n < 1e-10:
         # if np.max(np.abs((phi-phi_m1)[:-1]/phi[:-1])) < 1e-3:
             break
 
