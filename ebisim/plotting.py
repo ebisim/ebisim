@@ -118,7 +118,7 @@ def plot_energy_time_scan(energies, times, abundance, **kwargs):
 #### Evolution Plotting ###
 ###########################
 
-def plot_generic_evolution(t, y, plot_total=False, ax=None, **kwargs):
+def plot_generic_evolution(t, y, plot_total=False, ax=None, cs=None, **kwargs):
     """
     Plots the evolution of a quantity with time
 
@@ -136,6 +136,8 @@ def plot_generic_evolution(t, y, plot_total=False, ax=None, **kwargs):
         also be plotted, by default False.
     ax : matplotlib.Axes, optional
         Provide if you want to add this plot to existing Axes, by default None.
+    cs : list[int], optional
+        Specify which charge states should be plotted, plot all if omitted.
     **kwargs
         Keyword arguments are handed down to ebisim.plotting.decorate_axes,
         cf. documentation thereof.
@@ -152,16 +154,18 @@ def plot_generic_evolution(t, y, plot_total=False, ax=None, **kwargs):
 
     n = y.shape[0]
     _set_line_prop_cycle(ax, n)
+    if cs is None:
+        cs = np.arange(n)
 
     ls = kwargs.pop("ls", None)
-    for cs in range(n):
-        if np.array_equal(np.unique(y[cs, :]), np.array([0])):
+    for cs_ in range(n):
+        if (cs_ not in cs) or np.array_equal(np.unique(y[cs_, :]), np.array([0])):
             ax.loglog([], []) # Ghost draw for purely zero cases
         else:
             if ls:
-                ax.loglog(t, y[cs, :], ls=ls, label=str(cs) + "+")
+                ax.loglog(t, y[cs_, :], ls=ls, label=str(cs_) + "+")
             else:
-                ax.loglog(t, y[cs, :], label=str(cs) + "+")
+                ax.loglog(t, y[cs_, :], label=str(cs_) + "+")
     if plot_total:
         ax.plot(t, np.nansum(y, axis=0), c="k", ls="--", figure=fig, label="total")
 
