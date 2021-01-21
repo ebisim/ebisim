@@ -29,7 +29,8 @@ ModelOptions
 BackgroundGas
 AdvancedModel
 energy_scan
-EnergyScanResul
+EnergyScanResult
+Rate
 
 Q_E
 M_E
