@@ -71,7 +71,7 @@ def basic_simulation(element, j, e_kin, t_max,
     element = Element.as_element(element)
 
     # set initial conditions if not supplied by user
-    if not N_initial:
+    if N_initial is None:
         N_initial = np.zeros(element.z + 1)
         if CNI:
             N_initial[0] = 1
