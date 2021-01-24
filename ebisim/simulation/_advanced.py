@@ -218,7 +218,7 @@ class Device(namedtuple("Device", _DEVICE.keys())):
 
     @classmethod
     def get(
-            cls, current, e_kin, r_e, length, v_ax, b_ax, r_dt,
+            cls, *, current, e_kin, r_e, length, v_ax, b_ax, r_dt,
             v_ra=None, j=None, fwhm=None, n_grid=200, r_dt_bar=None
         ):
         """
@@ -386,7 +386,10 @@ value."""
 # Typedefs for AdvancedModel
 logger.debug("Defining numba types for AdvancedModel typing.")
 logger.debug("Defining numba types: _T_DEVICE.")
-_T_DEVICE = numba.typeof(Device.get(1, 8000, 1e-4, 0.8, 500, 2, 0.005))
+# _T_DEVICE = numba.typeof(Device.get(1, 8000, 1e-4, 0.8, 500, 2, 0.005))
+_T_DEVICE = numba.typeof(Device.get(
+    current=1, e_kin=8000, r_e=1e-4, length=0.8, v_ax=500, b_ax=2, r_dt=0.005
+))
 logger.debug("Defining numba types: _T_TARGET.")
 _T_TARGET = numba.typeof(Target.get_ions("He", 1000., 1., 1))
 logger.debug("Defining numba types: _T_BG_GAS.")
