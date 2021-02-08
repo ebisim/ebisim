@@ -6,6 +6,7 @@ import os
 import time
 from shutil import move
 
+
 def main():
     CWD = os.getcwd()
     TWD = os.path.dirname(os.path.realpath(__file__))
@@ -69,6 +70,7 @@ def main():
 
     print(f"{__name__} done.")
     print(30*"~")
+
 
 if __name__ == "__main__":
     main()

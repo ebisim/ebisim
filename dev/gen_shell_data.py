@@ -25,42 +25,47 @@ import numpy as np
 # 29
 # This somewhat arbitrary order should be rearranged
 
-SHELLS_IN = ('1s', '2s', '2p-', '2p+', '3s', '3p-', '3p+', '3d-', '3d+', '4s', '4p-', '4p+', '4d-', '4d+', '5s', '5p-', '5p+', '4f-', '4f+', '5d-', '5d+', '6s', '6p-', '6p+', '5f-', '5f+', '6d-', '6d+', '7s', '7p-')
+SHELLS_IN = (
+    '1s', '2s', '2p-', '2p+', '3s', '3p-', '3p+', '3d-', '3d+', '4s', '4p-', '4p+', '4d-', '4d+',
+    '5s', '5p-', '5p+', '4f-', '4f+', '5d-', '5d+', '6s', '6p-', '6p+', '5f-', '5f+', '6d-', '6d+',
+    '7s', '7p-'
+    )
 
 REDICT = {
-    0 : 0,
-    1 : 1,
-    2 : 2,
-    3 : 3,
-    4 : 4,
-    5 : 5,
-    6 : 6,
-    7 : 7,
-    8 : 8,
-    9 : 9,
-    10 : 10,
-    11 : 11,
-    12 : 12,
-    13 : 13,
-    14 : 16,
-    15 : 17,
-    16 : 18,
-    17 : 14,
-    18 : 15,
-    19 : 19,
-    20 : 20,
-    21 : 23,
-    22 : 24,
-    23 : 25,
-    24 : 21,
-    25 : 22,
-    26 : 26,
-    27 : 27,
-    28 : 28,
-    29 : 29
+    0: 0,
+    1: 1,
+    2: 2,
+    3: 3,
+    4: 4,
+    5: 5,
+    6: 6,
+    7: 7,
+    8: 8,
+    9: 9,
+    10: 10,
+    11: 11,
+    12: 12,
+    13: 13,
+    14: 16,
+    15: 17,
+    16: 18,
+    17: 14,
+    18: 15,
+    19: 19,
+    20: 20,
+    21: 23,
+    22: 24,
+    23: 25,
+    24: 21,
+    25: 22,
+    26: 26,
+    27: 27,
+    28: 28,
+    29: 29
 }
 
-def reorder(l):
+
+def reorder(lc):
     """
     This method uses the above dictionary to reorder a list in such a way, that it corresponds to
     the shells being sorted by n, then by the angular momentum and then by the coupling - < +
@@ -68,18 +73,20 @@ def reorder(l):
     E.g.
     >>> reorder(['1s', '2s', '2p-', '2p+', '3s', '3p-', '3p+', '3d-', '3d+', '4s', '4p-', '4p+', '4d-', '4d+', '5s', '5p-', '5p+', '4f-', '4f+', '5d-', '5d+', '6s', '6p-', '6p+', '5f-', '5f+', '6d-', '6d+', '7s', '7p-'])
     ['1s', '2s', '2p-', '2p+', '3s', '3p-', '3p+', '3d-', '3d+', '4s', '4p-', '4p+', '4d-', '4d+', '4f-', '4f+', '5s', '5p-', '5p+', '5d-', '5d+', '5f-', '5f+', '6s', '6p-', '6p+', '6d-', '6d+', '7s', '7p-']
-    """
-    maxind = max(map(REDICT.get, range(len(l))))
+    """ # noqa
+    maxind = max(map(REDICT.get, range(len(lc))))
     out = [0 for _ in range(maxind+1)]
-    for i, val in enumerate(l):
+    for i, val in enumerate(lc):
         out[REDICT[i]] = val
     return out
+
 
 def unjag(lol):
     ncols = max(map(len, lol))
     for irow, data in enumerate(lol):
-        lol[irow] = data + (ncols-len(data))*[0,]
+        lol[irow] = data + (ncols-len(data))*[0, ]
     return lol
+
 
 def load_conf(z):
     # Import Electron Configurations for each charge state
@@ -92,6 +99,7 @@ def load_conf(z):
             line = reorder([int(elem.strip()) for elem in line])
             cfg.append(line)
     return unjag(cfg)
+
 
 def load_energies(z):
     # Load required data from resource files, can set further fields
@@ -106,11 +114,13 @@ def load_energies(z):
             e_bind.append(line)
     return unjag(e_bind)
 
+
 def lol_to_str(lol, indent):
     out = ""
-    for l in lol:
-        out += indent*" " + repr(l) + ",\n"
+    for lc in lol:
+        out += indent*" " + repr(lc) + ",\n"
     return out[:-1]
+
 
 FILETEMPLATE = Template('''"""
 This module contains data concerning the electron configuration and binding energies used all
@@ -141,6 +151,7 @@ BLOCKTEMPLATE = Template('''    $z:np.array([
 $data
     ]),
 ''')
+
 
 def main():
     CWD = os.getcwd()
@@ -198,6 +209,7 @@ def main():
 
     print(f"{__name__} done.")
     print(30*"~")
+
 
 if __name__ == "__main__":
     main()
