@@ -4,7 +4,6 @@ simulation code, e.g. loading resources. These functions are meant for internal 
 have no real use outside this scope.
 """
 import logging
-logger = logging.getLogger(__name__)
 try:
     from importlib.resources import open_text  # py>=3.7
 except ImportError:
@@ -13,6 +12,7 @@ import numpy as np
 
 from .resources import drdata as _drdata
 
+logger = logging.getLogger(__name__)
 
 logger.debug("Defining load_dr_data.")
 

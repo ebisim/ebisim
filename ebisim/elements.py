@@ -6,14 +6,16 @@ Besides that, there are some small helper functions to translate certain element
 which may offer convenience to the user.
 """
 import logging
-logger = logging.getLogger(__name__)
-
 from collections import namedtuple
+
 
 from . import utils
 from . import xs
+
+logger = logging.getLogger(__name__)
 logger.debug("Loading element data and shell configurations.")
-from .resources import (
+
+from .resources import (  # noqa: E402
     ELEMENT_Z    as _ELEM_Z,
     ELEMENT_ES   as _ELEM_ES,
     ELEMENT_NAME as _ELEM_NAME,

@@ -2,13 +2,13 @@
 This module contains functions for computing collission rates and related plasma parameters.
 """
 import logging
-logger = logging.getLogger(__name__)
 from numba import njit, vectorize  # , float64, int64
 import numpy as np
 
 from .physconst import M_E, M_P, PI, EPS_0, Q_E, C_L, M_E_EV
 from .physconst import MINIMAL_N_3D
 
+logger = logging.getLogger(__name__)
 
 logger.debug("Defining _erfc_appprox.")
 
