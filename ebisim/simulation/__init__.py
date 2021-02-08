@@ -16,12 +16,12 @@ from ._advanced import (
     AdvancedModel,
 )
 
-from ._energyscan import(
+from ._energyscan import (
     energy_scan,
-    EnergyScanResult
+    EnergyScanResult,
 )
 
-from ._radial_dist import(
+from ._radial_dist import (
     tridiagonal_matrix_algorithm,
     fd_system_uniform_grid,
     radial_potential_uniform_grid,
@@ -35,6 +35,7 @@ from ._radial_dist import(
 
 __all__ = [
     "Result",
+    "Rate",
     "basic_simulation",
     "advanced_simulation",
     "Target",

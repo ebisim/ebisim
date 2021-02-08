@@ -62,7 +62,7 @@ __author__ = "Hannes Pahl"
 from .xs import (
     eixs_vec, eixs_mat, eixs_energyscan,
     rrxs_vec, rrxs_mat, rrxs_energyscan,
-    drxs_vec, drxs_mat, drxs_energyscan
+    drxs_vec, drxs_mat, drxs_energyscan,
     )
 
 from .simulation import (
@@ -76,7 +76,7 @@ from .simulation import (
     AdvancedModel,
     energy_scan,
     EnergyScanResult,
-    Rate
+    Rate,
 )
 
 from .physconst import (
@@ -99,3 +99,22 @@ from .elements import Element, get_element
 from .plotting import plot_eixs, plot_rrxs, plot_drxs, plot_combined_xs
 
 from . import beams
+
+__all__ = [
+    # xs
+    "eixs_vec", "eixs_mat", "eixs_energyscan",
+    "rrxs_vec", "rrxs_mat", "rrxs_energyscan",
+    "drxs_vec", "drxs_mat", "drxs_energyscan",
+    # simulation
+    "Result", "basic_simulation", "advanced_simulation", "Target", "Device",
+    "ModelOptions", "BackgroundGas", "AdvancedModel", "energy_scan", "EnergyScanResult", "Rate",
+    # physconst
+    "Q_E", "M_E", "PI", "EPS_0", "K_B", "C_L", "ALPHA",
+    "HBAR", "M_P", "M_E_EV", "RY_EV", "COMPT_E_RED",
+    # elements
+    "Element", "get_element",
+    # plotting
+    "plot_eixs", "plot_rrxs", "plot_drxs", "plot_combined_xs",
+    # beams
+    "beams",
+]
