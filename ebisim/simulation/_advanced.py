@@ -33,6 +33,7 @@ def enum_hash(val):  # pylint: disable=unused-argument
         return hash(val.value)
     return impl
 
+
 logger.debug("Defining Target.")
 
 
@@ -131,6 +132,7 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cx"))):
     def __repr__(self):
         return f"Target({Element.as_element(self)})"
 
+
 # Patching in docstrings
 logger.debug("Patching Target docstrings.")
 for f in Element._fields:
@@ -186,6 +188,7 @@ class BackgroundGas(namedtuple("BackgroundGas", "name, ip, n0")):
             (p * 100) / (K_B * T)  # Convert from mbar to Pa and compute density at Temp
         )
 
+
 # Patching in docstrings
 logger.debug("Patching BackgroundGas docstrings.")
 BackgroundGas.name.__doc__ = """str Name of the element."""
@@ -228,7 +231,7 @@ class Device(namedtuple("Device", _DEVICE.keys())):
     def get(
             cls, *, current, e_kin, r_e, length, v_ax, b_ax, r_dt,
             v_ra=None, j=None, fwhm=None, n_grid=200, r_dt_bar=None
-        ):
+            ):
         """
         Factory method for defining a device.
 
@@ -277,8 +280,8 @@ class Device(namedtuple("Device", _DEVICE.keys())):
         ebisim.simulation.Device
             The populated device object.
         """
-        logger.debug(f"Device.get({current}, {e_kin}, {r_e}, {length}, "\
-                     f"{v_ax}, {b_ax}, {r_dt}, {v_ra}, {j}, {fwhm}, {n_grid})")
+        logger.debug(f"Device.get({current}, {e_kin}, {r_e}, {length}, "
+                     + f"{v_ax}, {b_ax}, {r_dt}, {v_ra}, {j}, {fwhm}, {n_grid})")
         rad_grid = np.concatenate((
             np.linspace(0, r_e, n_grid//6, endpoint=False),
             np.linspace(r_e, 2*r_e, n_grid//6, endpoint=False),
@@ -347,9 +350,10 @@ class Device(namedtuple("Device", _DEVICE.keys())):
         )
 
     def __repr__(self):
-        return f"Device.get({self.current}, {self.e_kin}, {self.r_e}, {self.length}, "\
-                f"{self.v_ax}, {self.b_ax}, {self.r_dt}, {self.v_ra}, {self.j}, {self.fwhm}, "\
-                f"{len(self.rad_grid)})"
+        return (f"Device.get({self.current}, {self.e_kin}, {self.r_e}, {self.length}, "
+                + f"{self.v_ax}, {self.b_ax}, {self.r_dt}, {self.v_ra}, {self.j}, {self.fwhm}, "
+                + f"{len(self.rad_grid)})")
+
 
 logger.debug("Patching Device docstrings.")
 for _k, _v in _DEVICE.items():
@@ -527,8 +531,8 @@ def _smooth_to_zero(x):
     N1 = MINIMAL_N_1D
     N2 = 1000*N1
     x = x.copy()
-    x[x<N1] = 0
-    fil = np.logical_and(N1<x, x<N2)
+    x[x < N1] = 0
+    fil = np.logical_and(N1 < x, x < N2)
     x[fil] = _cubic_spline(x[fil], N1, N2, 0., N2, 0., 1.)
     return x
 
@@ -911,7 +915,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
             nc = 1 if y.ndim == 1 else y.shape[1]
             cl = n_threads * [nc//n_threads, ]
             for _k in range(n_threads):
-                if _k < nc%n_threads:
+                if _k < (nc % n_threads):
                     cl[_k] += 1
             jobs = []
             for _k in range(n_threads):
@@ -926,6 +930,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
             logger.debug("Wrapping rhs in progress meter.")
             k_old = k = 0
             print("")
+
             def rhs(t, y, rates=None):
                 nonlocal k
                 nonlocal k_old
@@ -935,7 +940,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
                     k_old = k
                 return mt(model, t, y, rates)
         else:
-            rhs = lambda t, y, rates=None: mt(model, t, y, rates)
+            rhs = lambda t, y, rates=None: mt(model, t, y, rates)  # noqa:E731
 
         logger.debug("Starting integration.")
         res = scipy.integrate.solve_ivp(
@@ -944,9 +949,9 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
         if verbose:
             print("\rIntegration finished:", k, "calls                    ")
             print(res.message)
-            print(f"Calls: {k} of which ~{res.nfev} normal ({res.nfev/k:.2%}) and " \
-                f"~{res.y.shape[0]*res.njev} for jacobian approximation "\
-                f"({res.y.shape[0]*res.njev/k:.2%})")
+            print(f"Calls: {k} of which ~{res.nfev} normal ({res.nfev/k:.2%}) and "
+                  + f"~{res.y.shape[0]*res.njev} for jacobian approximation "
+                  + f"({res.y.shape[0]*res.njev/k:.2%})")
 
         if rates:
             logger.debug("Assembling rate arrays.")
@@ -968,7 +973,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
 
             # Poll all steps
             for idx in range(nt):
-                if verbose and idx%100 == 0:
+                if verbose and (idx % 100) == 0:
                     print("\r", f"Rates: {idx+1} / {nt}", end="")
                 # if res.t[idx] in _rates: #Technically this data should already exist
                 #     extractor = _rates[res.t[idx]]

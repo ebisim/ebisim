@@ -16,3 +16,6 @@ exclude =
     temp
 
 max-line-length = 120
+
+per-file-ignores =
+    ebisim/simulation/_advanced.py:E221 # whitespace in adv_rhs
