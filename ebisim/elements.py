@@ -16,15 +16,15 @@ logger = logging.getLogger(__name__)
 logger.debug("Loading element data and shell configurations.")
 
 from .resources import (  # noqa: E402
-    ELEMENT_Z    as _ELEM_Z,
-    ELEMENT_ES   as _ELEM_ES,
+    ELEMENT_Z as _ELEM_Z,
+    ELEMENT_ES as _ELEM_ES,
     ELEMENT_NAME as _ELEM_NAME,
-    ELEMENT_A    as _ELEM_A,
-    ELEMENT_IP   as _ELEM_IP,
-    SHELL_ORDER  as _SHELLORDER,
-    SHELL_N      as _SHELL_N,
-    SHELL_CFG    as _SHELL_CFG,
-    SHELL_EBIND  as _SHELL_EBIND
+    ELEMENT_A as _ELEM_A,
+    ELEMENT_IP as _ELEM_IP,
+    SHELL_ORDER as _SHELLORDER,
+    SHELL_N as _SHELL_N,
+    SHELL_CFG as _SHELL_CFG,
+    SHELL_EBIND as _SHELL_EBIND
 )
 logger.debug("Loading DR data.")
 _DR_DATA = utils.load_dr_data()
@@ -186,7 +186,7 @@ class Element(_ElementSpec):
         str
             LaTeX formatted string describing the isotope.
         """
-        return f"$\mathsf{{^{{{self.a}}}_{{{self.z}}}{self.symbol}}}$"
+        return fr"$\mathsf{{^{{{self.a}}}_{{{self.z}}}{self.symbol}}}$"
 
     def __repr__(self):
         return f"Element('{self.symbol}', a={self.a})"
@@ -227,8 +227,8 @@ class Element(_ElementSpec):
             symbol = element_symbol(z)
             name = element_name(z)
         except ValueError:
-            raise ValueError(f"Unable to interpret element_id = {element_id}, " \
-                "ebisim only supports elements up to Z = 105.")
+            raise ValueError(f"Unable to interpret element_id = {element_id}, "
+                             + "ebisim only supports elements up to Z = 105.")
 
         # Mass number and ionisation potential
         idx = _ELEM_Z.index(z)
