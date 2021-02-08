@@ -270,8 +270,7 @@ class Result:
     """
 
     def __init__(self, param=None, t=None, N=None, kbT=None, res=None, rates=None,
-                 target=None, device=None, model=None, id_=None,
-                ):
+                 target=None, device=None, model=None, id_=None):
         self.param = param if param is not None else {}
         self.param.pop("targets", None)  # Not needed, prevents pickling
         self.param.pop("bg_gases", None)  # Not needed, prevents pickling

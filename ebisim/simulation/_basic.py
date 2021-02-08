@@ -100,11 +100,11 @@ def basic_simulation(element, j, e_kin, t_max,
     # the jacobian of a basic simulation
     _jac = j * xs_mat
     if solver_kwargs["method"] == "LSODA":
-        jac = lambda _, N: _jac  # LSODA solver requires "callable" jacobian
+        jac = lambda _, N: _jac  # LSODA solver requires "callable" jacobian  # noqa:E731
     else:
         jac = _jac
 
-    dNdt = lambda _, N: _jac.dot(N)
+    dNdt = lambda _, N: _jac.dot(N)  # noqa:E731
 
     res = scipy.integrate.solve_ivp(dNdt, (0, t_max), N_initial, jac=jac, **solver_kwargs)
     return Result(param=param, t=res.t, N=res.y, res=res)

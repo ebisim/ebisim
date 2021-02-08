@@ -53,8 +53,10 @@ class NumbaFunctionDocumenter(FunctionDocumenter):
             # And bend references to underlying python function
             if hasattr(self.object, "py_func"):
                 self.object = self.object.py_func
-            elif hasattr(self.object, "_dispatcher") and \
-                 hasattr(self.object._dispatcher, "py_func"):
+            elif (
+                hasattr(self.object, "_dispatcher")
+                and hasattr(self.object._dispatcher, "py_func")
+            ):
                 self.object = self.object._dispatcher.py_func
             else:
                 success = False
