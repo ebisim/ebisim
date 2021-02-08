@@ -422,8 +422,7 @@ def plot_combined_xs(element, fwhm, **kwargs):
     kwargs.setdefault("legend", True)
     kwargs.setdefault(
         "title",
-        f"{element.latex_isotope()} - EI / RR / DR " \
-        f"(FWHM = {fwhm:0.1f} eV)"
+        f"{element.latex_isotope()} - EI / RR / DR (FWHM = {fwhm:0.1f} eV)"
     )
     kwargs.setdefault("label_lines", True)
 
@@ -494,9 +493,9 @@ def decorate_axes(ax, grid=True, legend=False, label_lines=True, tight_layout=Tr
     # Label lines should be called at the end of the plot generation since it relies on axlim
     if label_lines:
         # TODO: Check if this can be done without private member access
-        lines = [l for l in ax.get_lines() if any(l._x)]  # pylint: disable=W0212
+        lines = [l for l in ax.get_lines() if any(l._x)]  # pylint: disable=W0212  # noqa:E741
         step = int(np.ceil(len(lines)/10))
-        lines = lines [::step]
+        lines = lines[::step]
         _labelLines(lines, size=7, bbox={"pad": 0.1, "fc": "w", "ec": "none"})
     if tight_layout:
         ax.figure.tight_layout()
