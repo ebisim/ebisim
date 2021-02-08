@@ -7,6 +7,7 @@ import numpy as np
 from .physconst import Q_E, PI, EPS_0, K_B, M_E
 from .plasma import electron_velocity
 
+
 class ElectronBeam:
     """
     This class contains logic that allows estimating the space charge corrected energy
@@ -52,7 +53,6 @@ class ElectronBeam:
     @current.setter
     def current(self, val):
         self._cur = val
-
 
     def characteristic_potential(self, e_kin):
         """

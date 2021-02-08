@@ -36,6 +36,7 @@ from sphinx.ext.autodoc import FunctionDocumenter
 from numba.core.dispatcher import Dispatcher
 from numba.np.ufunc.dufunc import DUFunc
 
+
 class NumbaFunctionDocumenter(FunctionDocumenter):
     """Document numba decorated functions."""
 

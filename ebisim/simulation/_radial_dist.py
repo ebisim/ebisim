@@ -12,6 +12,8 @@ from ..physconst import EPS_0, Q_E, PI, M_E
 logger = logging.getLogger(__name__)
 
 logger.debug("Defining tridiagonal_matrix_algorithm.")
+
+
 @njit(cache=True)
 def tridiagonal_matrix_algorithm(l, d, u, b):
     """
@@ -57,6 +59,8 @@ def tridiagonal_matrix_algorithm(l, d, u, b):
 
 
 logger.debug("Defining fd_system_uniform_grid.")
+
+
 @njit(cache=True)
 def fd_system_uniform_grid(r):
     """
@@ -100,6 +104,8 @@ def fd_system_uniform_grid(r):
 
 
 logger.debug("Defining radial_potential_uniform_grid.")
+
+
 @njit(cache=True)
 def radial_potential_uniform_grid(r, rho):
     """
@@ -129,6 +135,8 @@ def radial_potential_uniform_grid(r, rho):
 
 
 logger.debug("Defining fd_system_nonuniform_grid.")
+
+
 @njit(cache=True)
 def fd_system_nonuniform_grid(r):
     """
@@ -185,6 +193,8 @@ def fd_system_nonuniform_grid(r):
 
 
 logger.debug("Defining radial_potential_nonuniform_grid.")
+
+
 @njit(cache=True)
 def radial_potential_nonuniform_grid(r, rho):
     """
@@ -213,6 +223,8 @@ def radial_potential_nonuniform_grid(r, rho):
 
 
 logger.debug("Defining heat_capacity.")
+
+
 @njit(cache=True)
 def heat_capacity(r, phi, q, kT):
     """
@@ -247,6 +259,8 @@ def heat_capacity(r, phi, q, kT):
 
 
 logger.debug("Defining _tridiag_targetfun.")
+
+
 @njit(cache=True, inline="always")
 def _tridiag_targetfun(ldu, x, b):
     """
@@ -277,6 +291,8 @@ def _tridiag_targetfun(ldu, x, b):
 
 
 logger.debug("Defining boltzmann_radial_potential_onaxis_density.")
+
+
 @njit(cache=True)
 def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=None, ldu=None):
     """
@@ -335,7 +351,6 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
     rho_0[-1] = 0  # Boundary condition
     b0 = - rho_0/EPS_0  # static rhs term
 
-
     if ldu is None:
         ldu = fd_system_nonuniform_grid(r)  # Set up tridiagonal system
     l, d, u = ldu
@@ -373,6 +388,8 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
 
 
 logger.debug("Defining boltzmann_radial_potential_linear_density.")
+
+
 @njit(cache=True)
 def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=None, ldu=None):
     """
@@ -472,6 +489,8 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
 
 
 logger.debug("Defining boltzmann_radial_potential_linear_density_ebeam.")
+
+
 @njit(cache=True)
 def boltzmann_radial_potential_linear_density_ebeam(
         r, current, r_e, e_kin, nl, kT, q, first_guess=None, ldu=None
@@ -539,7 +558,6 @@ def boltzmann_radial_potential_linear_density_ebeam(
     cden = np.zeros(r.size)
     cden[r <= r_e] = -current/PI/r_e**2
 
-
     if ldu is None:
         ldu = fd_system_nonuniform_grid(r)  # Set up tridiagonal system
     l, d, u = ldu
@@ -590,6 +608,8 @@ def boltzmann_radial_potential_linear_density_ebeam(
 
 
 logger.debug("Defining boltzmann_radial_potential_linear_density_ebeam_sor.")
+
+
 @njit(cache=True)
 def boltzmann_radial_potential_linear_density_ebeam_sor(
         r, current, r_e, e_kin, nl, kT, q, first_guess=None, ldu=None
@@ -652,7 +672,6 @@ def boltzmann_radial_potential_linear_density_ebeam_sor(
     # Iterate until adjustment is small
     cden = np.zeros(r.size)
     cden[r <= r_e] = -current/PI/r_e**2
-
 
     if ldu is None:
         ldu = fd_system_nonuniform_grid(r)  # Set up tridiagonal system

@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 # Hack for making Enums hashable by numba - hash will differ from CPython
 # This is to make Enums work as numba.typed.Dict keys
 logger.debug("Patching numba.types.EnumMember __hash__.")
+
+
 @numba.extending.overload_method(numba.types.EnumMember, '__hash__')
 def enum_hash(val):  # pylint: disable=unused-argument
     def impl(val):
@@ -32,6 +34,8 @@ def enum_hash(val):  # pylint: disable=unused-argument
     return impl
 
 logger.debug("Defining Target.")
+
+
 class Target(namedtuple("Target", Element._fields + ("n", "kT", "cx"))):
     """
     Use the static `get_ions()` or `get_gas()` factory methods to create instances of this class.
@@ -138,6 +142,8 @@ considered as charge exchange partners."""
 
 
 logger.debug("Defining BackgroundGas.")
+
+
 class BackgroundGas(namedtuple("BackgroundGas", "name, ip, n0")):
     """
     Use the static `get()` factory methods to create instances of this class.
@@ -208,6 +214,8 @@ _DEVICE = OrderedDict(
     rad_phi_ax_barr="<V> Radial potential of the electron beam in the barrier tube",
     rad_re_idx="Index of the radial grid point closest to r_e",
 )
+
+
 class Device(namedtuple("Device", _DEVICE.keys())):
     """
     Use the static `get()` factory methods to create instances of this class.
@@ -425,6 +433,8 @@ _ADVMDLSPEC = OrderedDict(
     cxxs_bggas=numba.types.ListType(_T_F8_ARRAY),
     cxxs_trgts=numba.types.ListType(_T_F8_ARRAY),
 )
+
+
 # @numba.experimental.jitclass(_ADVMDLSPEC)
 class AdvancedModel(namedtuple("AdvancedModel", _ADVMDLSPEC.keys())):
     """
@@ -635,12 +645,10 @@ def _adv_rhs(model, _t, y, rates=None):
     else:
         iheat = np.zeros(model.nq)
 
-
     # Compute some electron beam quantities
     je = model.device.j / Q_E * 1e4  # electron number current density
     ve = plasma.electron_velocity(e_kin)
     ne = je/ve  # Electron number density
-
 
     # Collision rates
     rij = plasma.ion_coll_rate(
@@ -678,7 +686,6 @@ def _adv_rhs(model, _t, y, rates=None):
         dkT[1:]  += R_ei[:-1] / n_r[1:] * (kT[:-1] - kT[1:])
         dkT[1:]  += R_ei[:-1] / n_r[1:] * iheat[:-1]
 
-
     # RR
     if model.options.RR:
         R_rr      = rrxs * n * je * fei
@@ -687,7 +694,6 @@ def _adv_rhs(model, _t, y, rates=None):
         dkT[:-1] += R_rr[1:] / n_r[:-1] * (kT[1:] - kT[:-1])
         dkT[:-1]  -= R_rr[1:] / n_r[:-1] * iheat[1:]
 
-
     # DR
     if model.options.DR:
         R_dr      = drxs * n * je * fei
@@ -695,7 +701,6 @@ def _adv_rhs(model, _t, y, rates=None):
         dn[:-1]  += R_dr[1:]
         dkT[:-1] += R_dr[1:] / n_r[:-1] * (kT[1:] - kT[:-1])
         dkT[:-1]  -= R_dr[1:] / n_r[:-1] * iheat[1:]
-
 
     # CX
     if model.options.CX:
@@ -710,12 +715,10 @@ def _adv_rhs(model, _t, y, rates=None):
         dkT[:-1] += R_cx[1:] / n_r[:-1] * (kT[1:] - kT[:-1])
         dkT[:-1]  -= R_cx[1:] / n_r[:-1] * iheat[1:]
 
-
     # Electron heating / Spitzer heating
     if model.options.SPITZER_HEATING:
         _dkT_eh   = plasma.spitzer_heating(n3d, ne, kT, e_kin, model.a, model.q) * fei
         dkT      += _dkT_eh
-
 
     # Ion-ion heat transfer (collisional thermalisation)
     if model.options.COLLISIONAL_THERMALISATION:
@@ -725,7 +728,6 @@ def _adv_rhs(model, _t, y, rates=None):
             ), axis=-1
         )
         dkT      += _dkT_ct
-
 
     # Axial escape
     if model.options.ESCAPE_AXIAL:
@@ -740,7 +742,6 @@ def _adv_rhs(model, _t, y, rates=None):
         # R_ax_rt[n < 10*MINIMAL_N_1D] = 0
         dn       -= R_ax_co + R_ax_rt
         dkT      -= R_ax_co / n_r * w_ax * kT + R_ax_rt / n_r * (tfact_ax - 1) * kT
-
 
     # Radial escape
     if model.options.ESCAPE_RADIAL:
@@ -758,7 +759,6 @@ def _adv_rhs(model, _t, y, rates=None):
         dn       -= R_ra_co + R_ra_rt
         dkT      -= R_ra_co / n_r * w_ra * kT + R_ra_rt / n_r * (tfact_ra - 1) * kT
 
-
     # TODO: Expansion cooling
 
     # Check if neutrals are depletable or if there is continuous neutral injection
@@ -766,7 +766,6 @@ def _adv_rhs(model, _t, y, rates=None):
         # Kill all neutral rates - seems to improve stability
         dn[k] = 0.0
         dkT[k] = 0.0
-
 
     if rates is not None:
         if model.options.EI:
@@ -816,6 +815,8 @@ def _adv_rhs(model, _t, y, rates=None):
 
 
 logger.debug("Defining advanced_simulation.")
+
+
 def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rates=False,
                         solver_kwargs=None, verbose=True, n_threads=1):
     """
@@ -921,7 +922,6 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
             res = parallel(jobs)
             return np.concatenate(res, axis=-1)
 
-
         if verbose:
             logger.debug("Wrapping rhs in progress meter.")
             k_old = k = 0
@@ -936,7 +936,6 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
                 return mt(model, t, y, rates)
         else:
             rhs = lambda t, y, rates=None: mt(model, t, y, rates)
-
 
         logger.debug("Starting integration.")
         res = scipy.integrate.solve_ivp(

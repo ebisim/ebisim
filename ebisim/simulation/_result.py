@@ -15,6 +15,8 @@ from ..physconst import MINIMAL_N_1D, MINIMAL_KBT
 logger = logging.getLogger(__name__)
 
 logger.debug("Defining Rate(IntEnum).")
+
+
 class Rate(IntEnum):
     """
     Enum for conveniently identifying rates produced in advanced simulations
@@ -233,8 +235,9 @@ _RATE_LABELS = {
 }
 
 
-
 logger.debug("Defining Result.")
+
+
 class Result:
     """
     Instances of this class are containers for the results of ebisim simulations and contain a
@@ -289,7 +292,6 @@ class Result:
         self.model = model
         self.id = id_
 
-
     def times_of_highest_abundance(self):
         """
         Yields the point of time with the highest abundance for each charge state
@@ -303,7 +305,6 @@ class Result:
         """
         args = np.argmax(self.N, axis=1)
         return self.t[args]
-
 
     def abundance_at_time(self, t):
         """
@@ -330,7 +331,6 @@ class Result:
                 return self.res.sol(t)
         interp = scipy.interpolate.interp1d(self.t, self.N)
         return interp(t)
-
 
     def temperature_at_time(self, t):
         """
@@ -360,7 +360,6 @@ class Result:
             return interp(t)
         else:
             raise LookupError("This result does not contain temperature information.")
-
 
     def radial_distribution_at_time(self, t):
         """
@@ -443,7 +442,6 @@ class Result:
             title = title[:-1] + f", FWHM = {self.param['dr_fwhm']:0.1f} eV)"
         return title
 
-
     def plot_charge_states(self, relative=False, **kwargs):
         """
         Plot the charge state evolution of this result object.
@@ -491,9 +489,7 @@ class Result:
             fig = plotting.plot_generic_evolution(self.t, self.N, **kwargs)
         return fig
 
-
     plot = plot_charge_states  #: Alias for plot_charge_states
-
 
     def plot_radial_distribution_at_time(self, t, **kwargs):
         """
@@ -537,7 +533,6 @@ class Result:
         else:
             raise LookupError("This result does not contain temperature information.")
 
-
     def plot_energy_density(self, **kwargs):
         """
         Plot the energy density evolution of this result object.
@@ -576,7 +571,6 @@ class Result:
 
         fig = plotting.plot_generic_evolution(self.t, e_den, **kwargs)
         return fig
-
 
     def plot_temperature(self, dens_threshold=1000*MINIMAL_N_1D, **kwargs):
         """
@@ -622,7 +616,6 @@ class Result:
 
         fig = plotting.plot_generic_evolution(self.t, filtered_kbT, **kwargs)
         return fig
-
 
     def plot_rate(self, rate_key, dens_threshold=1000*MINIMAL_N_1D, **kwargs):
         """

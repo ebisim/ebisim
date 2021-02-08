@@ -27,10 +27,11 @@ from .resources import (
 logger.debug("Loading DR data.")
 _DR_DATA = utils.load_dr_data()
 
-
 # ----- Helper functions for translating chemical symbols
 
 logger.debug("Defining element_z.")
+
+
 def element_z(element):
     """
     Returns the proton number of the given element.
@@ -53,6 +54,8 @@ def element_z(element):
 
 
 logger.debug("Defining element_symbol.")
+
+
 def element_symbol(element):
     """
     Returns the abbreviated symbol of the given element.
@@ -75,6 +78,8 @@ def element_symbol(element):
 
 
 logger.debug("Defining element_name.")
+
+
 def element_name(element):
     """
     Returns the name of the given element.
@@ -97,6 +102,8 @@ def element_name(element):
 
 
 logger.debug("Defining _ElementSpec.")
+
+
 _ElementSpec = namedtuple(
     "Element", [
         "z",
@@ -119,6 +126,8 @@ _ElementSpec = namedtuple(
 
 
 logger.debug("Defining Element.")
+
+
 class Element(_ElementSpec):
     """
     Use the static `get()` factory method to create instances of this class.
@@ -297,6 +306,8 @@ Element.ei_lotz_b.__doc__ = "Numpy array of precomputed Lotz factor 'b' for each
 Element.ei_lotz_c.__doc__ = "Numpy array of precomputed Lotz factor 'c' for each entry of 'e_cfg'."
 
 logger.debug("Defining get_element")
+
+
 def get_element(element_id, a=None):
     """
     [LEGACY]

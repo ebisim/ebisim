@@ -27,6 +27,7 @@ PACKAGE_DATA = {
 with open("README.md", "r") as fh:
     LONG_DESCRIPTION = fh.read()
 
+
 def from_init(attr):
     """
     read a value from ebisim/__init__.py

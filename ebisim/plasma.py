@@ -11,6 +11,8 @@ from .physconst import MINIMAL_N_3D
 
 
 logger.debug("Defining _erfc_appprox.")
+
+
 @njit(cache=True)
 def _erfc_approx(x):
     """
@@ -22,6 +24,8 @@ def _erfc_approx(x):
 
 
 logger.debug("Defining electron_velocity.")
+
+
 @njit(cache=True)
 def electron_velocity(e_kin):
     r"""
@@ -48,6 +52,8 @@ def electron_velocity(e_kin):
 
 
 logger.debug("Defining clog_ei.")
+
+
 @vectorize(
     # [float64(float64, float64, float64, float64, float64, int64)],
     cache=True, nopython=True
@@ -126,6 +132,8 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
 
 
 logger.debug("Defining clog_ii.")
+
+
 @vectorize(
     # [float64(float64, float64, float64, float64, float64, float64, int64, int64)],
     cache=True, nopython=True
@@ -188,6 +196,8 @@ def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
 
 
 logger.debug("Defining coulomb_xs.")
+
+
 @vectorize(
     # [float64(float64, float64, float64, float64, float64, int64)],
     cache=True, nopython=True
@@ -236,6 +246,8 @@ def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
 
 
 logger.debug("Defining ion_coll_rate.")
+
+
 @vectorize(
     # [float64(float64, float64, float64, float64, float64, float64, int64, int64)],
     cache=True, nopython=True
@@ -299,6 +311,8 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
 
 
 logger.debug("Defining spitzer_heating.")
+
+
 @vectorize(
     # [float64(float64, float64, float64, float64, float64, int64)],
     cache=True, nopython=True
@@ -346,6 +360,8 @@ def spitzer_heating(Ni, Ne, kbTi, Ee, Ai, qi):
 
 
 logger.debug("Defining collisional_thermalisation.")
+
+
 @vectorize(
     # [float64(float64, float64, float64, float64, float64)],
     cache=True, nopython=True
@@ -391,6 +407,8 @@ def collisional_thermalisation(kbTi, kbTj, Ai, Aj, nuij):
 
 
 logger.debug("Defining trapping_strength_axial.")
+
+
 @vectorize(
     # [float64(float64, int64, float64)],
     cache=True, nopython=True
@@ -432,8 +450,9 @@ def trapping_strength_axial(kbTi, qi, V):
     return w
 
 
-
 logger.debug("Defining trapping_strength_radial.")
+
+
 @vectorize(
     # [float64(float64, int64, float64, float64, float64, float64)],
     cache=True, nopython=True
@@ -485,6 +504,8 @@ def trapping_strength_radial(kbTi, qi, Ai, V, B, r_dt):
 
 
 logger.debug("Defining collisional_escape_rate.")
+
+
 @vectorize(
     # [float64(float64, float64, float64)],
     cache=True, nopython=True
@@ -525,6 +546,8 @@ def collisional_escape_rate(nui, w):
 
 logger.debug("Defining roundtrip_escape.")
 _INVSQRTPI = 1/np.sqrt(PI)
+
+
 @njit(cache=True)
 def roundtrip_escape(w):
     """

@@ -11,6 +11,7 @@ from ..elements import Element
 from ..physconst import Q_E
 from ._result import Result
 
+
 def basic_simulation(element, j, e_kin, t_max,
                      dr_fwhm=None, N_initial=None, CNI=False,
                      solver_kwargs=None):

@@ -501,6 +501,7 @@ def decorate_axes(ax, grid=True, legend=False, label_lines=True, tight_layout=Tr
     if tight_layout:
         ax.figure.tight_layout()
 
+
 # ----- Code for decorating line plots with online labels
 # Code copied from https://github.com/cphyc/matplotlib-label-lines
 # Based on https://stackoverflow.com/questions/16992038/inline-labels-in-matplotlib
