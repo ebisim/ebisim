@@ -4,10 +4,7 @@ simulation code, e.g. loading resources. These functions are meant for internal 
 have no real use outside this scope.
 """
 import logging
-try:
-    from importlib.resources import open_text  # py>=3.7
-except ImportError:
-    from importlib_resources import open_text  # py<3.7
+from importlib.resources import open_text
 import numpy as np
 
 from .resources import drdata as _drdata

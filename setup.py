@@ -2,9 +2,7 @@
 setup for ebisim
 """
 
-# import importlib.resources
 import os
-import sys
 import setuptools
 
 NAME = "ebisim"
@@ -12,11 +10,12 @@ EMAIL = None
 DESCRIPTION = "A package for simulating the charge state distribution evolution in an EBIS/EBIT."
 URL = "https://github.com/HPLegion/ebisim"
 PYTHON_REQUIRES = ">=3.7.0"
-INSTALL_REQUIRES = ["numpy", "scipy", "numba", "matplotlib", "joblib"]
-if sys.version_info < (3, 7):
-    INSTALL_REQUIRES.append("importlib_resources")
+INSTALL_REQUIRES = ["numpy>=1.17", "scipy>=1.3", "numba>=0.50", "matplotlib>=3", "joblib>=0.17"]
 CLASSIFIERS = [
-    "Programming Language :: Python :: 3"
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Topic :: Scientific/Engineering :: Physics"
     ]
 PACKAGE_DATA = {
     "ebisim": ["*"],
