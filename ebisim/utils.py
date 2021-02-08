@@ -4,17 +4,19 @@ simulation code, e.g. loading resources. These functions are meant for internal 
 have no real use outside this scope.
 """
 import logging
-logger = logging.getLogger(__name__)
 try:
-    from importlib.resources import open_text # py>=3.7
+    from importlib.resources import open_text  # py>=3.7
 except ImportError:
-    from importlib_resources import open_text # py<3.7
+    from importlib_resources import open_text  # py<3.7
 import numpy as np
 
 from .resources import drdata as _drdata
 
+logger = logging.getLogger(__name__)
 
 logger.debug("Defining load_dr_data.")
+
+
 def load_dr_data():
     """
     Loads the avaliable DR transition data from the resource directory
@@ -39,12 +41,14 @@ def load_dr_data():
                 dat = _parse_dr_file(f)
         except FileNotFoundError:
             dat = dict(dr_e_res=empt.copy(), dr_strength=empt.copy(), dr_cs=empt.copy())
-        dat["dr_cs"] = dat["dr_cs"].astype(int) # Need to assure int for indexing purposes
+        dat["dr_cs"] = dat["dr_cs"].astype(int)  # Need to assure int for indexing purposes
         out[z] = dat
     return out
 
 
 logger.debug("Defining _parse_dr_file.")
+
+
 def _parse_dr_file(fobj):
     """
     Parses the content of a single DR data file into a dict with three numpy arrays holding
@@ -85,6 +89,8 @@ def _parse_dr_file(fobj):
 
 
 logger.debug("Defining _nparray_from_jagged_list.")
+
+
 def _nparray_from_jagged_list(list_of_lists):
     """
     Takes a list of lists with varying length and turns them into a numpy array,

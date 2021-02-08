@@ -36,6 +36,7 @@ from sphinx.ext.autodoc import FunctionDocumenter
 from numba.core.dispatcher import Dispatcher
 from numba.np.ufunc.dufunc import DUFunc
 
+
 class NumbaFunctionDocumenter(FunctionDocumenter):
     """Document numba decorated functions."""
 
@@ -52,8 +53,10 @@ class NumbaFunctionDocumenter(FunctionDocumenter):
             # And bend references to underlying python function
             if hasattr(self.object, "py_func"):
                 self.object = self.object.py_func
-            elif hasattr(self.object, "_dispatcher") and \
-                 hasattr(self.object._dispatcher, "py_func"):
+            elif (
+                hasattr(self.object, "_dispatcher")
+                and hasattr(self.object._dispatcher, "py_func")
+            ):
                 self.object = self.object._dispatcher.py_func
             else:
                 success = False

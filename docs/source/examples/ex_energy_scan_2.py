@@ -5,15 +5,15 @@ import numpy as np
 import ebisim as eb
 
 sim_kwargs = dict(
-    element=eb.get_element("Potassium"), # element that is to be charge bred
-    j=200, # current density in A/cm^2
-    t_max=1, # length of simulation in s
-    dr_fwhm=15 # This time DR has to be activated by setting an effective line width
+    element=eb.get_element("Potassium"),  # element that is to be charge bred
+    j=200,  # current density in A/cm^2
+    t_max=1,  # length of simulation in s
+    dr_fwhm=15  # This time DR has to be activated by setting an effective line width
 )
 scan = eb.energy_scan(
     sim_func=eb.basic_simulation,
     sim_kwargs=sim_kwargs,
-    energies=np.arange(2400, 2700), # The sampling energies cover the KLL band
+    energies=np.arange(2400, 2700),  # The sampling energies cover the KLL band
     parallel=True
 )
 

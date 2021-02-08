@@ -2,15 +2,17 @@
 This module contains functions for computing collission rates and related plasma parameters.
 """
 import logging
-logger = logging.getLogger(__name__)
-from numba import njit, vectorize#, float64, int64
+from numba import njit, vectorize  # , float64, int64
 import numpy as np
 
 from .physconst import M_E, M_P, PI, EPS_0, Q_E, C_L, M_E_EV
 from .physconst import MINIMAL_N_3D
 
+logger = logging.getLogger(__name__)
 
 logger.debug("Defining _erfc_appprox.")
+
+
 @njit(cache=True)
 def _erfc_approx(x):
     """
@@ -22,6 +24,8 @@ def _erfc_approx(x):
 
 
 logger.debug("Defining electron_velocity.")
+
+
 @njit(cache=True)
 def electron_velocity(e_kin):
     r"""
@@ -48,6 +52,8 @@ def electron_velocity(e_kin):
 
 
 logger.debug("Defining clog_ei.")
+
+
 @vectorize(
     # [float64(float64, float64, float64, float64, float64, int64)],
     cache=True, nopython=True
@@ -109,11 +115,11 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
     As documented, the function itself expects the density to be given in 1/m^3.
 
     """
-    Ni = Ni * 1e-6 # go from 1/m**3 to 1/cm**3
+    Ni = Ni * 1e-6  # go from 1/m**3 to 1/cm**3
     Ne = Ne * 1e-6
     qqten = qi * qi * 10
     redkbTi = kbTi * M_E / (Ai * M_P)
-    if   redkbTi <= kbTe  <= qqten:
+    if redkbTi <= kbTe <= qqten:
         return 23. - np.log(Ne**0.5 * qi * kbTe**-1.5)
     elif redkbTi <= qqten <= kbTe:
         return 24. - np.log(Ne**0.5 / kbTe)
@@ -121,11 +127,13 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
         return 16. - np.log(Ni**0.5 * kbTi**-1.5 * qi * qi * Ai)
     # The next case should not usually arise in any realistic situation but the solver may probe it
     # Hence it is purely a rough guess
-    else: #(if qqten <= redkbTi <= kbTe)
+    else:  # (if qqten <= redkbTi <= kbTe)
         return 24. - np.log(Ne**0.5 / kbTe)
 
 
 logger.debug("Defining clog_ii.")
+
+
 @vectorize(
     # [float64(float64, float64, float64, float64, float64, float64, int64, int64)],
     cache=True, nopython=True
@@ -183,11 +191,13 @@ def clog_ii(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
 
     """
     A = qi * qj * (Ai + Aj) / (Ai * kbTj + Aj * kbTi)
-    B = (Ni * qi * qi / kbTi + Nj * qj * qj / kbTj) * 1e-6 # go from 1/m**3 to 1/cm**3
+    B = (Ni * qi * qi / kbTi + Nj * qj * qj / kbTj) * 1e-6  # go from 1/m**3 to 1/cm**3
     return 23 - np.log(A * B**0.5)
 
 
 logger.debug("Defining coulomb_xs.")
+
+
 @vectorize(
     # [float64(float64, float64, float64, float64, float64, int64)],
     cache=True, nopython=True
@@ -236,6 +246,8 @@ def coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi):
 
 
 logger.debug("Defining ion_coll_rate.")
+
+
 @vectorize(
     # [float64(float64, float64, float64, float64, float64, float64, int64, int64)],
     cache=True, nopython=True
@@ -299,6 +311,8 @@ def ion_coll_rate(Ni, Nj, kbTi, kbTj, Ai, Aj, qi, qj):
 
 
 logger.debug("Defining spitzer_heating.")
+
+
 @vectorize(
     # [float64(float64, float64, float64, float64, float64, int64)],
     cache=True, nopython=True
@@ -341,11 +355,16 @@ def spitzer_heating(Ni, Ne, kbTi, Ee, Ai, qi):
     """
     if Ni < MINIMAL_N_3D:
         return 0.
-    return np.maximum(0, 2/3 * Ne * electron_velocity(Ee) * 2 * M_E / (Ai * M_P) * Ee \
-                         * coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi))
+    return np.maximum(
+        0,
+        (2/3 * Ne * electron_velocity(Ee) * 2 * M_E / (Ai * M_P) * Ee
+         * coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi))
+    )
 
 
 logger.debug("Defining collisional_thermalisation.")
+
+
 @vectorize(
     # [float64(float64, float64, float64, float64, float64)],
     cache=True, nopython=True
@@ -391,6 +410,8 @@ def collisional_thermalisation(kbTi, kbTj, Ai, Aj, nuij):
 
 
 logger.debug("Defining trapping_strength_axial.")
+
+
 @vectorize(
     # [float64(float64, int64, float64)],
     cache=True, nopython=True
@@ -432,8 +453,9 @@ def trapping_strength_axial(kbTi, qi, V):
     return w
 
 
-
 logger.debug("Defining trapping_strength_radial.")
+
+
 @vectorize(
     # [float64(float64, int64, float64, float64, float64, float64)],
     cache=True, nopython=True
@@ -478,13 +500,15 @@ def trapping_strength_radial(kbTi, qi, Ai, V, B, r_dt):
     # if kbTi <= 0:
     #     return np.inf # fake value for neutrals -> essentially infinite trap
     # else:
-    w = qi * (V + B * r_dt * np.sqrt(2 * kbTi * Q_E /(3*M_P*Ai))) / kbTi
+    w = qi * (V + B * r_dt * np.sqrt(2 * kbTi * Q_E / (3 * M_P * Ai))) / kbTi
     # if w < 1e-10:
     #     return 0.
     return w
 
 
 logger.debug("Defining collisional_escape_rate.")
+
+
 @vectorize(
     # [float64(float64, float64, float64)],
     cache=True, nopython=True
@@ -525,6 +549,8 @@ def collisional_escape_rate(nui, w):
 
 logger.debug("Defining roundtrip_escape.")
 _INVSQRTPI = 1/np.sqrt(PI)
+
+
 @njit(cache=True)
 def roundtrip_escape(w):
     """
@@ -544,7 +570,7 @@ def roundtrip_escape(w):
     temperature_factor : numpy.ndarray
         Factor by which the escaping ions are hotter than the whole ensemble
     """
-    w = w * 3 #Degrees of freedom pushes cut-on (minimal) energy three times higher
+    w = w * 3  # Degrees of freedom pushes cut-on (minimal) energy three times higher
     _sqrtw = np.sqrt(w)
     _erfc = _erfc_approx(_sqrtw)
     free_fraction = _erfc + 2*_INVSQRTPI*_sqrtw*np.exp(-w)

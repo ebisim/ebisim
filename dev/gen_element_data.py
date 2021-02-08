@@ -6,6 +6,7 @@ import os
 import time
 from shutil import move
 
+
 def main():
     CWD = os.getcwd()
     TWD = os.path.dirname(os.path.realpath(__file__))
@@ -15,13 +16,13 @@ def main():
     os.chdir(TWD)
 
     print("Loading data from ChemicalElements.csv")
-    z = [] # Atomic Number
-    es = [] # Element Symbol
-    name = [] # Element Name
-    a = [] # Mass Number
+    z = []  # Atomic Number
+    es = []  # Element Symbol
+    name = []  # Element Name
+    a = []  # Mass Number
     ip = []
     with open("./resources/ChemicalElements.csv") as f:
-        f.readline() # skip header line
+        f.readline()  # skip header line
         for line in f:
             data = line.split(",")
             z.append(int(data[0].strip()))
@@ -41,7 +42,7 @@ def main():
             lines.append(f"    {repr(e)},\n")
         lines.append(")\n")
         lines.append("\n")
-    lines.pop(-1) # discard trailing newline
+    lines.pop(-1)  # discard trailing newline
 
     print("Writing output file.")
     with open("temp_element_data.py", "w") as f:
@@ -69,6 +70,7 @@ def main():
 
     print(f"{__name__} done.")
     print(30*"~")
+
 
 if __name__ == "__main__":
     main()

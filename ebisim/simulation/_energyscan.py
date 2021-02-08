@@ -9,6 +9,7 @@ import numpy as np
 from .. import plotting
 from ..elements import Element
 
+
 def energy_scan(sim_func, sim_kwargs, energies, parallel=False):
     """
     This function provides a convenient way to repeat the same simulation for a number of different
@@ -43,8 +44,8 @@ def energy_scan(sim_func, sim_kwargs, energies, parallel=False):
         del sim_kwargs["e_kin"]
         warn("sim_kwargs contains a value for e_kin, this item will be ignored.")
 
-    sim_kwargs.setdefault("solver_kwargs", {}) # cast element to Element if necessary
-    sim_kwargs["solver_kwargs"]["dense_output"] = True # need dense output for interpolation
+    sim_kwargs.setdefault("solver_kwargs", {})  # cast element to Element if necessary
+    sim_kwargs["solver_kwargs"]["dense_output"] = True  # need dense output for interpolation
 
     # cast element to Element if necessary
     sim_kwargs["element"] = Element.as_element(sim_kwargs["element"])
@@ -103,7 +104,6 @@ class EnergyScanResult:
         self._energies = energies
         self._results = results
 
-
     def get_result(self, e_kin):
         """
         Returns the result object corresponding to the simulation at a given energy
@@ -128,7 +128,6 @@ class EnergyScanResult:
             return self._results[self._energies.index(e_kin)]
         else:
             raise ValueError(f"e_kin = {e_kin} eV has not been simulated during this energy scan.")
-
 
     def abundance_at_time(self, t):
         """
@@ -156,7 +155,6 @@ class EnergyScanResult:
             raise ValueError("This time has not been simulated during the energyscan.")
         per_energy = [res.abundance_at_time(t) for res in self._results]
         return self._energies.copy(), np.column_stack(per_energy)
-
 
     def abundance_of_cs(self, cs):
         """
@@ -188,7 +186,6 @@ class EnergyScanResult:
         times = np.clip(times, a_min=0, a_max=self._t_max)
         per_time = [self.abundance_at_time(t)[1][cs, :] for t in times]
         return self._energies.copy(), times, np.row_stack(per_time)
-
 
     def plot_abundance_at_time(self, t, cs=None, **kwargs):
         """
@@ -222,7 +219,6 @@ class EnergyScanResult:
             cs=cs,
             **kwargs
         )
-
 
     def plot_abundance_of_cs(self, cs, **kwargs):
         """

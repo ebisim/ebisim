@@ -19,9 +19,9 @@ sys.path.insert(0, os.path.abspath('.'))
 
 
 # -- Project information -----------------------------------------------------
-from ebisim import __version__ as VERSION
-from ebisim import __author__ as AUTHOR
-from datetime import datetime
+from ebisim import __version__ as VERSION  # noqa:E402
+from ebisim import __author__ as AUTHOR  # noqa:E402
+from datetime import datetime  # noqa:E402
 project = 'ebisim'
 copyright = f"2018 - {datetime.today().year}, {AUTHOR}"
 author = AUTHOR
@@ -192,6 +192,7 @@ apidoc_module_first = True
 os.environ["SPHINX_APIDOC_OPTIONS"] = "members,undoc-members,inherited-members,show-inheritance"
 
 autodoc_member_order = "groupwise"
+
 
 def setup(app):
     app.add_css_file('theme_override.css')

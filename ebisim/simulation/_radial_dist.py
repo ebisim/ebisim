@@ -12,8 +12,10 @@ from ..physconst import EPS_0, Q_E, PI, M_E
 logger = logging.getLogger(__name__)
 
 logger.debug("Defining tridiagonal_matrix_algorithm.")
+
+
 @njit(cache=True)
-def tridiagonal_matrix_algorithm(l, d, u, b):
+def tridiagonal_matrix_algorithm(l, d, u, b):  # noqa:E741
     """
     Tridiagonal Matrix Algorithm [TDMA]_.
     Solves a system of equations M x = b for x, where M is a tridiagonal matrix.
@@ -48,8 +50,8 @@ def tridiagonal_matrix_algorithm(l, d, u, b):
     cp[0] = u[0]/d[0]
     dp[0] = b[0]/d[0]
     for k in range(1, n):
-        cp[k] = u[k]               /(d[k]-l[k]*cp[k-1])
-        dp[k] = (b[k]-l[k]*dp[k-1])/(d[k]-l[k]*cp[k-1])
+        cp[k] = u[k] / (d[k]-l[k]*cp[k-1])
+        dp[k] = (b[k]-l[k]*dp[k-1]) / (d[k]-l[k]*cp[k-1])
     x[-1] = dp[-1]
     for k in range(n-2, -1, -1):
         x[k] = dp[k] - cp[k]*x[k+1]
@@ -57,6 +59,8 @@ def tridiagonal_matrix_algorithm(l, d, u, b):
 
 
 logger.debug("Defining fd_system_uniform_grid.")
+
+
 @njit(cache=True)
 def fd_system_uniform_grid(r):
     """
@@ -89,7 +93,7 @@ def fd_system_uniform_grid(r):
     d = np.full(n, -2/dr**2)
     d[-1] = 1
 
-    l = np.zeros(n)
+    l = np.zeros(n)  # noqa:E741
     l[1:-1] = (1-0.5/np.arange(1, n-1))/dr**2
 
     u = np.zeros(n)
@@ -100,6 +104,8 @@ def fd_system_uniform_grid(r):
 
 
 logger.debug("Defining radial_potential_uniform_grid.")
+
+
 @njit(cache=True)
 def radial_potential_uniform_grid(r, rho):
     """
@@ -121,14 +127,16 @@ def radial_potential_uniform_grid(r, rho):
         <V>
         Potential at r.
     """
-    l, d, u = fd_system_uniform_grid(r)
+    l, d, u = fd_system_uniform_grid(r)  # noqa:E741
     rho_ = rho.copy()
-    rho_[-1] = 0 #Boundary condition
+    rho_[-1] = 0  # Boundary condition
     phi = tridiagonal_matrix_algorithm(l, d, u, -rho/EPS_0)
     return phi
 
 
 logger.debug("Defining fd_system_nonuniform_grid.")
+
+
 @njit(cache=True)
 def fd_system_nonuniform_grid(r):
     """
@@ -174,7 +182,7 @@ def fd_system_nonuniform_grid(r):
     d[1:-1] = -(dr[:-1] + dr[1:]) * weight1 + (dr[1:]**2 - dr[:-1]**2) * weight2
     d[-1] = 1
 
-    l = np.zeros(n)
+    l = np.zeros(n)   # noqa:E741
     l[1:-1] = dr[1:] * weight1 - dr[1:]**2 * weight2
 
     u = np.zeros(n)
@@ -185,6 +193,8 @@ def fd_system_nonuniform_grid(r):
 
 
 logger.debug("Defining radial_potential_nonuniform_grid.")
+
+
 @njit(cache=True)
 def radial_potential_nonuniform_grid(r, rho):
     """
@@ -207,12 +217,14 @@ def radial_potential_nonuniform_grid(r, rho):
     """
     l, d, u = fd_system_nonuniform_grid(r)
     rho_ = rho.copy()
-    rho_[-1] = 0 #Boundary condition
+    rho_[-1] = 0  # Boundary condition
     phi = tridiagonal_matrix_algorithm(l, d, u, -rho/EPS_0)
     return phi
 
 
 logger.debug("Defining heat_capacity.")
+
+
 @njit(cache=True)
 def heat_capacity(r, phi, q, kT):
     """
@@ -247,6 +259,8 @@ def heat_capacity(r, phi, q, kT):
 
 
 logger.debug("Defining _tridiag_targetfun.")
+
+
 @njit(cache=True, inline="always")
 def _tridiag_targetfun(ldu, x, b):
     """
@@ -270,13 +284,15 @@ def _tridiag_targetfun(ldu, x, b):
         Vector valued deviation from target root
     """
     l, d, u = ldu
-    f = d * x - b # Target function
+    f = d * x - b  # Target function
     f[:-1] += u[:-1] * x[1:]
     f[1:] += l[1:] * x[:-1]
     return f
 
 
 logger.debug("Defining boltzmann_radial_potential_onaxis_density.")
+
+
 @njit(cache=True)
 def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=None, ldu=None):
     """
@@ -332,17 +348,16 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
     # Next guess: phi = phi - y
     # Iterate until adjustment is small
     rho_0 = rho_0.copy()
-    rho_0[-1] = 0 #Boundary condition
-    b0 = - rho_0/EPS_0 # static rhs term
-
+    rho_0[-1] = 0  # Boundary condition
+    b0 = - rho_0/EPS_0  # static rhs term
 
     if ldu is None:
-        ldu = fd_system_nonuniform_grid(r) # Set up tridiagonal system
+        ldu = fd_system_nonuniform_grid(r)  # Set up tridiagonal system
     l, d, u = ldu
     # A = np.diag(d) + np.diag(u[:-1], 1) + np.diag(l[1:], -1)
 
     if first_guess is None:
-        phi = radial_potential_nonuniform_grid(r, rho_0) # compute static potential
+        phi = radial_potential_nonuniform_grid(r, rho_0)  # compute static potential
     else:
         phi = first_guess.copy()
 
@@ -354,14 +369,14 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
         # ion dist
         shape = np.exp(-q * (phi - phi[0])/kT)
 
-        _bx = - n * q * shape * Q_E / EPS_0 # dynamic rhs term
+        _bx = - n * q * shape * Q_E / EPS_0  # dynamic rhs term
         _bx[:, -1] = 0  # boundary condition
         bx = np.sum(_bx, axis=0)
 
         # f = A.dot(phi) - (b0 + bx) # Target function
         f = _tridiag_targetfun(ldu, phi, b0 + bx)
 
-        j_d = - np.sum(_bx * q/kT, axis=0) #Diagonal of the Jacobian Jacobian df/dphi_i
+        j_d = - np.sum(_bx * q/kT, axis=0)  # Diagonal of the Jacobian Jacobian df/dphi_i
 
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         res = np.linalg.norm(y)/phi.size
@@ -373,6 +388,8 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
 
 
 logger.debug("Defining boltzmann_radial_potential_linear_density.")
+
+
 @njit(cache=True)
 def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=None, ldu=None):
     """
@@ -428,16 +445,16 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
     # Next guess: phi = phi - y
     # Iterate until adjustment is small
     rho_0 = rho_0.copy()
-    rho_0[-1] = 0 #Boundary condition
-    b0 = - rho_0/EPS_0 # static rhs term
+    rho_0[-1] = 0  # Boundary condition
+    b0 = - rho_0/EPS_0  # static rhs term
 
     if ldu is None:
-        ldu = fd_system_nonuniform_grid(r) # Set up tridiagonal system
+        ldu = fd_system_nonuniform_grid(r)  # Set up tridiagonal system
     l, d, u = ldu
     # A = np.diag(d) + np.diag(u[:-1], 1) + np.diag(l[1:], -1)
 
     if first_guess is None:
-        phi = radial_potential_nonuniform_grid(r, rho_0) # compute static potential
+        phi = radial_potential_nonuniform_grid(r, rho_0)  # compute static potential
     else:
         phi = first_guess.copy()
 
@@ -451,7 +468,7 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
         i_sr = np.atleast_2d(np.trapz(r*shape, r)).T
         nax = nl / 2 / PI / i_sr
 
-        _bx = - nax * q * shape * Q_E / EPS_0 # dynamic rhs term
+        _bx = - nax * q * shape * Q_E / EPS_0  # dynamic rhs term
         _bx[:, -1] = 0  # boundary condition
         bx = np.sum(_bx, axis=0)
 
@@ -460,7 +477,7 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
 
         _c = np.zeros_like(shape)
         _c[:, :-1] = r[:-1] * (r[1:]-r[:-1]) * shape[:, :-1]
-        j_d = - np.sum(_bx * q/kT *(i_sr-_c)/i_sr, axis=0) #Diagonal of the Jacobian df/dphi_i
+        j_d = - np.sum(_bx * q/kT * (i_sr-_c)/i_sr, axis=0)  # Diagonal of the Jacobian df/dphi_i
 
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         res = np.linalg.norm(y)/phi.size
@@ -472,10 +489,12 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
 
 
 logger.debug("Defining boltzmann_radial_potential_linear_density_ebeam.")
+
+
 @njit(cache=True)
 def boltzmann_radial_potential_linear_density_ebeam(
         r, current, r_e, e_kin, nl, kT, q, first_guess=None, ldu=None
-    ):
+        ):
     """
     Solves the Boltzmann Poisson equation for a static background charge density rho_0 and particles
     with line number density n, Temperature kT and charge state q.
@@ -539,9 +558,8 @@ def boltzmann_radial_potential_linear_density_ebeam(
     cden = np.zeros(r.size)
     cden[r <= r_e] = -current/PI/r_e**2
 
-
     if ldu is None:
-        ldu = fd_system_nonuniform_grid(r) # Set up tridiagonal system
+        ldu = fd_system_nonuniform_grid(r)  # Set up tridiagonal system
     l, d, u = ldu
 
     nl = np.atleast_2d(np.asarray(nl))
@@ -567,7 +585,7 @@ def boltzmann_radial_potential_linear_density_ebeam(
         nax = nl / 2 / PI / i_sr * np.atleast_2d(shape[:, 0]).T
 
         # dynamic rhs term
-        _bx_a = - nax * q * shape * Q_E / EPS_0 # dynamic rhs term
+        _bx_a = - nax * q * shape * Q_E / EPS_0  # dynamic rhs term
         _bx_b = - cden/np.sqrt(2 * Q_E * (e_kin+phi)/M_E) / EPS_0
         _bx_a[:, -1] = 0  # boundary condition
         bx = np.sum(_bx_a, axis=0) + _bx_b
@@ -575,11 +593,11 @@ def boltzmann_radial_potential_linear_density_ebeam(
         # F = A.dot(phi) - (b0 + bx)
         f = _tridiag_targetfun(ldu, phi, bx)
 
-        #Diagonal of the Jacobian df/dphi_i
+        # Diagonal of the Jacobian df/dphi_i
         _c = np.zeros_like(shape)
         _c[:, :-1] = r[:-1] * (r[1:]-r[:-1]) * shape[:, :-1]
-        j_d = -(np.sum(_bx_a * q/kT *(i_sr-_c)/i_sr, axis=0)
-                + Q_E/M_E*_bx_b/(2 * Q_E * (e_kin+phi)/M_E))#Diagonal of the Jacobian df/dphi_i
+        j_d = -(np.sum(_bx_a * q/kT * (i_sr-_c)/i_sr, axis=0)
+                + Q_E/M_E*_bx_b/(2 * Q_E * (e_kin+phi)/M_E))  # Diagonal of the Jacobian df/dphi_i
 
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         res = np.max(np.abs(y[:-1]/phi[:-1]))
@@ -590,10 +608,12 @@ def boltzmann_radial_potential_linear_density_ebeam(
 
 
 logger.debug("Defining boltzmann_radial_potential_linear_density_ebeam_sor.")
+
+
 @njit(cache=True)
 def boltzmann_radial_potential_linear_density_ebeam_sor(
         r, current, r_e, e_kin, nl, kT, q, first_guess=None, ldu=None
-    ):
+        ):
     """
     Solves the Boltzmann Poisson equation for a static background charge density rho_0 and particles
     with line number density n, Temperature kT and charge state q.
@@ -653,9 +673,8 @@ def boltzmann_radial_potential_linear_density_ebeam_sor(
     cden = np.zeros(r.size)
     cden[r <= r_e] = -current/PI/r_e**2
 
-
     if ldu is None:
-        ldu = fd_system_nonuniform_grid(r) # Set up tridiagonal system
+        ldu = fd_system_nonuniform_grid(r)  # Set up tridiagonal system
     l, d, u = ldu
 
     nl = np.atleast_2d(np.asarray(nl))
@@ -681,7 +700,7 @@ def boltzmann_radial_potential_linear_density_ebeam_sor(
     # shape[:, np.argmax(phi):] = 0
     i_sr = np.atleast_2d(np.trapz(r*shape, r)).T
     nax = nl / 2 / PI / i_sr * np.atleast_2d(shape[:, 0]).T
-    _bx_a = - nax * q * shape * Q_E / EPS_0 # dynamic rhs term
+    _bx_a = - nax * q * shape * Q_E / EPS_0  # dynamic rhs term
     _bx_b = - cden/np.sqrt(2 * Q_E * (e_kin+phi)/M_E) / EPS_0
     _bx_a[:, -1] = 0  # boundary condition
     bx0 = np.sum(_bx_a, axis=0) + _bx_b
@@ -694,7 +713,7 @@ def boltzmann_radial_potential_linear_density_ebeam_sor(
         nax = nl / 2 / PI / i_sr * np.atleast_2d(shape[:, 0]).T
 
         # dynamic rhs term
-        _bx_a = - nax * q * shape * Q_E / EPS_0 # dynamic rhs term
+        _bx_a = - nax * q * shape * Q_E / EPS_0  # dynamic rhs term
         _bx_b = - cden/np.sqrt(2 * Q_E * (e_kin+phi)/M_E) / EPS_0
         _bx_a[:, -1] = 0  # boundary condition
         bx = np.sum(_bx_a, axis=0) + _bx_b
@@ -702,11 +721,11 @@ def boltzmann_radial_potential_linear_density_ebeam_sor(
         # F = A.dot(phi) - (b0 + bx)
         f = _tridiag_targetfun(ldu, phi, bx)
 
-        #Diagonal of the Jacobian df/dphi_i
+        # Diagonal of the Jacobian df/dphi_i
         _c = np.zeros_like(shape)
         _c[:, :-1] = r[:-1] * (r[1:]-r[:-1]) * shape[:, :-1]
-        j_d = -(np.sum(_bx_a * q/kT *(i_sr-_c)/i_sr, axis=0)
-                + Q_E/M_E*_bx_b/(2 * Q_E * (e_kin+phi)/M_E))#Diagonal of the Jacobian df/dphi_i
+        j_d = -(np.sum(_bx_a * q/kT * (i_sr-_c)/i_sr, axis=0)
+                + Q_E/M_E*_bx_b/(2 * Q_E * (e_kin+phi)/M_E))  # Diagonal of the Jacobian df/dphi_i
 
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         phi = phi - y
@@ -718,8 +737,8 @@ def boltzmann_radial_potential_linear_density_ebeam_sor(
             mu = 1 - np.dot(rk, drk)/np.dot(drk, drk)
             phi = phi_m1 + mu*rk
 
-        elif np.linalg.norm(phi - phi_m1)/np.linalg.norm(phi) < 1e-10 and np.linalg.norm(f)/f0n < 1e-10:
         # if np.max(np.abs((phi-phi_m1)[:-1]/phi[:-1])) < 1e-3:
+        elif np.linalg.norm(phi - phi_m1)/np.linalg.norm(phi) < 1e-10 and np.linalg.norm(f)/f0n < 1e-10:
             break
 
         phi_m2 = phi_m1

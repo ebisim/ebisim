@@ -10,15 +10,15 @@ import ebisim as eb
 # simulation function that one wants to use, these names can be found in the API Reference
 
 sim_kwargs = dict(
-    element=eb.get_element("Potassium"), # element that is to be charge bred
-    j=200, # current density in A/cm^2
-    t_max=100 # length of simulation in s
+    element=eb.get_element("Potassium"),  # element that is to be charge bred
+    j=200,  # current density in A/cm^2
+    t_max=100  # length of simulation in s
 )
 scan = eb.energy_scan(
-    sim_func=eb.basic_simulation, # the function handle of the simulation has to be provided
-    sim_kwargs=sim_kwargs, # Here the general parameters are injected
-    energies=np.arange(4500, 4700), # The sampling energies
-    parallel=True # Speed up by running simulations in parallel
+    sim_func=eb.basic_simulation,  # the function handle of the simulation has to be provided
+    sim_kwargs=sim_kwargs,  # Here the general parameters are injected
+    energies=np.arange(4500, 4700),  # The sampling energies
+    parallel=True  # Speed up by running simulations in parallel
 )
 
 # The scan result object holds the relevant data which could be inspected manually

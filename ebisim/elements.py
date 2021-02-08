@@ -6,31 +6,34 @@ Besides that, there are some small helper functions to translate certain element
 which may offer convenience to the user.
 """
 import logging
-logger = logging.getLogger(__name__)
-
 from collections import namedtuple
+
 
 from . import utils
 from . import xs
+
+logger = logging.getLogger(__name__)
 logger.debug("Loading element data and shell configurations.")
-from .resources import (
-    ELEMENT_Z    as _ELEM_Z,
-    ELEMENT_ES   as _ELEM_ES,
+
+from .resources import (  # noqa: E402
+    ELEMENT_Z as _ELEM_Z,
+    ELEMENT_ES as _ELEM_ES,
     ELEMENT_NAME as _ELEM_NAME,
-    ELEMENT_A    as _ELEM_A,
-    ELEMENT_IP   as _ELEM_IP,
-    SHELL_ORDER  as _SHELLORDER,
-    SHELL_N      as _SHELL_N,
-    SHELL_CFG    as _SHELL_CFG,
-    SHELL_EBIND  as _SHELL_EBIND
+    ELEMENT_A as _ELEM_A,
+    ELEMENT_IP as _ELEM_IP,
+    SHELL_ORDER as _SHELLORDER,
+    SHELL_N as _SHELL_N,
+    SHELL_CFG as _SHELL_CFG,
+    SHELL_EBIND as _SHELL_EBIND
 )
 logger.debug("Loading DR data.")
 _DR_DATA = utils.load_dr_data()
 
-
-##### Helper functions for translating chemical symbols
+# ----- Helper functions for translating chemical symbols
 
 logger.debug("Defining element_z.")
+
+
 def element_z(element):
     """
     Returns the proton number of the given element.
@@ -53,6 +56,8 @@ def element_z(element):
 
 
 logger.debug("Defining element_symbol.")
+
+
 def element_symbol(element):
     """
     Returns the abbreviated symbol of the given element.
@@ -75,6 +80,8 @@ def element_symbol(element):
 
 
 logger.debug("Defining element_name.")
+
+
 def element_name(element):
     """
     Returns the name of the given element.
@@ -97,6 +104,8 @@ def element_name(element):
 
 
 logger.debug("Defining _ElementSpec.")
+
+
 _ElementSpec = namedtuple(
     "Element", [
         "z",
@@ -119,6 +128,8 @@ _ElementSpec = namedtuple(
 
 
 logger.debug("Defining Element.")
+
+
 class Element(_ElementSpec):
     """
     Use the static `get()` factory method to create instances of this class.
@@ -137,7 +148,7 @@ class Element(_ElementSpec):
     """
     # https://docs.python.org/3.6/library/collections.html#collections.namedtuple
     # contains documentation for named tuples
-    __slots__ = () # This is a trick to suppress unnecessary dict() for this kind of class
+    __slots__ = ()  # This is a trick to suppress unnecessary dict() for this kind of class
 
     @classmethod
     def as_element(cls, element):
@@ -160,8 +171,8 @@ class Element(_ElementSpec):
         """
         if isinstance(element, cls):
             return element
-        elif "ebisim.simulation._advanced.Target" in str(type(element)): #hacktime
-            data = {k:v for k, v in element._asdict().items() if k in cls._fields}
+        elif "ebisim.simulation._advanced.Target" in str(type(element)):  # hacktime
+            data = {k: v for k, v in element._asdict().items() if k in cls._fields}
             return cls(**data)
         else:
             return cls.get(element)
@@ -175,7 +186,7 @@ class Element(_ElementSpec):
         str
             LaTeX formatted string describing the isotope.
         """
-        return f"$\mathsf{{^{{{self.a}}}_{{{self.z}}}{self.symbol}}}$"
+        return fr"$\mathsf{{^{{{self.a}}}_{{{self.z}}}{self.symbol}}}$"
 
     def __repr__(self):
         return f"Element('{self.symbol}', a={self.a})"
@@ -216,8 +227,8 @@ class Element(_ElementSpec):
             symbol = element_symbol(z)
             name = element_name(z)
         except ValueError:
-            raise ValueError(f"Unable to interpret element_id = {element_id}, " \
-                "ebisim only supports elements up to Z = 105.")
+            raise ValueError(f"Unable to interpret element_id = {element_id}, "
+                             + "ebisim only supports elements up to Z = 105.")
 
         # Mass number and ionisation potential
         idx = _ELEM_Z.index(z)
@@ -297,6 +308,8 @@ Element.ei_lotz_b.__doc__ = "Numpy array of precomputed Lotz factor 'b' for each
 Element.ei_lotz_c.__doc__ = "Numpy array of precomputed Lotz factor 'c' for each entry of 'e_cfg'."
 
 logger.debug("Defining get_element")
+
+
 def get_element(element_id, a=None):
     """
     [LEGACY]

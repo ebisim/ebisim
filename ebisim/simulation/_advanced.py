@@ -22,16 +22,21 @@ from ._radial_dist import (
 )
 
 logger = logging.getLogger(__name__)
-#Hack for making Enums hashable by numba - hash will differ from CPython
-#This is to make Enums work as numba.typed.Dict keys
+# Hack for making Enums hashable by numba - hash will differ from CPython
+# This is to make Enums work as numba.typed.Dict keys
 logger.debug("Patching numba.types.EnumMember __hash__.")
+
+
 @numba.extending.overload_method(numba.types.EnumMember, '__hash__')
-def enum_hash(val): # pylint: disable=unused-argument
+def enum_hash(val):  # pylint: disable=unused-argument
     def impl(val):
         return hash(val.value)
     return impl
 
+
 logger.debug("Defining Target.")
+
+
 class Target(namedtuple("Target", Element._fields + ("n", "kT", "cx"))):
     """
     Use the static `get_ions()` or `get_gas()` factory methods to create instances of this class.
@@ -81,7 +86,7 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cx"))):
         element = Element.as_element(element)
         _n = np.full(element.z + 1, MINIMAL_N_1D, dtype=np.float64)
         _kT = np.full(element.z + 1, MINIMAL_KBT, dtype=np.float64)
-        _n[0] = (p * 100) / (K_B * T) * PI * r_dt**2#Convert from mbar to Pa and compute density
+        _n[0] = (p * 100) / (K_B * T) * PI * r_dt**2  # Convert from mbar to Pa and compute density
         if _n[0] < MINIMAL_N_1D:
             raise ValueError("The resulting density is smaller than the internal minimal value.")
         _kT[0] = K_B * T / Q_E
@@ -127,7 +132,8 @@ class Target(namedtuple("Target", Element._fields + ("n", "kT", "cx"))):
     def __repr__(self):
         return f"Target({Element.as_element(self)})"
 
-#Patching in docstrings
+
+# Patching in docstrings
 logger.debug("Patching Target docstrings.")
 for f in Element._fields:
     setattr(getattr(Target, f), "__doc__", getattr(getattr(Element, f), "__doc__"))
@@ -138,6 +144,8 @@ considered as charge exchange partners."""
 
 
 logger.debug("Defining BackgroundGas.")
+
+
 class BackgroundGas(namedtuple("BackgroundGas", "name, ip, n0")):
     """
     Use the static `get()` factory methods to create instances of this class.
@@ -177,10 +185,11 @@ class BackgroundGas(namedtuple("BackgroundGas", "name, ip, n0")):
         return cls(
             element.name,
             element.ip,
-            (p * 100) / (K_B * T) #Convert from mbar to Pa and compute density at Temp
+            (p * 100) / (K_B * T)  # Convert from mbar to Pa and compute density at Temp
         )
 
-#Patching in docstrings
+
+# Patching in docstrings
 logger.debug("Patching BackgroundGas docstrings.")
 BackgroundGas.name.__doc__ = """str Name of the element."""
 BackgroundGas.ip.__doc__ = """float <eV> Ionisation potential of this Gas."""
@@ -208,6 +217,8 @@ _DEVICE = OrderedDict(
     rad_phi_ax_barr="<V> Radial potential of the electron beam in the barrier tube",
     rad_re_idx="Index of the radial grid point closest to r_e",
 )
+
+
 class Device(namedtuple("Device", _DEVICE.keys())):
     """
     Use the static `get()` factory methods to create instances of this class.
@@ -220,7 +231,7 @@ class Device(namedtuple("Device", _DEVICE.keys())):
     def get(
             cls, *, current, e_kin, r_e, length, v_ax, b_ax, r_dt,
             v_ra=None, j=None, fwhm=None, n_grid=200, r_dt_bar=None
-        ):
+            ):
         """
         Factory method for defining a device.
 
@@ -269,8 +280,8 @@ class Device(namedtuple("Device", _DEVICE.keys())):
         ebisim.simulation.Device
             The populated device object.
         """
-        logger.debug(f"Device.get({current}, {e_kin}, {r_e}, {length}, "\
-                     f"{v_ax}, {b_ax}, {r_dt}, {v_ra}, {j}, {fwhm}, {n_grid})")
+        logger.debug(f"Device.get({current}, {e_kin}, {r_e}, {length}, "
+                     + f"{v_ax}, {b_ax}, {r_dt}, {v_ra}, {j}, {fwhm}, {n_grid})")
         rad_grid = np.concatenate((
             np.linspace(0, r_e, n_grid//6, endpoint=False),
             np.linspace(r_e, 2*r_e, n_grid//6, endpoint=False),
@@ -339,9 +350,10 @@ class Device(namedtuple("Device", _DEVICE.keys())):
         )
 
     def __repr__(self):
-        return f"Device.get({self.current}, {self.e_kin}, {self.r_e}, {self.length}, "\
-                f"{self.v_ax}, {self.b_ax}, {self.r_dt}, {self.v_ra}, {self.j}, {self.fwhm}, "\
-                f"{len(self.rad_grid)})"
+        return (f"Device.get({self.current}, {self.e_kin}, {self.r_e}, {self.length}, "
+                + f"{self.v_ax}, {self.b_ax}, {self.r_dt}, {self.v_ra}, {self.j}, {self.fwhm}, "
+                + f"{len(self.rad_grid)})")
+
 
 logger.debug("Patching Device docstrings.")
 for _k, _v in _DEVICE.items():
@@ -360,7 +372,7 @@ ModelOptions = namedtuple(
     "ModelOptions", _MODEL_OPTIONS_DEFAULTS.keys(), defaults=_MODEL_OPTIONS_DEFAULTS.values()
 )
 DEFAULT_MODEL_OPTIONS = ModelOptions()
-#Patching in docstrings
+# Patching in docstrings
 logger.debug("Patching ModelOptions docstrings.")
 ModelOptions.__doc__ = """An instance of ModelOptions can be used to turn on or off certain effects
 in an advanced simulation."""
@@ -401,7 +413,7 @@ _T_TARGET_LIST = numba.types.ListType(_T_TARGET)
 logger.debug("Defining numba types: _T_BG_GAS_LIST.")
 _T_BG_GAS_LIST = numba.types.ListType(_T_BG_GAS)
 logger.debug("Defining numba types: _T_F8_ARRAY.")
-_T_F8_ARRAY = numba.float64[:] #Cannot be called in jitted code so need to predefine
+_T_F8_ARRAY = numba.float64[:]  # Cannot be called in jitted code so need to predefine
 logger.debug("Defining numba types: _T_I4_ARRAY.")
 _T_I4_ARRAY = numba.int32[:]
 logger.debug("Defining numba types: _T_RATE_ENUM.")
@@ -425,6 +437,8 @@ _ADVMDLSPEC = OrderedDict(
     cxxs_bggas=numba.types.ListType(_T_F8_ARRAY),
     cxxs_trgts=numba.types.ListType(_T_F8_ARRAY),
 )
+
+
 # @numba.experimental.jitclass(_ADVMDLSPEC)
 class AdvancedModel(namedtuple("AdvancedModel", _ADVMDLSPEC.keys())):
     """
@@ -517,8 +531,8 @@ def _smooth_to_zero(x):
     N1 = MINIMAL_N_1D
     N2 = 1000*N1
     x = x.copy()
-    x[x<N1] = 0
-    fil = np.logical_and(N1<x, x<N2)
+    x[x < N1] = 0
+    fil = np.logical_and(N1 < x, x < N2)
     x[fil] = _cubic_spline(x[fil], N1, N2, 0., N2, 0., 1.)
     return x
 
@@ -596,7 +610,7 @@ def _adv_rhs(model, _t, y, rates=None):
     r = model.device.rad_grid
 
     # Boltzmann distribution shape functions
-    shapes = np.exp(-q_T * (phi - phi.min())/kT_T) #Works for neutrals
+    shapes = np.exp(-q_T * (phi - phi.min())/kT_T)  # Works for neutrals
 
     # Radial integrals
     i_rs_re = np.trapz(shapes[:, :ix+1] * r[:ix+1], r[:ix+1])
@@ -606,7 +620,7 @@ def _adv_rhs(model, _t, y, rates=None):
 
     # On axis 3d density
     n3d = n_T / 2 / PI / np.atleast_2d(i_rs_rd).T * np.atleast_2d(shapes[:, 0]).T
-    n3d = n3d.T[0] # Adjust shape
+    n3d = n3d.T[0]  # Adjust shape
 
     # Compute overlap factors
     ion_rad = i_rrs_rd / i_rs_rd
@@ -635,12 +649,10 @@ def _adv_rhs(model, _t, y, rates=None):
     else:
         iheat = np.zeros(model.nq)
 
-
     # Compute some electron beam quantities
-    je = model.device.j / Q_E * 1e4 # electron number current density
+    je = model.device.j / Q_E * 1e4  # electron number current density
     ve = plasma.electron_velocity(e_kin)
-    ne = je/ve # Electron number density
-
+    ne = je/ve  # Electron number density
 
     # Collision rates
     rij = plasma.ion_coll_rate(
@@ -651,7 +663,7 @@ def _adv_rhs(model, _t, y, rates=None):
     )
     ri  = np.sum(rij, axis=-1)
     # Thermal ion velocities
-    v_th = np.sqrt(8 * Q_E * kT/(PI * model.a * M_P)) # Thermal velocities
+    v_th = np.sqrt(8 * Q_E * kT/(PI * model.a * M_P))  # Thermal velocities
     # v_z = np.sqrt(kT/(self.a*M_P))
     # f_ax = v_z/(2*self.device.length) # Axial roundtrip frequency
     # f_ra = v_z/(2*self.device.r_dt) #Radial single pass frequency
@@ -678,7 +690,6 @@ def _adv_rhs(model, _t, y, rates=None):
         dkT[1:]  += R_ei[:-1] / n_r[1:] * (kT[:-1] - kT[1:])
         dkT[1:]  += R_ei[:-1] / n_r[1:] * iheat[:-1]
 
-
     # RR
     if model.options.RR:
         R_rr      = rrxs * n * je * fei
@@ -686,7 +697,6 @@ def _adv_rhs(model, _t, y, rates=None):
         dn[:-1]  += R_rr[1:]
         dkT[:-1] += R_rr[1:] / n_r[:-1] * (kT[1:] - kT[:-1])
         dkT[:-1]  -= R_rr[1:] / n_r[:-1] * iheat[1:]
-
 
     # DR
     if model.options.DR:
@@ -696,26 +706,23 @@ def _adv_rhs(model, _t, y, rates=None):
         dkT[:-1] += R_dr[1:] / n_r[:-1] * (kT[1:] - kT[:-1])
         dkT[:-1]  -= R_dr[1:] / n_r[:-1] * iheat[1:]
 
-
     # CX
     if model.options.CX:
         R_cx      = np.zeros_like(n)
         for g, gas in enumerate(model.bg_gases):
             R_cx += model.cxxs_bggas[g] * gas.n0 * n * v_th
         for j, jtrgt in enumerate(model.targets):
-            if jtrgt.cx: # Only compute cx with target gas if wished by user
+            if jtrgt.cx:  # Only compute cx with target gas if wished by user
                 R_cx += model.cxxs_trgts[j] * n3d[model.lb[j]] * n * v_th
         dn       -= R_cx
         dn[:-1]  += R_cx[1:]
         dkT[:-1] += R_cx[1:] / n_r[:-1] * (kT[1:] - kT[:-1])
         dkT[:-1]  -= R_cx[1:] / n_r[:-1] * iheat[1:]
 
-
     # Electron heating / Spitzer heating
     if model.options.SPITZER_HEATING:
         _dkT_eh   = plasma.spitzer_heating(n3d, ne, kT, e_kin, model.a, model.q) * fei
         dkT      += _dkT_eh
-
 
     # Ion-ion heat transfer (collisional thermalisation)
     if model.options.COLLISIONAL_THERMALISATION:
@@ -726,13 +733,12 @@ def _adv_rhs(model, _t, y, rates=None):
         )
         dkT      += _dkT_ct
 
-
     # Axial escape
     if model.options.ESCAPE_AXIAL:
         w_ax      = plasma.trapping_strength_axial(kT, model.q, v_ax)
         R_ax_co      = plasma.collisional_escape_rate(ri, w_ax) * n
         free_ax, tfact_ax = plasma.roundtrip_escape(w_ax)
-        R_ax_rt   = free_ax * n * ri#f_ax
+        R_ax_rt   = free_ax * n * ri  # f_ax
         for k in model.lb:
             R_ax_rt[k] = 0
             R_ax_co[k] = 0
@@ -741,7 +747,6 @@ def _adv_rhs(model, _t, y, rates=None):
         dn       -= R_ax_co + R_ax_rt
         dkT      -= R_ax_co / n_r * w_ax * kT + R_ax_rt / n_r * (tfact_ax - 1) * kT
 
-
     # Radial escape
     if model.options.ESCAPE_RADIAL:
         w_ra      = plasma.trapping_strength_radial(
@@ -749,7 +754,7 @@ def _adv_rhs(model, _t, y, rates=None):
         )
         R_ra_co      = plasma.collisional_escape_rate(ri, w_ra) * n
         free_ra, tfact_ra = plasma.roundtrip_escape(w_ra)
-        R_ra_rt   = free_ra * n * ri#f_ra
+        R_ra_rt   = free_ra * n * ri  # f_ra
         for k in model.lb:
             R_ra_rt[k] = 0
             R_ra_co[k] = 0
@@ -758,15 +763,13 @@ def _adv_rhs(model, _t, y, rates=None):
         dn       -= R_ra_co + R_ra_rt
         dkT      -= R_ra_co / n_r * w_ra * kT + R_ra_rt / n_r * (tfact_ra - 1) * kT
 
+    # TODO: Expansion cooling
 
-    #TODO: Expansion cooling
-
-    #Check if neutrals are depletable or if there is continuous neutral injection
+    # Check if neutrals are depletable or if there is continuous neutral injection
     for k in model.lb:
         # Kill all neutral rates - seems to improve stability
         dn[k] = 0.0
         dkT[k] = 0.0
-
 
     if rates is not None:
         if model.options.EI:
@@ -816,6 +819,8 @@ def _adv_rhs(model, _t, y, rates=None):
 
 
 logger.debug("Defining advanced_simulation.")
+
+
 def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rates=False,
                         solver_kwargs=None, verbose=True, n_threads=1):
     """
@@ -883,7 +888,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
 
     _n0 = np.concatenate([t.n for t in targets])
     _kT0 = []
-    for t in targets: # Make sure that initial temperature is not unreasonably small
+    for t in targets:  # Make sure that initial temperature is not unreasonably small
         kT = t.kT.copy()
         minkT = np.maximum(device.fwhm * np.arange(t.z+1), MINIMAL_KBT)
         kT[t.n < 1.00001 * MINIMAL_N_1D] = \
@@ -908,9 +913,9 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
                 return _chunked_adv_rhs(model, t, y, rates)
 
             nc = 1 if y.ndim == 1 else y.shape[1]
-            cl = n_threads * [nc//n_threads,]
+            cl = n_threads * [nc//n_threads, ]
             for _k in range(n_threads):
-                if _k < nc%n_threads:
+                if _k < (nc % n_threads):
                     cl[_k] += 1
             jobs = []
             for _k in range(n_threads):
@@ -921,11 +926,11 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
             res = parallel(jobs)
             return np.concatenate(res, axis=-1)
 
-
         if verbose:
             logger.debug("Wrapping rhs in progress meter.")
             k_old = k = 0
             print("")
+
             def rhs(t, y, rates=None):
                 nonlocal k
                 nonlocal k_old
@@ -935,8 +940,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
                     k_old = k
                 return mt(model, t, y, rates)
         else:
-            rhs = lambda t, y, rates=None: mt(model, t, y, rates)
-
+            rhs = lambda t, y, rates=None: mt(model, t, y, rates)  # noqa:E731
 
         logger.debug("Starting integration.")
         res = scipy.integrate.solve_ivp(
@@ -945,9 +949,9 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
         if verbose:
             print("\rIntegration finished:", k, "calls                    ")
             print(res.message)
-            print(f"Calls: {k} of which ~{res.nfev} normal ({res.nfev/k:.2%}) and " \
-                f"~{res.y.shape[0]*res.njev} for jacobian approximation "\
-                f"({res.y.shape[0]*res.njev/k:.2%})")
+            print(f"Calls: {k} of which ~{res.nfev} normal ({res.nfev/k:.2%}) and "
+                  + f"~{res.y.shape[0]*res.njev} for jacobian approximation "
+                  + f"({res.y.shape[0]*res.njev/k:.2%})")
 
         if rates:
             logger.debug("Assembling rate arrays.")
@@ -955,7 +959,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
             # the solver approximating the jacobian and calling rhs with bogus values).
             nt = res.t.size
 
-            #Poll once to get the available rates
+            # Poll once to get the available rates
             # extractor = list(_rates.values())[0]
             extractor = numba.typed.Dict.empty(
                 key_type=numba.typeof(Rate.EI),
@@ -969,7 +973,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
 
             # Poll all steps
             for idx in range(nt):
-                if verbose and idx%100 == 0:
+                if verbose and (idx % 100) == 0:
                     print("\r", f"Rates: {idx+1} / {nt}", end="")
                 # if res.t[idx] in _rates: #Technically this data should already exist
                 #     extractor = _rates[res.t[idx]]
@@ -991,9 +995,9 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
             for key in rates.keys():
                 _ir = rates[key]
                 if _ir.shape[0] != 1:
-                    irates[key] = _ir[model.lb[i]:model.ub[i]] #Per CS
+                    irates[key] = _ir[model.lb[i]:model.ub[i]]  # Per CS
                 else:
-                    irates[key] = _ir #scalar
+                    irates[key] = _ir  # scalar
         else:
             irates = None
         out.append(

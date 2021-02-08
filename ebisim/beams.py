@@ -7,6 +7,7 @@ import numpy as np
 from .physconst import Q_E, PI, EPS_0, K_B, M_E
 from .plasma import electron_velocity
 
+
 class ElectronBeam:
     """
     This class contains logic that allows estimating the space charge corrected energy
@@ -52,7 +53,6 @@ class ElectronBeam:
     @current.setter
     def current(self, val):
         self._cur = val
-
 
     def characteristic_potential(self, e_kin):
         """
@@ -129,7 +129,7 @@ class ElectronBeam:
         # the hermann radius is essentially constant over large dynamic ranges
         sc_on_ax_new = 1
         sc_on_ax_old = 0
-        while (sc_on_ax_new - sc_on_ax_old)/sc_on_ax_new > 1e-6: # Check relative difference
+        while (sc_on_ax_new - sc_on_ax_old)/sc_on_ax_new > 1e-6:  # Check relative difference
             # Compute kinetic energy correction
             corr_e_kin = e_kin + sc_on_ax_new
             # Compute Herrmann radius and characteristic potential
