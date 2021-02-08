@@ -5,8 +5,11 @@ physical data going into the ebisim computations.
 Besides that, there are some small helper functions to translate certain element properties,
 which may offer convenience to the user.
 """
+from __future__ import annotations
+
 import logging
-from collections import namedtuple
+from typing import NamedTuple, Union, Optional
+import numpy as np
 
 
 from . import utils
@@ -34,7 +37,7 @@ _DR_DATA = utils.load_dr_data()
 logger.debug("Defining element_z.")
 
 
-def element_z(element):
+def element_z(element: str) -> int:
     """
     Returns the proton number of the given element.
 
@@ -58,7 +61,7 @@ def element_z(element):
 logger.debug("Defining element_symbol.")
 
 
-def element_symbol(element):
+def element_symbol(element: Union[str, int]) -> str:
     """
     Returns the abbreviated symbol of the given element.
 
@@ -82,7 +85,7 @@ def element_symbol(element):
 logger.debug("Defining element_name.")
 
 
-def element_name(element):
+def element_name(element: Union[str, int]) -> str:
     """
     Returns the name of the given element.
 
@@ -103,34 +106,10 @@ def element_name(element):
     return _ELEM_NAME[idx]
 
 
-logger.debug("Defining _ElementSpec.")
-
-
-_ElementSpec = namedtuple(
-    "Element", [
-        "z",
-        "symbol",
-        "name",
-        "a",
-        "ip",
-        "e_cfg",
-        "e_bind",
-        "rr_z_eff",
-        "rr_n_0_eff",
-        "dr_cs",
-        "dr_e_res",
-        "dr_strength",
-        "ei_lotz_a",
-        "ei_lotz_b",
-        "ei_lotz_c"
-    ]
-)
-
-
 logger.debug("Defining Element.")
 
 
-class Element(_ElementSpec):
+class Element(NamedTuple):
     """
     Use the static `get()` factory method to create instances of this class.
 
@@ -146,12 +125,24 @@ class Element(_ElementSpec):
     --------
     ebisim.elements.Element.get
     """
-    # https://docs.python.org/3.6/library/collections.html#collections.namedtuple
-    # contains documentation for named tuples
-    __slots__ = ()  # This is a trick to suppress unnecessary dict() for this kind of class
+    z: int
+    symbol: str
+    name: str
+    a: float
+    ip: float
+    e_cfg: np.ndarray
+    e_bind: np.ndarray
+    rr_z_eff: np.ndarray
+    rr_n_0_eff: np.ndarray
+    dr_cs: np.ndarray
+    dr_e_res: np.ndarray
+    dr_strength: np.ndarray
+    ei_lotz_a: np.ndarray
+    ei_lotz_b: np.ndarray
+    ei_lotz_c: np.ndarray
 
     @classmethod
-    def as_element(cls, element):
+    def as_element(cls, element: Union[Element, str, int]) -> Element:  # TODO: Missing Target in Union type
         """
         If `element` is already an instance of `Element` it is returned.
         If `element` is a string or int identyfying an element an appropriate `Element` instance is
@@ -177,7 +168,7 @@ class Element(_ElementSpec):
         else:
             return cls.get(element)
 
-    def latex_isotope(self):
+    def latex_isotope(self) -> str:
         """
         Returns the isotope as a LaTeX formatted string.
 
@@ -188,14 +179,14 @@ class Element(_ElementSpec):
         """
         return fr"$\mathsf{{^{{{self.a}}}_{{{self.z}}}{self.symbol}}}$"
 
-    def __repr__(self):
-        return f"Element('{self.symbol}', a={self.a})"
+    def __repr__(self) -> str:
+        return f"Element({self.symbol!r}, a={self.a!r})"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Element: {self.name} ({self.symbol}, Z = {self.z}, A = {self.a})"
 
     @classmethod
-    def get(cls, element_id, a=None):
+    def get(cls, element_id: Union[str, int], a: Optional[float] = None) -> Element:
         """
         Factory method to create instances of the Element class.
 
@@ -267,21 +258,21 @@ class Element(_ElementSpec):
         ei_lotz_c.setflags(write=False)
 
         return cls(
-            z,
-            symbol,
-            name,
-            a,
-            ip,
-            e_cfg,
-            e_bind,
-            rr_z_eff,
-            rr_n_0_eff,
-            dr_cs,
-            dr_e_res,
-            dr_strength,
-            ei_lotz_a,
-            ei_lotz_b,
-            ei_lotz_c
+            z=z,
+            symbol=symbol,
+            name=name,
+            a=a,
+            ip=ip,
+            e_cfg=e_cfg,
+            e_bind=e_bind,
+            rr_z_eff=rr_z_eff,
+            rr_n_0_eff=rr_n_0_eff,
+            dr_cs=dr_cs,
+            dr_e_res=dr_e_res,
+            dr_strength=dr_strength,
+            ei_lotz_a=ei_lotz_a,
+            ei_lotz_b=ei_lotz_b,
+            ei_lotz_c=ei_lotz_c,
         )
 
 
@@ -310,7 +301,7 @@ Element.ei_lotz_c.__doc__ = "Numpy array of precomputed Lotz factor 'c' for each
 logger.debug("Defining get_element")
 
 
-def get_element(element_id, a=None):
+def get_element(element_id: Union[str, int], a: Optional[float] = None) -> Element:
     """
     [LEGACY]
     Factory function to create instances of the Element class.
