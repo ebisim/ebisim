@@ -109,124 +109,124 @@ _PER_M_PER_S = r"(m$^{-1}$ s$^{-1}$)"
 _EV_PER_S = r"(eV s$^{-1}$)"
 _PER_S = r"(s$^{-1}$)"
 _RATE_LABELS = {
-    Rate.EI:dict(
+    Rate.EI: dict(
         title="EI",
         ylabel="Ionisation rate " + _PER_M_PER_S,
     ),
-    Rate.RR:dict(
+    Rate.RR: dict(
         title="RR",
         ylabel="Recombination rate " + _PER_M_PER_S,
     ),
-    Rate.DR:dict(
+    Rate.DR: dict(
         title="DR",
         ylabel="Recombination rate " + _PER_M_PER_S,
     ),
-    Rate.CX:dict(
+    Rate.CX: dict(
         title="CX",
         ylabel="Recombination rate " + _PER_M_PER_S,
     ),
-    Rate.AX_CO:dict(
+    Rate.AX_CO: dict(
         title="Ax. coll. losses",
         ylabel="Loss rate " + _PER_M_PER_S,
     ),
-    Rate.AX_RT:dict(
+    Rate.AX_RT: dict(
         title="Ax. roundtrip losses",
         ylabel="Loss rate " + _PER_M_PER_S,
     ),
-    Rate.RA_CO:dict(
+    Rate.RA_CO: dict(
         title="Rad. coll. losses",
         ylabel="Loss rate " + _PER_M_PER_S,
     ),
-    Rate.RA_RT:dict(
+    Rate.RA_RT: dict(
         title="Rad. roundtrip losses",
         ylabel="Loss rate " + _PER_M_PER_S,
     ),
-    # Rate.T_EI:dict(
+    # Rate.T_EI: dict(
     #     title="Electron ionisation"
     #     ylabel="",
     # ),
-    # Rate.T_RR:dict(
+    # Rate.T_RR: dict(
     #     title="Radiative recombination"
     #     ylabel="",
     # ),
-    # Rate.T_DR:dict(
+    # Rate.T_DR: dict(
     #     title="Dielectronic recombination"
     #     ylabel="",
     # ),
-    # Rate.T_CX:dict(
+    # Rate.T_CX: dict(
     #     title="Charge exchange"
     #     ylabel="",
     # ),
-    Rate.T_AX_CO:dict(
+    Rate.T_AX_CO: dict(
         title="Ax. coll. losses",
         ylabel="Cooling rate " + _EV_PER_S,
     ),
-    Rate.T_AX_RT:dict(
+    Rate.T_AX_RT: dict(
         title="Ax. roundtrip losses",
         ylabel="Cooling rate " + _EV_PER_S,
     ),
-    Rate.T_RA_CO:dict(
+    Rate.T_RA_CO: dict(
         title="Rad. coll. losses",
         ylabel="Cooling rate " + _EV_PER_S,
     ),
-    Rate.T_RA_RT:dict(
+    Rate.T_RA_RT: dict(
         title="Rad. roundtrip losses",
         ylabel="Cooling rate " + _EV_PER_S,
     ),
-    Rate.COLLISIONAL_THERMALISATION:dict(
+    Rate.COLLISIONAL_THERMALISATION: dict(
         title="Coll. thermalisation",
         ylabel="Thermalisation rate " + _EV_PER_S,
     ),
-    Rate.SPITZER_HEATING:dict(
+    Rate.SPITZER_HEATING: dict(
         title="Spitzer heating",
         ylabel="Heating rate " + _EV_PER_S,
     ),
-    Rate.IONISATION_HEAT:dict(
+    Rate.IONISATION_HEAT: dict(
         title="Ionisation heat",
         ylabel="Ionisation heat (eV)",
     ),
-    # Rate.CV:dict(
+    # Rate.CV: dict(
     #     title="Heat capacity",
     #     ylabel="$c_V$ (eV/eV)",
     # ),
-    Rate.COLLISION_RATE_TOTAL:dict(
+    Rate.COLLISION_RATE_TOTAL: dict(
         title="Total collision rate",
         ylabel=r"$r_i$ " + _PER_S,
     ),
-    Rate.COLLISION_RATE_SELF:dict(
+    Rate.COLLISION_RATE_SELF: dict(
         title="Self collision rate",
         ylabel=r"$r_{ii}$ " + _PER_S,
     ),
-    Rate.F_EI:dict(
+    Rate.F_EI: dict(
         title="Electron beam overlap",
         ylabel=r"$f_{ei}$",
         ylim=(0, 1.1),
     ),
-    Rate.TRAPPING_PARAMETER_AXIAL:dict(
+    Rate.TRAPPING_PARAMETER_AXIAL: dict(
         title="Ax. trapping parameter",
         ylabel=r"$\omega_{ax}$",
     ),
-    Rate.TRAPPING_PARAMETER_RADIAL:dict(
+    Rate.TRAPPING_PARAMETER_RADIAL: dict(
         title="Rad. trapping parameter",
         ylabel=r"$\omega_{rad}$",
     ),
-    Rate.TRAP_DEPTH_AXIAL:dict(
+    Rate.TRAP_DEPTH_AXIAL: dict(
         title="Ax. trapping potential",
         ylabel=r"$V_{ax} (V)$",
     ),
-    Rate.TRAP_DEPTH_RADIAL:dict(
+    Rate.TRAP_DEPTH_RADIAL: dict(
         title="Rad. trapping potential",
         ylabel=r"$V_{rad} (V)$",
     ),
-    Rate.E_KIN_MEAN:dict(
+    Rate.E_KIN_MEAN: dict(
         title="Beam energy mean",
         ylabel=r"$E_e$ (eV)",
     ),
-    Rate.E_KIN_FWHM:dict(
+    Rate.E_KIN_FWHM: dict(
         title="Beam energy FWHM",
         ylabel=r"FWHM($E_e$) (eV)",
     ),
-    Rate.E_KIN_FWHM:dict(
+    Rate.E_KIN_FWHM: dict(
         title="Beam energy FWHM",
         ylabel=r"FWHM($E_e$) (eV)",
     ),

@@ -497,7 +497,7 @@ def decorate_axes(ax, grid=True, legend=False, label_lines=True, tight_layout=Tr
         lines = [l for l in ax.get_lines() if any(l._x)]  # pylint: disable=W0212
         step = int(np.ceil(len(lines)/10))
         lines = lines [::step]
-        _labelLines(lines, size=7, bbox={"pad":0.1, "fc":"w", "ec":"none"})
+        _labelLines(lines, size=7, bbox={"pad": 0.1, "fc": "w", "ec": "none"})
     if tight_layout:
         ax.figure.tight_layout()
 
@@ -529,7 +529,7 @@ def _labelLine(line, x, label=None, align=True, **kwargs):
     y = ydata[ip-1] + (ydata[ip]-ydata[ip-1]) * \
         (x-xdata[ip-1])/(xdata[ip]-xdata[ip-1])
 
-    if any(np.isnan([x, y])) or any(np.isinf([x,y])):
+    if any(np.isnan([x, y])) or any(np.isinf([x, y])):
         return
 
     if not label:

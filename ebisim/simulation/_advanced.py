@@ -908,7 +908,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
                 return _chunked_adv_rhs(model, t, y, rates)
 
             nc = 1 if y.ndim == 1 else y.shape[1]
-            cl = n_threads * [nc//n_threads,]
+            cl = n_threads * [nc//n_threads, ]
             for _k in range(n_threads):
                 if _k < nc%n_threads:
                     cl[_k] += 1

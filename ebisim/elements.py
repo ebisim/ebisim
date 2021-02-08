@@ -161,7 +161,7 @@ class Element(_ElementSpec):
         if isinstance(element, cls):
             return element
         elif "ebisim.simulation._advanced.Target" in str(type(element)):  # hacktime
-            data = {k:v for k, v in element._asdict().items() if k in cls._fields}
+            data = {k: v for k, v in element._asdict().items() if k in cls._fields}
             return cls(**data)
         else:
             return cls.get(element)
