@@ -7,8 +7,10 @@ exclude =
     __pycache__,
     .ipynb_checkpoints,
     # ebisim
-    ebisim.egg_info
     ebisim/resources
+    #build release etc
+    ebisim.egg_info
+    docs/build
     test # to be removed
     #Decide whether to keep
     temp
