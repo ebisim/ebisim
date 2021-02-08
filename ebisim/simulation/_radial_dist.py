@@ -15,7 +15,7 @@ logger.debug("Defining tridiagonal_matrix_algorithm.")
 
 
 @njit(cache=True)
-def tridiagonal_matrix_algorithm(l, d, u, b):
+def tridiagonal_matrix_algorithm(l, d, u, b):  # noqa:E741
     """
     Tridiagonal Matrix Algorithm [TDMA]_.
     Solves a system of equations M x = b for x, where M is a tridiagonal matrix.
@@ -50,8 +50,8 @@ def tridiagonal_matrix_algorithm(l, d, u, b):
     cp[0] = u[0]/d[0]
     dp[0] = b[0]/d[0]
     for k in range(1, n):
-        cp[k] = u[k]               /(d[k]-l[k]*cp[k-1])
-        dp[k] = (b[k]-l[k]*dp[k-1])/(d[k]-l[k]*cp[k-1])
+        cp[k] = u[k] / (d[k]-l[k]*cp[k-1])
+        dp[k] = (b[k]-l[k]*dp[k-1]) / (d[k]-l[k]*cp[k-1])
     x[-1] = dp[-1]
     for k in range(n-2, -1, -1):
         x[k] = dp[k] - cp[k]*x[k+1]
@@ -93,7 +93,7 @@ def fd_system_uniform_grid(r):
     d = np.full(n, -2/dr**2)
     d[-1] = 1
 
-    l = np.zeros(n)
+    l = np.zeros(n)  # noqa:E741
     l[1:-1] = (1-0.5/np.arange(1, n-1))/dr**2
 
     u = np.zeros(n)
@@ -127,7 +127,7 @@ def radial_potential_uniform_grid(r, rho):
         <V>
         Potential at r.
     """
-    l, d, u = fd_system_uniform_grid(r)
+    l, d, u = fd_system_uniform_grid(r)  # noqa:E741
     rho_ = rho.copy()
     rho_[-1] = 0  # Boundary condition
     phi = tridiagonal_matrix_algorithm(l, d, u, -rho/EPS_0)
@@ -182,7 +182,7 @@ def fd_system_nonuniform_grid(r):
     d[1:-1] = -(dr[:-1] + dr[1:]) * weight1 + (dr[1:]**2 - dr[:-1]**2) * weight2
     d[-1] = 1
 
-    l = np.zeros(n)
+    l = np.zeros(n)   # noqa:E741
     l[1:-1] = dr[1:] * weight1 - dr[1:]**2 * weight2
 
     u = np.zeros(n)
@@ -477,7 +477,7 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
 
         _c = np.zeros_like(shape)
         _c[:, :-1] = r[:-1] * (r[1:]-r[:-1]) * shape[:, :-1]
-        j_d = - np.sum(_bx * q/kT *(i_sr-_c)/i_sr, axis=0)  # Diagonal of the Jacobian df/dphi_i
+        j_d = - np.sum(_bx * q/kT * (i_sr-_c)/i_sr, axis=0)  # Diagonal of the Jacobian df/dphi_i
 
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         res = np.linalg.norm(y)/phi.size
@@ -494,7 +494,7 @@ logger.debug("Defining boltzmann_radial_potential_linear_density_ebeam.")
 @njit(cache=True)
 def boltzmann_radial_potential_linear_density_ebeam(
         r, current, r_e, e_kin, nl, kT, q, first_guess=None, ldu=None
-    ):
+        ):
     """
     Solves the Boltzmann Poisson equation for a static background charge density rho_0 and particles
     with line number density n, Temperature kT and charge state q.
@@ -596,7 +596,7 @@ def boltzmann_radial_potential_linear_density_ebeam(
         # Diagonal of the Jacobian df/dphi_i
         _c = np.zeros_like(shape)
         _c[:, :-1] = r[:-1] * (r[1:]-r[:-1]) * shape[:, :-1]
-        j_d = -(np.sum(_bx_a * q/kT *(i_sr-_c)/i_sr, axis=0)
+        j_d = -(np.sum(_bx_a * q/kT * (i_sr-_c)/i_sr, axis=0)
                 + Q_E/M_E*_bx_b/(2 * Q_E * (e_kin+phi)/M_E))  # Diagonal of the Jacobian df/dphi_i
 
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
@@ -613,7 +613,7 @@ logger.debug("Defining boltzmann_radial_potential_linear_density_ebeam_sor.")
 @njit(cache=True)
 def boltzmann_radial_potential_linear_density_ebeam_sor(
         r, current, r_e, e_kin, nl, kT, q, first_guess=None, ldu=None
-    ):
+        ):
     """
     Solves the Boltzmann Poisson equation for a static background charge density rho_0 and particles
     with line number density n, Temperature kT and charge state q.
@@ -724,7 +724,7 @@ def boltzmann_radial_potential_linear_density_ebeam_sor(
         # Diagonal of the Jacobian df/dphi_i
         _c = np.zeros_like(shape)
         _c[:, :-1] = r[:-1] * (r[1:]-r[:-1]) * shape[:, :-1]
-        j_d = -(np.sum(_bx_a * q/kT *(i_sr-_c)/i_sr, axis=0)
+        j_d = -(np.sum(_bx_a * q/kT * (i_sr-_c)/i_sr, axis=0)
                 + Q_E/M_E*_bx_b/(2 * Q_E * (e_kin+phi)/M_E))  # Diagonal of the Jacobian df/dphi_i
 
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
@@ -737,8 +737,8 @@ def boltzmann_radial_potential_linear_density_ebeam_sor(
             mu = 1 - np.dot(rk, drk)/np.dot(drk, drk)
             phi = phi_m1 + mu*rk
 
-        elif np.linalg.norm(phi - phi_m1)/np.linalg.norm(phi) < 1e-10 and np.linalg.norm(f)/f0n < 1e-10:
         # if np.max(np.abs((phi-phi_m1)[:-1]/phi[:-1])) < 1e-3:
+        elif np.linalg.norm(phi - phi_m1)/np.linalg.norm(phi) < 1e-10 and np.linalg.norm(f)/f0n < 1e-10:
             break
 
         phi_m2 = phi_m1
