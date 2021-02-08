@@ -119,7 +119,7 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
     Ne = Ne * 1e-6
     qqten = qi * qi * 10
     redkbTi = kbTi * M_E / (Ai * M_P)
-    if   redkbTi <= kbTe  <= qqten:
+    if redkbTi <= kbTe <= qqten:
         return 23. - np.log(Ne**0.5 * qi * kbTe**-1.5)
     elif redkbTi <= qqten <= kbTe:
         return 24. - np.log(Ne**0.5 / kbTe)
@@ -355,8 +355,11 @@ def spitzer_heating(Ni, Ne, kbTi, Ee, Ai, qi):
     """
     if Ni < MINIMAL_N_3D:
         return 0.
-    return np.maximum(0, 2/3 * Ne * electron_velocity(Ee) * 2 * M_E / (Ai * M_P) * Ee \
-                         * coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi))
+    return np.maximum(
+        0,
+        (2/3 * Ne * electron_velocity(Ee) * 2 * M_E / (Ai * M_P) * Ee
+         * coulomb_xs(Ni, Ne, kbTi, Ee, Ai, qi))
+    )
 
 
 logger.debug("Defining collisional_thermalisation.")
@@ -497,7 +500,7 @@ def trapping_strength_radial(kbTi, qi, Ai, V, B, r_dt):
     # if kbTi <= 0:
     #     return np.inf # fake value for neutrals -> essentially infinite trap
     # else:
-    w = qi * (V + B * r_dt * np.sqrt(2 * kbTi * Q_E /(3*M_P*Ai))) / kbTi
+    w = qi * (V + B * r_dt * np.sqrt(2 * kbTi * Q_E / (3 * M_P * Ai))) / kbTi
     # if w < 1e-10:
     #     return 0.
     return w
