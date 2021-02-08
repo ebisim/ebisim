@@ -270,8 +270,8 @@ class Result:
                  target=None, device=None, model=None, id_=None,
                 ):
         self.param = param if param is not None else {}
-        self.param.pop("targets", None) # Not needed, prevents pickling
-        self.param.pop("bg_gases", None) # Not needed, prevents pickling
+        self.param.pop("targets", None)  # Not needed, prevents pickling
+        self.param.pop("bg_gases", None)  # Not needed, prevents pickling
         self.t = t
         self.N = N
         self.kbT = kbT
@@ -479,7 +479,7 @@ class Result:
         kwargs.setdefault("yscale", "linear")
         kwargs.setdefault("plot_total", True)
 
-        if relative or self.kbT is None: # Hack to determine whether basic or advanced sim
+        if relative or self.kbT is None:  # Hack to determine whether basic or advanced sim
             kwargs.setdefault("ylabel", "Relative abundance")
         else:
             kwargs.setdefault("ylabel", "Linear density (m$^{-1}$)")
@@ -492,7 +492,7 @@ class Result:
         return fig
 
 
-    plot = plot_charge_states #: Alias for plot_charge_states
+    plot = plot_charge_states  #: Alias for plot_charge_states
 
 
     def plot_radial_distribution_at_time(self, t, **kwargs):
@@ -660,7 +660,7 @@ class Result:
             )
 
         rate = self.rates[rate_key]
-        if rate.shape[0] != 1: #Don't filter if scalar (i.e. not for indiv charge states)
+        if rate.shape[0] != 1:  # Don't filter if scalar (i.e. not for indiv charge states)
             rate = self._density_filter(rate, dens_threshold)
         labels = _RATE_LABELS.get(rate_key, {})
 

@@ -43,8 +43,8 @@ def energy_scan(sim_func, sim_kwargs, energies, parallel=False):
         del sim_kwargs["e_kin"]
         warn("sim_kwargs contains a value for e_kin, this item will be ignored.")
 
-    sim_kwargs.setdefault("solver_kwargs", {}) # cast element to Element if necessary
-    sim_kwargs["solver_kwargs"]["dense_output"] = True # need dense output for interpolation
+    sim_kwargs.setdefault("solver_kwargs", {})  # cast element to Element if necessary
+    sim_kwargs["solver_kwargs"]["dense_output"] = True  # need dense output for interpolation
 
     # cast element to Element if necessary
     sim_kwargs["element"] = Element.as_element(sim_kwargs["element"])

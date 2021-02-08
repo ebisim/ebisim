@@ -17,12 +17,10 @@ from .elements import Element
 
 #: The default colormap used to grade line plots, assigning another colormap to this object
 #: will result in an alternative color gradient for line plots
-COLORMAP = plt.cm.plasma #pylint: disable=E1101
+COLORMAP = plt.cm.plasma  # pylint: disable=E1101
 
 
-########################
-#### E scan Plotting ###
-########################
+# ----- E scan Plotting
 
 def plot_energy_scan(energies, abundance, cs=None, **kwargs):
     """
@@ -114,9 +112,7 @@ def plot_energy_time_scan(energies, times, abundance, **kwargs):
     return fig
 
 
-###########################
-#### Evolution Plotting ###
-###########################
+# ----- Evolution Plotting
 
 def plot_generic_evolution(t, y, plot_total=False, ax=None, cs=None, **kwargs):
     """
@@ -160,7 +156,7 @@ def plot_generic_evolution(t, y, plot_total=False, ax=None, cs=None, **kwargs):
     ls = kwargs.pop("ls", None)
     for cs_ in range(n):
         if (cs_ not in cs) or np.array_equal(np.unique(y[cs_, :]), np.array([0])):
-            ax.loglog([], []) # Ghost draw for purely zero cases
+            ax.loglog([], [])  # Ghost draw for purely zero cases
         else:
             if ls:
                 ax.loglog(t, y[cs_, :], ls=ls, label=str(cs_) + "+")
@@ -182,9 +178,7 @@ def plot_generic_evolution(t, y, plot_total=False, ax=None, cs=None, **kwargs):
     return fig
 
 
-########################
-#### Radial Plotting ###
-########################
+# ----- Radial Plotting
 
 def plot_radial_distribution(r, dens, phi=None, r_e=None, ax=None, ax2=None, **kwargs):
     """
@@ -232,9 +226,9 @@ def plot_radial_distribution(r, dens, phi=None, r_e=None, ax=None, ax2=None, **k
     plt.tight_layout()
     return ax, ax2
 
-########################
-#### XS Plotting #######
-########################
+
+# ----- XS Plotting
+
 
 def _plot_xs(e_samp, xs_scan, ax=None, **kwargs):
     """
@@ -268,17 +262,17 @@ def _plot_xs(e_samp, xs_scan, ax=None, **kwargs):
 
     n = xs_scan.shape[0]
 
-    ax.set_prop_cycle(None) # Reset property (color) cycle, needed when plotting on existing fig
+    ax.set_prop_cycle(None)  # Reset property (color) cycle, needed when plotting on existing fig
     _set_line_prop_cycle(ax, n)
     ls = kwargs.pop("ls", None)
 
     for cs in range(n):
         xs_cs = xs_scan[cs, :]
         if np.array_equal(np.unique(xs_cs), np.array([0])):
-            plt.plot([], []) # If all xs are zero, do a ghost plot to advance color cycle
+            plt.plot([], [])  # If all xs are zero, do a ghost plot to advance color cycle
         else:
             if ls is None:
-                plt.plot(e_samp, 1e4*xs_cs, figure=fig, label=str(cs)+"+") # otherwise plot data
+                plt.plot(e_samp, 1e4*xs_cs, figure=fig, label=str(cs)+"+")  # otherwise plot data
             else:
                 plt.plot(e_samp, 1e4*xs_cs, ls=ls, figure=fig, label=str(cs)+"+")
 
@@ -463,9 +457,7 @@ def plot_combined_xs(element, fwhm, **kwargs):
     return fig
 
 
-########################
-#### Helper Methods ####
-########################
+# ----- Helper Methods
 
 def _set_line_prop_cycle(ax, n_lines):
     color = [COLORMAP(i) for i in np.linspace(0, .9, n_lines)]
@@ -502,18 +494,16 @@ def decorate_axes(ax, grid=True, legend=False, label_lines=True, tight_layout=Tr
     # Label lines should be called at the end of the plot generation since it relies on axlim
     if label_lines:
         # TODO: Check if this can be done without private member access
-        lines = [l for l in ax.get_lines() if any(l._x)] # pylint: disable=W0212
+        lines = [l for l in ax.get_lines() if any(l._x)]  # pylint: disable=W0212
         step = int(np.ceil(len(lines)/10))
         lines = lines [::step]
         _labelLines(lines, size=7, bbox={"pad":0.1, "fc":"w", "ec":"none"})
     if tight_layout:
         ax.figure.tight_layout()
 
-###########################################################################################
-#### Code for decorating line plots with online labels
-#### Code copied from https://github.com/cphyc/matplotlib-label-lines
-#### Based on https://stackoverflow.com/questions/16992038/inline-labels-in-matplotlib
-###########################################################################################
+# ----- Code for decorating line plots with online labels
+# Code copied from https://github.com/cphyc/matplotlib-label-lines
+# Based on https://stackoverflow.com/questions/16992038/inline-labels-in-matplotlib
 # Label line with line2D label data
 def _labelLine(line, x, label=None, align=True, **kwargs):
     '''Label a single matplotlib line at position x'''
@@ -599,7 +589,7 @@ def _labelLines(lines, align=True, xvals=None, **kwargs):
             labels.append(label)
 
     if xvals is None:
-        xvals = ax.get_xlim() # set axis limits as annotation limits, xvals now a tuple
+        xvals = ax.get_xlim()  # set axis limits as annotation limits, xvals now a tuple
     if isinstance(xvals, tuple):
         xmin, xmax = xvals
         xscale = ax.get_xscale()

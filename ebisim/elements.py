@@ -28,7 +28,7 @@ logger.debug("Loading DR data.")
 _DR_DATA = utils.load_dr_data()
 
 
-##### Helper functions for translating chemical symbols
+# ----- Helper functions for translating chemical symbols
 
 logger.debug("Defining element_z.")
 def element_z(element):
@@ -137,7 +137,7 @@ class Element(_ElementSpec):
     """
     # https://docs.python.org/3.6/library/collections.html#collections.namedtuple
     # contains documentation for named tuples
-    __slots__ = () # This is a trick to suppress unnecessary dict() for this kind of class
+    __slots__ = ()  # This is a trick to suppress unnecessary dict() for this kind of class
 
     @classmethod
     def as_element(cls, element):
@@ -160,7 +160,7 @@ class Element(_ElementSpec):
         """
         if isinstance(element, cls):
             return element
-        elif "ebisim.simulation._advanced.Target" in str(type(element)): #hacktime
+        elif "ebisim.simulation._advanced.Target" in str(type(element)):  # hacktime
             data = {k:v for k, v in element._asdict().items() if k in cls._fields}
             return cls(**data)
         else:

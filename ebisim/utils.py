@@ -6,9 +6,9 @@ have no real use outside this scope.
 import logging
 logger = logging.getLogger(__name__)
 try:
-    from importlib.resources import open_text # py>=3.7
+    from importlib.resources import open_text  # py>=3.7
 except ImportError:
-    from importlib_resources import open_text # py<3.7
+    from importlib_resources import open_text  # py<3.7
 import numpy as np
 
 from .resources import drdata as _drdata
@@ -39,7 +39,7 @@ def load_dr_data():
                 dat = _parse_dr_file(f)
         except FileNotFoundError:
             dat = dict(dr_e_res=empt.copy(), dr_strength=empt.copy(), dr_cs=empt.copy())
-        dat["dr_cs"] = dat["dr_cs"].astype(int) # Need to assure int for indexing purposes
+        dat["dr_cs"] = dat["dr_cs"].astype(int)  # Need to assure int for indexing purposes
         out[z] = dat
     return out
 

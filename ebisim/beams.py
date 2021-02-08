@@ -129,7 +129,7 @@ class ElectronBeam:
         # the hermann radius is essentially constant over large dynamic ranges
         sc_on_ax_new = 1
         sc_on_ax_old = 0
-        while (sc_on_ax_new - sc_on_ax_old)/sc_on_ax_new > 1e-6: # Check relative difference
+        while (sc_on_ax_new - sc_on_ax_old)/sc_on_ax_new > 1e-6:  # Check relative difference
             # Compute kinetic energy correction
             corr_e_kin = e_kin + sc_on_ax_new
             # Compute Herrmann radius and characteristic potential

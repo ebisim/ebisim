@@ -3,17 +3,17 @@
 from matplotlib.pyplot import show
 import ebisim as eb
 
-element = eb.get_element("Argon") # element that is to be charge bred
-j = 200 # current density in A/cm^2
-e_kin = 2470 # electron beam energy in eV
-t_max = 1 # length of simulation in s
+element = eb.get_element("Argon")  # element that is to be charge bred
+j = 200  # current density in A/cm^2
+e_kin = 2470  # electron beam energy in eV
+t_max = 1  # length of simulation in s
 
 result = eb.basic_simulation(
     element=element,
     j=j,
     e_kin=e_kin,
     t_max=t_max,
-    CNI=True # activate CNI
+    CNI=True  # activate CNI
 )
 
 # Since the number of ions is constantly increasing with CNI,

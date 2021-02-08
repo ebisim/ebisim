@@ -123,7 +123,7 @@ def radial_potential_uniform_grid(r, rho):
     """
     l, d, u = fd_system_uniform_grid(r)
     rho_ = rho.copy()
-    rho_[-1] = 0 #Boundary condition
+    rho_[-1] = 0  # Boundary condition
     phi = tridiagonal_matrix_algorithm(l, d, u, -rho/EPS_0)
     return phi
 
@@ -207,7 +207,7 @@ def radial_potential_nonuniform_grid(r, rho):
     """
     l, d, u = fd_system_nonuniform_grid(r)
     rho_ = rho.copy()
-    rho_[-1] = 0 #Boundary condition
+    rho_[-1] = 0  # Boundary condition
     phi = tridiagonal_matrix_algorithm(l, d, u, -rho/EPS_0)
     return phi
 
@@ -270,7 +270,7 @@ def _tridiag_targetfun(ldu, x, b):
         Vector valued deviation from target root
     """
     l, d, u = ldu
-    f = d * x - b # Target function
+    f = d * x - b  # Target function
     f[:-1] += u[:-1] * x[1:]
     f[1:] += l[1:] * x[:-1]
     return f
@@ -332,17 +332,17 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
     # Next guess: phi = phi - y
     # Iterate until adjustment is small
     rho_0 = rho_0.copy()
-    rho_0[-1] = 0 #Boundary condition
-    b0 = - rho_0/EPS_0 # static rhs term
+    rho_0[-1] = 0  # Boundary condition
+    b0 = - rho_0/EPS_0  # static rhs term
 
 
     if ldu is None:
-        ldu = fd_system_nonuniform_grid(r) # Set up tridiagonal system
+        ldu = fd_system_nonuniform_grid(r)  # Set up tridiagonal system
     l, d, u = ldu
     # A = np.diag(d) + np.diag(u[:-1], 1) + np.diag(l[1:], -1)
 
     if first_guess is None:
-        phi = radial_potential_nonuniform_grid(r, rho_0) # compute static potential
+        phi = radial_potential_nonuniform_grid(r, rho_0)  # compute static potential
     else:
         phi = first_guess.copy()
 
@@ -354,14 +354,14 @@ def boltzmann_radial_potential_onaxis_density(r, rho_0, n, kT, q, first_guess=No
         # ion dist
         shape = np.exp(-q * (phi - phi[0])/kT)
 
-        _bx = - n * q * shape * Q_E / EPS_0 # dynamic rhs term
+        _bx = - n * q * shape * Q_E / EPS_0  # dynamic rhs term
         _bx[:, -1] = 0  # boundary condition
         bx = np.sum(_bx, axis=0)
 
         # f = A.dot(phi) - (b0 + bx) # Target function
         f = _tridiag_targetfun(ldu, phi, b0 + bx)
 
-        j_d = - np.sum(_bx * q/kT, axis=0) #Diagonal of the Jacobian Jacobian df/dphi_i
+        j_d = - np.sum(_bx * q/kT, axis=0)  # Diagonal of the Jacobian Jacobian df/dphi_i
 
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         res = np.linalg.norm(y)/phi.size
@@ -428,16 +428,16 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
     # Next guess: phi = phi - y
     # Iterate until adjustment is small
     rho_0 = rho_0.copy()
-    rho_0[-1] = 0 #Boundary condition
-    b0 = - rho_0/EPS_0 # static rhs term
+    rho_0[-1] = 0  # Boundary condition
+    b0 = - rho_0/EPS_0  # static rhs term
 
     if ldu is None:
-        ldu = fd_system_nonuniform_grid(r) # Set up tridiagonal system
+        ldu = fd_system_nonuniform_grid(r)  # Set up tridiagonal system
     l, d, u = ldu
     # A = np.diag(d) + np.diag(u[:-1], 1) + np.diag(l[1:], -1)
 
     if first_guess is None:
-        phi = radial_potential_nonuniform_grid(r, rho_0) # compute static potential
+        phi = radial_potential_nonuniform_grid(r, rho_0)  # compute static potential
     else:
         phi = first_guess.copy()
 
@@ -451,7 +451,7 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
         i_sr = np.atleast_2d(np.trapz(r*shape, r)).T
         nax = nl / 2 / PI / i_sr
 
-        _bx = - nax * q * shape * Q_E / EPS_0 # dynamic rhs term
+        _bx = - nax * q * shape * Q_E / EPS_0  # dynamic rhs term
         _bx[:, -1] = 0  # boundary condition
         bx = np.sum(_bx, axis=0)
 
@@ -460,7 +460,7 @@ def boltzmann_radial_potential_linear_density(r, rho_0, nl, kT, q, first_guess=N
 
         _c = np.zeros_like(shape)
         _c[:, :-1] = r[:-1] * (r[1:]-r[:-1]) * shape[:, :-1]
-        j_d = - np.sum(_bx * q/kT *(i_sr-_c)/i_sr, axis=0) #Diagonal of the Jacobian df/dphi_i
+        j_d = - np.sum(_bx * q/kT *(i_sr-_c)/i_sr, axis=0)  # Diagonal of the Jacobian df/dphi_i
 
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         res = np.linalg.norm(y)/phi.size
@@ -541,7 +541,7 @@ def boltzmann_radial_potential_linear_density_ebeam(
 
 
     if ldu is None:
-        ldu = fd_system_nonuniform_grid(r) # Set up tridiagonal system
+        ldu = fd_system_nonuniform_grid(r)  # Set up tridiagonal system
     l, d, u = ldu
 
     nl = np.atleast_2d(np.asarray(nl))
@@ -567,7 +567,7 @@ def boltzmann_radial_potential_linear_density_ebeam(
         nax = nl / 2 / PI / i_sr * np.atleast_2d(shape[:, 0]).T
 
         # dynamic rhs term
-        _bx_a = - nax * q * shape * Q_E / EPS_0 # dynamic rhs term
+        _bx_a = - nax * q * shape * Q_E / EPS_0  # dynamic rhs term
         _bx_b = - cden/np.sqrt(2 * Q_E * (e_kin+phi)/M_E) / EPS_0
         _bx_a[:, -1] = 0  # boundary condition
         bx = np.sum(_bx_a, axis=0) + _bx_b
@@ -575,11 +575,11 @@ def boltzmann_radial_potential_linear_density_ebeam(
         # F = A.dot(phi) - (b0 + bx)
         f = _tridiag_targetfun(ldu, phi, bx)
 
-        #Diagonal of the Jacobian df/dphi_i
+        # Diagonal of the Jacobian df/dphi_i
         _c = np.zeros_like(shape)
         _c[:, :-1] = r[:-1] * (r[1:]-r[:-1]) * shape[:, :-1]
         j_d = -(np.sum(_bx_a * q/kT *(i_sr-_c)/i_sr, axis=0)
-                + Q_E/M_E*_bx_b/(2 * Q_E * (e_kin+phi)/M_E))#Diagonal of the Jacobian df/dphi_i
+                + Q_E/M_E*_bx_b/(2 * Q_E * (e_kin+phi)/M_E))  # Diagonal of the Jacobian df/dphi_i
 
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         res = np.max(np.abs(y[:-1]/phi[:-1]))
@@ -655,7 +655,7 @@ def boltzmann_radial_potential_linear_density_ebeam_sor(
 
 
     if ldu is None:
-        ldu = fd_system_nonuniform_grid(r) # Set up tridiagonal system
+        ldu = fd_system_nonuniform_grid(r)  # Set up tridiagonal system
     l, d, u = ldu
 
     nl = np.atleast_2d(np.asarray(nl))
@@ -681,7 +681,7 @@ def boltzmann_radial_potential_linear_density_ebeam_sor(
     # shape[:, np.argmax(phi):] = 0
     i_sr = np.atleast_2d(np.trapz(r*shape, r)).T
     nax = nl / 2 / PI / i_sr * np.atleast_2d(shape[:, 0]).T
-    _bx_a = - nax * q * shape * Q_E / EPS_0 # dynamic rhs term
+    _bx_a = - nax * q * shape * Q_E / EPS_0  # dynamic rhs term
     _bx_b = - cden/np.sqrt(2 * Q_E * (e_kin+phi)/M_E) / EPS_0
     _bx_a[:, -1] = 0  # boundary condition
     bx0 = np.sum(_bx_a, axis=0) + _bx_b
@@ -694,7 +694,7 @@ def boltzmann_radial_potential_linear_density_ebeam_sor(
         nax = nl / 2 / PI / i_sr * np.atleast_2d(shape[:, 0]).T
 
         # dynamic rhs term
-        _bx_a = - nax * q * shape * Q_E / EPS_0 # dynamic rhs term
+        _bx_a = - nax * q * shape * Q_E / EPS_0  # dynamic rhs term
         _bx_b = - cden/np.sqrt(2 * Q_E * (e_kin+phi)/M_E) / EPS_0
         _bx_a[:, -1] = 0  # boundary condition
         bx = np.sum(_bx_a, axis=0) + _bx_b
@@ -702,11 +702,11 @@ def boltzmann_radial_potential_linear_density_ebeam_sor(
         # F = A.dot(phi) - (b0 + bx)
         f = _tridiag_targetfun(ldu, phi, bx)
 
-        #Diagonal of the Jacobian df/dphi_i
+        # Diagonal of the Jacobian df/dphi_i
         _c = np.zeros_like(shape)
         _c[:, :-1] = r[:-1] * (r[1:]-r[:-1]) * shape[:, :-1]
         j_d = -(np.sum(_bx_a * q/kT *(i_sr-_c)/i_sr, axis=0)
-                + Q_E/M_E*_bx_b/(2 * Q_E * (e_kin+phi)/M_E))#Diagonal of the Jacobian df/dphi_i
+                + Q_E/M_E*_bx_b/(2 * Q_E * (e_kin+phi)/M_E))  # Diagonal of the Jacobian df/dphi_i
 
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         phi = phi - y
