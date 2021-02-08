@@ -6,54 +6,8 @@ breeding process in an Electron Beam Ion Source / Trap.
 
 For easier access a number of submodule members are available at this level, such that they can be
 referred to as ebisim.[member] without resolving the submodule in the call.
-For any documentation of these members please refer to the submodule reference.
+The module level documentation lists these members with more granularity.
 
-Attributes
-----------
-eixs_vec
-eixs_mat
-eixs_energyscan
-rrxs_vec
-rrxs_mat
-rrxs_energyscan
-drxs_vec
-drxs_mat
-drxs_energyscan
-
-Result
-basic_simulation
-advanced_simulation
-Target
-Device
-ModelOptions
-BackgroundGas
-AdvancedModel
-energy_scan
-EnergyScanResult
-Rate
-
-Q_E
-M_E
-PI
-EPS_0
-K_B
-C_L
-ALPHA
-HBAR
-M_P
-M_E_EV
-RY_EV
-COMPT_E_RED
-
-Element
-get_element
-
-plot_eixs
-plot_rrxs
-plot_drxs
-plot_combined_xs
-
-beams
 """
 
 __version__ = "0.1.0"
