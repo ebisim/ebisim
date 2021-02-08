@@ -1,0 +1,16 @@
+[flake8]
+exclude =
+    # IDE tooling etc.
+    .git,
+    .vscode,
+    # Python
+    __pycache__,
+    .ipynb_checkpoints,
+    # ebisim
+    ebisim.egg_info
+    ebisim/resources
+    test # to be removed
+    #Decide whether to keep
+    temp
+
+max-line-length = 120
