@@ -5,6 +5,7 @@ have no real use outside this scope.
 """
 import logging
 from importlib.resources import open_text
+from typing import Dict, List, TextIO
 import numpy as np
 
 from .resources import drdata as _drdata
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 logger.debug("Defining load_dr_data.")
 
 
-def load_dr_data():
+def load_dr_data() -> Dict[int, Dict[str, np.ndarray]]:
     """
     Loads the avaliable DR transition data from the resource directory
 
@@ -46,7 +47,7 @@ def load_dr_data():
 logger.debug("Defining _parse_dr_file.")
 
 
-def _parse_dr_file(fobj):
+def _parse_dr_file(fobj: TextIO) -> Dict[str, np.ndarray]:
     """
     Parses the content of a single DR data file into a dict with three numpy arrays holding
     the data about resonance energies, transitions strengths and ion charge state.
@@ -76,19 +77,19 @@ def _parse_dr_file(fobj):
         e_res.append(float(data[0]))
         stren.append(float(data[1]))
         cs.append(int(data[4]))
-    e_res = np.array(e_res)
-    e_res.setflags(write=False)
-    stren = np.array(stren)
-    stren.setflags(write=False)
-    cs = np.array(cs)
-    cs.setflags(write=False)
-    return dict(dr_e_res=e_res, dr_strength=stren, dr_cs=cs)
+    e_res_arr = np.array(e_res)
+    e_res_arr.setflags(write=False)
+    stren_arr = np.array(stren)
+    stren_arr.setflags(write=False)
+    cs_arr = np.array(cs)
+    cs_arr.setflags(write=False)
+    return dict(dr_e_res=e_res_arr, dr_strength=stren_arr, dr_cs=cs_arr)
 
 
 logger.debug("Defining _nparray_from_jagged_list.")
 
 
-def _nparray_from_jagged_list(list_of_lists):
+def _nparray_from_jagged_list(list_of_lists: List[List]) -> np.ndarray:
     """
     Takes a list of lists with varying length and turns them into a numpy array,
     treating each list as a left-aligned row and padding the right side with zeros
