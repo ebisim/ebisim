@@ -736,34 +736,33 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
 
     Parameters
     ----------
-    device : ebisim.simulation.Device
+    device :
         Container describing the EBIS/T and specifically the electron beam.
-    targets : ebisim.simulation.Target or list[ebisim.simulation.Target]
+    targets :
         Target(s) for which charge breeding is simulated.
-    t_max : float
+    t_max :
         <s>
         Simulated breeding time
-    bg_gases : ebisim.simulation.BackgroundGas or list[ebisim.simulation.BackgroundGas], optional
-        Background gas(es) which act as CX partners, by default None.
-    rates : bool
+    bg_gases :
+        Background gas(es) which act as CX partners.
+    rates :
         If true a 'second run' is performed to store the rates, this takes extra time and can
         create quite a bit of data.
-    options : ebisim.simulation.ModelOptions, optional
+    options :
         Switches for effects considered in the simulation, see default values of
         ebisim.simulation.ModelOptions.
-    solver_kwargs : None or dict, optional
+    solver_kwargs :
         If supplied these keyword arguments are unpacked in the solver call.
         Refer to the documentation of scipy.integrate.solve_ivp for more information.
         By default None.
-    verbose : bool, optional
+    verbose :
         Print a little progress indicator and some status messages, by default True.
-    n_threads : int
+    n_threads :
         How many threads to use (mostly for jacbion estimation which can evaluate the RHS
         in parallel with different inputs.)
 
     Returns
     -------
-    ebisim.simulation.Result or tuple[ebisim.simulation.Result]
         An instance of the Result class, holding the simulation parameters, timesteps and
         charge state distribution including the species temperature.
     """
