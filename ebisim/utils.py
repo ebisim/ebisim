@@ -3,16 +3,12 @@ This module contains convenience and management functions not directly related t
 simulation code, e.g. loading resources. These functions are meant for internal use only, they
 have no real use outside this scope.
 """
-import logging
 from importlib.resources import open_text
-from typing import Dict, List, TextIO, Any
+from typing import Dict, ForwardRef, List, NamedTuple, TextIO, Any
+from importlib import import_module
 import numpy as np
 
 from .resources import drdata as _drdata
-
-logger = logging.getLogger(__name__)
-
-logger.debug("Defining load_dr_data.")
 
 
 def load_dr_data() -> Dict[int, Dict[str, np.ndarray]]:
@@ -42,9 +38,6 @@ def load_dr_data() -> Dict[int, Dict[str, np.ndarray]]:
         dat["dr_cs"] = dat["dr_cs"].astype(int)  # Need to assure int for indexing purposes
         out[z] = dat
     return out
-
-
-logger.debug("Defining _parse_dr_file.")
 
 
 def _parse_dr_file(fobj: TextIO) -> Dict[str, np.ndarray]:
@@ -86,9 +79,6 @@ def _parse_dr_file(fobj: TextIO) -> Dict[str, np.ndarray]:
     return dict(dr_e_res=e_res_arr, dr_strength=stren_arr, dr_cs=cs_arr)
 
 
-logger.debug("Defining _nparray_from_jagged_list.")
-
-
 def _nparray_from_jagged_list(list_of_lists: List[List]) -> np.ndarray:
     """
     Takes a list of lists with varying length and turns them into a numpy array,
@@ -125,3 +115,25 @@ def patch_namedtuple_docstrings(named_tuple: Any, docstrings: Dict[str, str]) ->
     """
     for _k, _v in docstrings.items():
         setattr(getattr(named_tuple, _k), "__doc__", _v)
+
+
+def validate_namedtuple_field_types(instance: NamedTuple) -> bool:
+    """
+    Checks if the values of a typing.NamedTuple instance agree with the
+    types that were annotated in the class definition.
+
+    Values are permitted to be ints if type annotation is float.
+    """
+    for f in instance._fields:
+        tp = instance.__annotations__[f]
+        if isinstance(tp, ForwardRef):
+            m = import_module(instance.__module__)
+            tp = tp._evaluate(vars(m), {})
+        if "typing.Union" in str(getattr(tp, "__origin__", None)):
+            tp = tp.__args__
+        if tp == float:
+            tp = (float, int)
+        val = getattr(instance, f)
+        if not isinstance(val, tp):
+            return False
+    return True
