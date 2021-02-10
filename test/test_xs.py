@@ -21,13 +21,13 @@ def test_xs_numba_python_equality():
         for fun in ( ebisim.xs.eixs_vec, ebisim.xs.rrxs_vec):
             xsn = fun(element, 5000.0)
             xsp = fun.py_func(element, 5000.0)
-            np.testing.assert_equal(xsn, xsp)
+            np.testing.assert_allclose(xsn, xsp, rtol=1e-10)
 
         xsn = ebisim.drxs_vec(element, 5000.0, 15.0)
         xsp = ebisim.drxs_vec.py_func(element, 5000.0, 15.0)
-        np.testing.assert_equal(xsn, xsp)
+        np.testing.assert_allclose(xsn, xsp, rtol=1e-10)
 
     for ip in np.linspace(3, 20, 50):
         xsn = ebisim.xs.cxxs(np.arange(100), ip)
         xsp = ebisim.xs.cxxs.py_func(np.arange(100), ip)
-        np.testing.assert_equal(xsn, xsp)
+        np.testing.assert_allclose(xsn, xsp, rtol=1e-10)

@@ -45,10 +45,10 @@ def test_tdma():
 
     _x = np.linalg.inv(M).dot(b)
     x = tridiagonal_matrix_algorithm(l, d, u, b)
-    np.testing.assert_allclose(_x, x)
+    np.testing.assert_allclose(_x, x, rtol=1e-10)
 
     xpy = tridiagonal_matrix_algorithm.py_func(l, d, u, b)
-    np.testing.assert_equal(xpy, x)
+    np.testing.assert_allclose(xpy, x, rtol=1e-10)
 
 def test_fd_system_uniform_grid():
     dr = 10
@@ -59,23 +59,23 @@ def test_fd_system_uniform_grid():
     _u = np.array([2, 1+0.5, 1+0.5/2, 1+0.5/3, 0])/dr**2
 
     l, d, u = fd_system_uniform_grid(r)
-    np.testing.assert_allclose(_l, l)
-    np.testing.assert_allclose(_d, d)
-    np.testing.assert_allclose(_u, u)
+    np.testing.assert_allclose(_l, l, rtol=1e-10)
+    np.testing.assert_allclose(_d, d, rtol=1e-10)
+    np.testing.assert_allclose(_u, u, rtol=1e-10)
 
     lpy, dpy, upy = fd_system_uniform_grid.py_func(r)
-    np.testing.assert_equal(lpy, l)
-    np.testing.assert_equal(dpy, d)
-    np.testing.assert_equal(upy, u)
+    np.testing.assert_allclose(lpy, l, rtol=1e-10)
+    np.testing.assert_allclose(dpy, d, rtol=1e-10)
+    np.testing.assert_allclose(upy, u, rtol=1e-10)
 
 def test_fd_system_nonuniform_grid():
     r = np.array([0, 10, 20, 30, 40])
     _l, _d, _u = fd_system_uniform_grid(r)
 
     l, d, u = fd_system_nonuniform_grid(r)
-    np.testing.assert_allclose(_l, l)
-    np.testing.assert_allclose(_d, d)
-    np.testing.assert_allclose(_u, u)
+    np.testing.assert_allclose(_l, l, rtol=1e-10)
+    np.testing.assert_allclose(_d, d, rtol=1e-10)
+    np.testing.assert_allclose(_u, u, rtol=1e-10)
 
     r = np.array([0, 1, 3, 6, 10])
     _u = np.array([2, 0.5, 0.177777777777778, 0.089285714285714, 0])
@@ -83,14 +83,14 @@ def test_fd_system_nonuniform_grid():
     _d = np.array([-2, -0.5, -0.277777777777778, -0.152777777777778, 1])
 
     l, d, u = fd_system_nonuniform_grid(r)
-    np.testing.assert_allclose(_l, l)
-    np.testing.assert_allclose(_d, d)
-    np.testing.assert_allclose(_u, u)
+    np.testing.assert_allclose(_l, l, rtol=1e-10)
+    np.testing.assert_allclose(_d, d, rtol=1e-10)
+    np.testing.assert_allclose(_u, u, rtol=1e-10)
 
     lpy, dpy, upy = fd_system_nonuniform_grid.py_func(r)
-    np.testing.assert_equal(lpy, l)
-    np.testing.assert_equal(dpy, d)
-    np.testing.assert_equal(upy, u)
+    np.testing.assert_allclose(lpy, l, rtol=1e-10)
+    np.testing.assert_allclose(dpy, d, rtol=1e-10)
+    np.testing.assert_allclose(upy, u, rtol=1e-10)
 
 def test_radial_potential_uniform_grid():
     r = np.linspace(0, R_D, N)
@@ -103,7 +103,7 @@ def test_radial_potential_uniform_grid():
 
     assert np.sum((1-phi[:-1]/phi_a[:-1])**2)/N < 1e-6
     np.testing.assert_allclose(phi, phi_a, rtol=1e-3)
-    np.testing.assert_equal(phipy, phi)
+    np.testing.assert_allclose(phipy, phi, rtol=1e-10)
 
 def test_radial_potential_nonuniform_grid():
     r = np.geomspace(R_E/100, R_D, N)
@@ -118,7 +118,7 @@ def test_radial_potential_nonuniform_grid():
 
     assert np.sum((1-phi[:-1]/phi_a[:-1])**2)/N < 1e-6
     np.testing.assert_allclose(phi, phi_a, rtol=5.e-4)
-    np.testing.assert_equal(phipy, phi)
+    np.testing.assert_allclose(phipy, phi, rtol=1e-10)
 
 def test_boltzmann_radial_potential_linear_density():
     r = np.geomspace(R_E/100, R_D, N)
@@ -143,7 +143,7 @@ def test_boltzmann_radial_potential_linear_density():
     np.testing.assert_allclose(shapepy, shape, atol=0, rtol=1e-6)
 
 
-    # np.testing.assert_equal(phipy, phi)
+    # np.testing.assert_allclose(phipy, phi, rtol=1e-10)
 
 def test_boltzmann_radial_potential_onaxis_density():
     r = np.geomspace(R_E/100, R_D, N)
@@ -162,10 +162,10 @@ def test_boltzmann_radial_potential_onaxis_density():
     phipy, npy, shapepy = boltzmann_radial_potential_onaxis_density.py_func(
         r, rho, NI[:, np.newaxis], KT[:, np.newaxis], Q[:, np.newaxis]
         )
-    np.testing.assert_allclose(phipy, phi)
-    np.testing.assert_allclose(npy, n)
-    np.testing.assert_allclose(shapepy, shape)
+    np.testing.assert_allclose(phipy, phi, rtol=1e-10)
+    np.testing.assert_allclose(npy, n, rtol=1e-10)
+    np.testing.assert_allclose(shapepy, shape, rtol=1e-10)
 
-    np.testing.assert_equal(phipy, phi)
-    np.testing.assert_equal(npy, n)
-    np.testing.assert_equal(shapepy, shape)
+    np.testing.assert_allclose(phipy, phi, rtol=1e-10)
+    np.testing.assert_allclose(npy, n, rtol=1e-10)
+    np.testing.assert_allclose(shapepy, shape, rtol=1e-10)

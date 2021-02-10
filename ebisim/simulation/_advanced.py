@@ -1,16 +1,17 @@
 """
 This module contains the advanced simulation method and related resources.
 """
+from __future__ import annotations
 import logging
-from collections import namedtuple, OrderedDict
+from typing import Dict, NamedTuple, Any, Union, Optional, List, Tuple
 import numpy as np
-import scipy.integrate
-import scipy.interpolate
+from scipy.integrate import solve_ivp
 import numba
 from joblib import Parallel, delayed
 
 from .. import xs
 from .. import plasma
+from ..utils import patch_namedtuple_docstrings, validate_namedtuple_field_types
 from ..elements import Element
 from ..physconst import Q_E, M_P, PI, EPS_0, K_B
 from ..physconst import MINIMAL_N_1D, MINIMAL_KBT
@@ -34,119 +35,10 @@ def enum_hash(val):  # pylint: disable=unused-argument
     return impl
 
 
-logger.debug("Defining Target.")
+Target = Element  # Define for now to not break existing code after merging target/element
 
 
-class Target(namedtuple("Target", Element._fields + ("n", "kT", "cx"))):
-    """
-    Use the static `get_ions()` or `get_gas()` factory methods to create instances of this class.
-
-    Targets are used in advanced simulations;
-    they are an extended version of ebisim.elements.Element.
-
-    There are four extra fields for a more convenient setup of advanced simulations:
-    n and kT are vectors holding initial conditions.
-    cx is a boolean flag determining whether the neutral particles contribute to charge exchange.
-
-    See Also
-    --------
-    ebisim.simulation.Target.get_ions
-    ebisim.simulation.Target.get_gas
-    """
-    __slots__ = ()
-
-    @classmethod
-    def get_gas(cls, element, p, r_dt, T=300.0, cx=True):
-        """
-        Factory method for defining a neutral gas injection Target.
-        A gas target is a target with constant density in charge state 0.
-
-        Parameters
-        ----------
-        element : ebisim.elements.Element or str or int
-            An instance of the Element class, or an identifier for the element, i.e. either its
-            name, symbol or proton number.
-        p : float
-            <mbar>
-            Gas pressure.
-        r_dt : float
-            <m>
-            Drift tube radius, required to compute linear density.
-        T : float, optional
-            <K>
-            Gas temperature, by default 300 K (Room temperature)
-        cx : bool, optional
-            see class documentation, by default True
-
-        Returns
-        -------
-        ebisim.simulation.Target
-            Ready to use Target specification.
-        """
-        element = Element.as_element(element)
-        _n = np.full(element.z + 1, MINIMAL_N_1D, dtype=np.float64)
-        _kT = np.full(element.z + 1, MINIMAL_KBT, dtype=np.float64)
-        _n[0] = (p * 100) / (K_B * T) * PI * r_dt**2  # Convert from mbar to Pa and compute density
-        if _n[0] < MINIMAL_N_1D:
-            raise ValueError("The resulting density is smaller than the internal minimal value.")
-        _kT[0] = K_B * T / Q_E
-        return cls(*element, n=_n, kT=_kT, cx=cx)
-
-    @classmethod
-    def get_ions(cls, element, nl, kT=10, q=1, cx=True):
-        """
-        Factory method for defining a pulsed ion injection Target.
-        An ion target has a given density in the charge state of choice q.
-
-        Parameters
-        ----------
-        element : ebisim.elements.Element or str or int
-            An instance of the Element class, or an identifier for the element, i.e. either its
-            name, symbol or proton number.
-        nl : float
-            <1/m>
-            Linear density of the initial charge state (ions per unit length).
-        kT_per_q : float, optional
-            <eV>
-            Temperature / kinetic energy of the injected ions,
-            by default 10 eV
-        q : int, optional
-            Initial charge state, by default 1
-        cx : bool, optional
-            see class documentation, by default True
-
-        Returns
-        -------
-        ebisim.simulation.Target
-            Ready to use Target specification.
-        """
-        if nl < MINIMAL_N_1D:
-            raise ValueError("The density is smaller than the internal minimal value.")
-        element = Element.as_element(element)
-        _n = np.full(element.z + 1, MINIMAL_N_1D, dtype=np.float64)
-        _kT = np.full(element.z + 1, MINIMAL_KBT, dtype=np.float64)
-        _n[q] = nl
-        _kT[q] = kT
-        return cls(*element, n=_n, kT=_kT, cx=cx)
-
-    def __repr__(self):
-        return f"Target({Element.as_element(self)})"
-
-
-# Patching in docstrings
-logger.debug("Patching Target docstrings.")
-for f in Element._fields:
-    setattr(getattr(Target, f), "__doc__", getattr(getattr(Element, f), "__doc__"))
-Target.n.__doc__ = """<1/m> Array holding the initial linear density of each charge state."""
-Target.kT.__doc__ = """<eV> Array holding the initial temperature of each charge state."""
-Target.cx.__doc__ = """Boolean flag determining whether neutral particles of this target are
-considered as charge exchange partners."""
-
-
-logger.debug("Defining BackgroundGas.")
-
-
-class BackgroundGas(namedtuple("BackgroundGas", "name, ip, n0")):
+class BackgroundGas(NamedTuple):
     """
     Use the static `get()` factory methods to create instances of this class.
 
@@ -157,22 +49,25 @@ class BackgroundGas(namedtuple("BackgroundGas", "name, ip, n0")):
     --------
     ebisim.simulation.BackgroundGas.get
     """
-    __slots__ = ()
+
+    name: str
+    ip: float
+    n0: float
 
     @classmethod
-    def get(cls, element, p, T=300.0):
+    def get(cls, element: Union[Element, str, int], p: float, T: float = 300.0) -> BackgroundGas:
         """
         Factory method for defining a background gas.
 
         Parameters
         ----------
-        element : ebisim.elements.Element or str or int
+        element :
             An instance of the Element class, or an identifier for the element, i.e. either its
             name, symbol or proton number.
-        p : float
+        p :
             <mbar>
             Gas pressure.
-        T : float, optional
+        T :
             <K>
             Gas temperature, by default 300 K (Room temperature)
 
@@ -189,89 +84,88 @@ class BackgroundGas(namedtuple("BackgroundGas", "name, ip, n0")):
         )
 
 
-# Patching in docstrings
-logger.debug("Patching BackgroundGas docstrings.")
-BackgroundGas.name.__doc__ = """str Name of the element."""
-BackgroundGas.ip.__doc__ = """float <eV> Ionisation potential of this Gas."""
-BackgroundGas.n0.__doc__ = """float <1/m^3> Gas number density."""
-
-logger.debug("Defining Device.")
-_DEVICE = OrderedDict(
-    current="<A> Beam current.",
-    e_kin="<eV> Uncorrected beam energy.",
-    r_e="<m> Beam radius.",
-    length="<m> Trap length.",
-    j="<A/cm^2> Current density.",
-    v_ax="<V> Axial barrier voltage.",
-    v_ax_sc="<V> Axial barrier space charge correction.",
-    v_ra="<V> Radial barrier voltage.",
-    b_ax="<T> Axial magnetic field density.",
-    r_dt="<m> Drift tube radius.",
-    r_dt_bar="<m> Drift tube radius of the barrier drift tubes.",
-    fwhm="<eV> Electron beam energy spread.",
-    rad_grid="<m> Radial grid for finite difference computations.",
-    rad_fd_l="Lower diagonal vector of finite difference scheme.",
-    rad_fd_d="Diagonal vector of finite difference scheme.",
-    rad_fd_u="Upper diagonal vector of finite difference scheme.",
-    rad_phi_uncomp="<V> Radial potential of the electron beam.",
-    rad_phi_ax_barr="<V> Radial potential of the electron beam in the barrier tube",
-    rad_re_idx="Index of the radial grid point closest to r_e",
+_BACKGROUNDGAS_DOC = dict(
+    name="Name of the element.",
+    ip="<eV> Ionisation potential of this Gas.",
+    n0="<1/m^3> Gas number density.",
 )
+patch_namedtuple_docstrings(BackgroundGas, _BACKGROUNDGAS_DOC)
 
 
-class Device(namedtuple("Device", _DEVICE.keys())):
+class Device(NamedTuple):
     """
     Use the static `get()` factory methods to create instances of this class.
 
     Objects of this class are used to pass important EBIS/T parameters into the simulation.
     """
-    __slots__ = ()
+
+    current: float
+    e_kin: float
+    r_e: float
+    length: Optional[float]
+    j: float
+    v_ax: float
+    v_ax_sc: float
+    v_ra: float
+    b_ax: float
+    r_dt: float
+    r_dt_bar: float
+    fwhm: float
+    rad_grid: np.ndarray
+    rad_fd_l: np.ndarray
+    rad_fd_d: np.ndarray
+    rad_fd_u: np.ndarray
+    rad_phi_uncomp: np.ndarray
+    rad_phi_ax_barr: np.ndarray
+    rad_re_idx: int
 
     @classmethod
-    def get(
-            cls, *, current, e_kin, r_e, length, v_ax, b_ax, r_dt,
-            v_ra=None, j=None, fwhm=None, n_grid=200, r_dt_bar=None
-            ):
+    def get(cls, *,
+            current: float, e_kin: float, r_e: float, v_ax: float, b_ax: float, r_dt: float,
+            length: Optional[float] = None, v_ra: Optional[float] = None,
+            j: Optional[float] = None, fwhm: Optional[float] = None,
+            n_grid: int = 400, r_dt_bar: Optional[float] = None) -> Device:
         """
         Factory method for defining a device.
+        All arguments are keyword only to reduce the chance of mixing them up.
 
         Parameters
         ----------
-        current : float
+        current :
             <A>
             Electron beam current.
-        e_kin : float
+        e_kin :
             <eV>
             Uncorrected electron beam energy.
-        r_e : float
+        r_e :
             <m>
             Electron beam radius.
-        length : float
-            <m>
-            Trap length.
-        v_ax : float
+        v_ax :
             <V>
             Axial barrier bias.
-        b_ax : float
+        b_ax :
             <T>
             Axial magnetic flux density in the trap.
-        r_dt : float
+        r_dt :
             <m>
             Drift tube radius.
-        v_ra : float, optional
+        length :
+            <m>
+            Trap length -> Currently not used in simulations.
+        v_ra :
             <V>
-            Override for radial trap depth, by default None.
+            Override for radial trap depth.
             Only effective if ModelOptions.RADIAL_DYNAMICS=False.
-        j : float, optional
+        j :
             <A/cm^2>
-            Override for current density, by default None.
-        fwhm : float, optional
+            Override for current density.
+        fwhm :
             <eV>
-            Override for the electron beam energy spread, by default None.
+            Override for the electron beam energy spread.
             Only effective if ModelOptions.RADIAL_DYNAMICS=False.
-        n_grid : int, optional
-            Approximate number of nodes for the radial mesh, by default 200.
-        r_dt_bar : float, optional
+        n_grid :
+            Approximate number of nodes for the radial mesh.
+        r_dt_bar :
             Radius of the barrier drift tubes.
             If not passed, assuming equal radius as trap drift tube.
 
@@ -289,7 +183,7 @@ class Device(namedtuple("Device", _DEVICE.keys())):
         ))
         logger.debug("Device.get: Call fd_system_nonuniform_grid.")
         rad_ldu = fd_system_nonuniform_grid(rad_grid)
-        rad_re_idx = np.argmin((rad_grid-r_e)**2)
+        rad_re_idx = int(np.argmin((rad_grid-r_e)**2))
 
         logger.debug("Device.get: Trap - Call boltzmann_radial_potential_linear_density_ebeam.")
         phi, _, __ = boltzmann_radial_potential_linear_density_ebeam(
@@ -331,7 +225,7 @@ class Device(namedtuple("Device", _DEVICE.keys())):
             current=float(current),
             e_kin=float(e_kin),
             r_e=float(r_e),
-            length=float(length),
+            length=float(length) if length is not None else None,
             j=float(j),
             v_ax=float(v_ax),
             v_ax_sc=float(v_ax_sc),
@@ -349,98 +243,80 @@ class Device(namedtuple("Device", _DEVICE.keys())):
             rad_re_idx=rad_re_idx
         )
 
-    def __repr__(self):
-        return (f"Device.get({self.current}, {self.e_kin}, {self.r_e}, {self.length}, "
-                + f"{self.v_ax}, {self.b_ax}, {self.r_dt}, {self.v_ra}, {self.j}, {self.fwhm}, "
-                + f"{len(self.rad_grid)})")
+    def __str__(self) -> str:
+        return f"Device: I = {self.current:.2e} A, E = {self.e_kin:.2e} eV"
 
 
-logger.debug("Patching Device docstrings.")
-for _k, _v in _DEVICE.items():
-    setattr(getattr(Device, _k), "__doc__", _v)
-
-
-logger.debug("Defining ModelOptions.")
-_MODEL_OPTIONS_DEFAULTS = OrderedDict(
-    EI=True, RR=True, CX=True, DR=False,
-    SPITZER_HEATING=True, COLLISIONAL_THERMALISATION=True,
-    ESCAPE_AXIAL=True, ESCAPE_RADIAL=True,
-    RECOMPUTE_CROSS_SECTIONS=False, RADIAL_DYNAMICS=False, IONISATION_HEATING=True,
-    OVERRIDE_FWHM=False
+_DEVICE_DOC = dict(
+    current="<A> Beam current.",
+    e_kin="<eV> Uncorrected beam energy.",
+    r_e="<m> Beam radius.",
+    length="<m> Trap length.",
+    j="<A/cm^2> Current density.",
+    v_ax="<V> Axial barrier voltage.",
+    v_ax_sc="<V> Axial barrier space charge correction.",
+    v_ra="<V> Radial barrier voltage.",
+    b_ax="<T> Axial magnetic field density.",
+    r_dt="<m> Drift tube radius.",
+    r_dt_bar="<m> Drift tube radius of the barrier drift tubes.",
+    fwhm="<eV> Electron beam energy spread.",
+    rad_grid="<m> Radial grid for finite difference computations.",
+    rad_fd_l="Lower diagonal vector of finite difference scheme.",
+    rad_fd_d="Diagonal vector of finite difference scheme.",
+    rad_fd_u="Upper diagonal vector of finite difference scheme.",
+    rad_phi_uncomp="<V> Radial potential of the electron beam.",
+    rad_phi_ax_barr="<V> Radial potential of the electron beam in the barrier tube",
+    rad_re_idx="Index of the radial grid point closest to r_e",
 )
-ModelOptions = namedtuple(
-    "ModelOptions", _MODEL_OPTIONS_DEFAULTS.keys(), defaults=_MODEL_OPTIONS_DEFAULTS.values()
-)
-DEFAULT_MODEL_OPTIONS = ModelOptions()
-# Patching in docstrings
-logger.debug("Patching ModelOptions docstrings.")
-ModelOptions.__doc__ = """An instance of ModelOptions can be used to turn on or off certain effects
-in an advanced simulation."""
-ModelOptions.EI.__doc__ = "Switch for electron impact ionisation, default True."
-ModelOptions.RR.__doc__ = "Switch for radiative recombination, default True."
-ModelOptions.CX.__doc__ = "Switch for charge exchange, default True."
-ModelOptions.DR.__doc__ = "Switch for dielectronic recombination, default False."
-ModelOptions.SPITZER_HEATING.__doc__ = "Switch for Spitzer- or electron-heating, default True."
-ModelOptions.COLLISIONAL_THERMALISATION.__doc__ = "Switch for ion-ion thermalisation, default True."
-ModelOptions.ESCAPE_AXIAL.__doc__ = "Switch for axial escape from the trap, default True."
-ModelOptions.ESCAPE_RADIAL.__doc__ = "Switch for radial escape from the trap, default True."
-ModelOptions.RECOMPUTE_CROSS_SECTIONS.__doc__ = """Switch deciding whether EI, RR, and DR cross
+patch_namedtuple_docstrings(Device, _DEVICE_DOC)
+
+
+class ModelOptions(NamedTuple):
+    """
+    An instance of ModelOptions can be used to turn on or off certain effects
+    in an advanced simulation.
+    """
+
+    EI: bool = True
+    RR: bool = True
+    CX: bool = True
+    DR: bool = False
+    SPITZER_HEATING: bool = True
+    COLLISIONAL_THERMALISATION: bool = True
+    ESCAPE_AXIAL: bool = True
+    ESCAPE_RADIAL: bool = True
+    RECOMPUTE_CROSS_SECTIONS: bool = False
+    RADIAL_DYNAMICS: bool = False
+    IONISATION_HEATING: bool = True
+    OVERRIDE_FWHM: bool = False
+
+
+_MODELOPTIONS_DOC = dict(
+    EI="Switch for electron impact ionisation, default True.",
+    RR="Switch for radiative recombination, default True.",
+    CX="Switch for charge exchange, default True.",
+    DR="Switch for dielectronic recombination, default False.",
+    SPITZER_HEATING="Switch for Spitzer- or electron-heating, default True.",
+    COLLISIONAL_THERMALISATION="Switch for ion-ion thermalisation, default True.",
+    ESCAPE_AXIAL="Switch for axial escape from the trap, default True.",
+    ESCAPE_RADIAL="Switch for radial escape from the trap, default True.",
+    RECOMPUTE_CROSS_SECTIONS="""\
+Switch deciding whether EI, RR, and DR cross
 sections are recomputed on each call of the differential equation system. Advisable if electron beam
 energy changes over time and sharp transitions are expected, e.g. DR or ionisation thresholds for a
-given shell. Default False."""
-ModelOptions.RADIAL_DYNAMICS.__doc__ = """Switch for effects of radial ion cloud extent.
-May be computationally very intensive"""
-ModelOptions.IONISATION_HEATING.__doc__ = """Switch for ionisation heating/recombination cooling"""
-ModelOptions.OVERRIDE_FWHM.__doc__ = """If set use FWHM from device definition instead of computed
-value."""
-
-
-# Typedefs for AdvancedModel
-logger.debug("Defining numba types for AdvancedModel typing.")
-logger.debug("Defining numba types: _T_DEVICE.")
-# _T_DEVICE = numba.typeof(Device.get(1, 8000, 1e-4, 0.8, 500, 2, 0.005))
-_T_DEVICE = numba.typeof(Device.get(
-    current=1, e_kin=8000, r_e=1e-4, length=0.8, v_ax=500, b_ax=2, r_dt=0.005
-))
-logger.debug("Defining numba types: _T_TARGET.")
-_T_TARGET = numba.typeof(Target.get_ions("He", 1000., 1., 1))
-logger.debug("Defining numba types: _T_BG_GAS.")
-_T_BG_GAS = numba.typeof(BackgroundGas.get("He", 1e-8))
-logger.debug("Defining numba types: _T_MODEL_OPTIONS.")
-_T_MODEL_OPTIONS = numba.typeof(DEFAULT_MODEL_OPTIONS)
-logger.debug("Defining numba types: _T_TARGET_LIST.")
-_T_TARGET_LIST = numba.types.ListType(_T_TARGET)
-logger.debug("Defining numba types: _T_BG_GAS_LIST.")
-_T_BG_GAS_LIST = numba.types.ListType(_T_BG_GAS)
-logger.debug("Defining numba types: _T_F8_ARRAY.")
-_T_F8_ARRAY = numba.float64[:]  # Cannot be called in jitted code so need to predefine
-logger.debug("Defining numba types: _T_I4_ARRAY.")
-_T_I4_ARRAY = numba.int32[:]
-logger.debug("Defining numba types: _T_RATE_ENUM.")
-_T_RATE_ENUM = numba.typeof(Rate.EI)
-
-
-logger.debug("Defining AdvancedModel.")
-_ADVMDLSPEC = OrderedDict(
-    device=_T_DEVICE,
-    targets=_T_TARGET_LIST,
-    bg_gases=_T_BG_GAS_LIST,
-    options=_T_MODEL_OPTIONS,
-    lb=_T_I4_ARRAY,
-    ub=_T_I4_ARRAY,
-    nq=numba.int32,
-    q=_T_I4_ARRAY,
-    a=_T_I4_ARRAY,
-    eixs=_T_F8_ARRAY,
-    rrxs=_T_F8_ARRAY,
-    drxs=_T_F8_ARRAY,
-    cxxs_bggas=numba.types.ListType(_T_F8_ARRAY),
-    cxxs_trgts=numba.types.ListType(_T_F8_ARRAY),
+given shell. Default False.""",
+    RADIAL_DYNAMICS="""\
+Switch for effects of radial ion cloud extent.
+May be computationally very intensive""",
+    IONISATION_HEATING="Switch for ionisation heating/recombination cooling",
+    OVERRIDE_FWHM="If set use FWHM from device definition instead of computed value.",
 )
+patch_namedtuple_docstrings(ModelOptions, _MODELOPTIONS_DOC)
+
+DEFAULT_MODEL_OPTIONS = ModelOptions()  #: Default simulation options
 
 
-# @numba.experimental.jitclass(_ADVMDLSPEC)
-class AdvancedModel(namedtuple("AdvancedModel", _ADVMDLSPEC.keys())):
+class AdvancedModel(NamedTuple):
     """
     The advanced model class is the base for ebisim.simulation.advanced_simulation.
     It acts as a fast datacontainer for the underlying rhs function which represents the right hand
@@ -459,10 +335,36 @@ class AdvancedModel(namedtuple("AdvancedModel", _ADVMDLSPEC.keys())):
         Switches for effects considered in the simulation, see default values of
         ebisim.simulation.ModelOptions.
     """
+
+    device: Device
+    targets: Any  # _T_TARGET_LIST = numba.types.ListType(_T_TARGET)
+    bg_gases: Any  # _T_BG_GAS_LIST = numba.types.ListType(_T_BG_GAS)
+    options: ModelOptions
+    lb: np.ndarray
+    ub: np.ndarray
+    nq: int
+    q: np.ndarray
+    a: np.ndarray
+    eixs: np.ndarray
+    rrxs: np.ndarray
+    drxs: np.ndarray
+    cxxs_bggas: Any  # numba.types.ListType(_T_F8_ARRAY)
+    cxxs_trgts: Any  # numba.types.ListType(_T_F8_ARRAY)
+
     @classmethod
-    def get(cls, device, targets, bg_gases=None, options=DEFAULT_MODEL_OPTIONS):
-        # Bind parameters
-        bg_gases = bg_gases if bg_gases is not None else numba.typed.List.empty_list(_T_BG_GAS)
+    def get(cls, device: Device, targets: List[Element],
+            bg_gases: Optional[List[BackgroundGas]] = None,
+            options: ModelOptions = DEFAULT_MODEL_OPTIONS) -> AdvancedModel:
+
+        # Types needed by numba
+        _T_BG_GAS = numba.typeof(BackgroundGas.get("He", 1e-8))
+        _T_F8_ARRAY = numba.float64[:]
+
+        bg_gases = bg_gases or []
+        if not bg_gases:
+            bg_gases_nblist = numba.typed.List.empty_list(_T_BG_GAS)
+        else:
+            bg_gases_nblist = numba.typed.List(bg_gases)
 
         # Determine array bounds for different targets in state vector
         lb = np.zeros(len(targets), dtype=np.int32)
@@ -474,7 +376,7 @@ class AdvancedModel(namedtuple("AdvancedModel", _ADVMDLSPEC.keys())):
             offset = ub[i]
 
         # Compute total number of charge states for all targets (len of "n" or "kT" state vector)
-        nq = ub[-1]
+        nq = int(ub[-1])
 
         # Define vectors listing the charge state and mass for each state
         q = np.zeros(nq, dtype=np.int32)
@@ -501,8 +403,8 @@ class AdvancedModel(namedtuple("AdvancedModel", _ADVMDLSPEC.keys())):
             _cxxs_trgts.append(xs.cxxs(q, trgt.ip))
         return cls(
             device=device,
-            targets=targets,
-            bg_gases=bg_gases,
+            targets=numba.typed.List(targets),
+            bg_gases=bg_gases_nblist,
             options=options,
             lb=lb,
             ub=ub,
@@ -515,6 +417,10 @@ class AdvancedModel(namedtuple("AdvancedModel", _ADVMDLSPEC.keys())):
             cxxs_bggas=_cxxs_bggas,
             cxxs_trgts=_cxxs_trgts
         )
+
+    def __str__(self) -> str:
+        return (f"AdvancedModel: {self.device!s}, {self.targets!s}, "
+                + f"{self.bg_gases!s}, Options: [...]")
 
 
 @numba.njit(cache=True)
@@ -818,11 +724,11 @@ def _adv_rhs(model, _t, y, rates=None):
     return np.concatenate((dn, dkT))
 
 
-logger.debug("Defining advanced_simulation.")
-
-
-def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rates=False,
-                        solver_kwargs=None, verbose=True, n_threads=1):
+def advanced_simulation(device: Device, targets: Union[Element, List[Element]], t_max: float,
+                        bg_gases: Union[BackgroundGas, List[BackgroundGas], None] = None,
+                        options: ModelOptions = None, rates: bool = False,
+                        solver_kwargs: Optional[Dict[str, Any]] = None,
+                        verbose: bool = True, n_threads: int = 1) -> Union[Result, Tuple[Result, ...]]:
     """
     Interface for performing advanced charge breeding simulations.
 
@@ -830,34 +736,33 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
 
     Parameters
     ----------
-    device : ebisim.simulation.Device
+    device :
         Container describing the EBIS/T and specifically the electron beam.
-    targets : ebisim.simulation.Target or list[ebisim.simulation.Target]
+    targets :
         Target(s) for which charge breeding is simulated.
-    t_max : float
+    t_max :
         <s>
         Simulated breeding time
-    bg_gases : ebisim.simulation.BackgroundGas or list[ebisim.simulation.BackgroundGas], optional
-        Background gas(es) which act as CX partners, by default None.
-    rates : bool
+    bg_gases :
+        Background gas(es) which act as CX partners.
+    rates :
         If true a 'second run' is performed to store the rates, this takes extra time and can
         create quite a bit of data.
-    options : ebisim.simulation.ModelOptions, optional
+    options :
         Switches for effects considered in the simulation, see default values of
         ebisim.simulation.ModelOptions.
-    solver_kwargs : None or dict, optional
+    solver_kwargs :
         If supplied these keyword arguments are unpacked in the solver call.
         Refer to the documentation of scipy.integrate.solve_ivp for more information.
         By default None.
-    verbose : bool, optional
+    verbose :
         Print a little progress indicator and some status messages, by default True.
-    n_threads : int
+    n_threads :
         How many threads to use (mostly for jacbion estimation which can evaluate the RHS
         in parallel with different inputs.)
 
     Returns
     -------
-    ebisim.simulation.Result or tuple[ebisim.simulation.Result]
         An instance of the Result class, holding the simulation parameters, timesteps and
         charge state distribution including the species temperature.
     """
@@ -870,43 +775,40 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
     logger.info(f"rates = {rates}.")
     logger.info(f"solver_kwargs = {solver_kwargs}.")
     logger.info(f"verbose = {verbose}.")
-    if options is None:
-        options = DEFAULT_MODEL_OPTIONS
-    if isinstance(targets, Target):
-        targets = [targets]
-    targets = numba.typed.List(targets)
 
-    if bg_gases is None:
-        bg_gases = numba.typed.List.empty_list(_T_BG_GAS)
-    else:
-        if isinstance(bg_gases, BackgroundGas):
-            bg_gases = [bg_gases]
-        bg_gases = numba.typed.List(bg_gases)
+    # ----- Pretreat arguments
+    targets = [targets] if not isinstance(targets, list) else targets
 
+    bg_gases = bg_gases or []
+    bg_gases = [bg_gases] if not isinstance(bg_gases, list) else bg_gases
+
+    options = options or DEFAULT_MODEL_OPTIONS
+
+    solver_kwargs = solver_kwargs or {}
+    solver_kwargs.setdefault("method", "Radau")
+
+    # ----- Generate AdvancedModel
     logger.debug("Initialising AdvancedModel object.")
     model = AdvancedModel.get(device, targets, bg_gases, options)
 
-    _n0 = np.concatenate([t.n for t in targets])
-    _kT0 = []
-    for t in targets:  # Make sure that initial temperature is not unreasonably small
-        kT = t.kT.copy()
-        minkT = np.maximum(device.fwhm * np.arange(t.z+1), MINIMAL_KBT)
-        kT[t.n < 1.00001 * MINIMAL_N_1D] = \
-            np.maximum(kT[t.n < 1.00001 * MINIMAL_N_1D], minkT[t.n < 1.00001 * MINIMAL_N_1D])
-        if np.logical_and(np.not_equal(kT, t.kT), t.n > 1.00001 * MINIMAL_N_1D).any():
-            logger.warning(f"Initial temperature vector adjusted for {t}, new: {kT}")
-        _kT0.append(kT)
-    _kT0 = np.concatenate(_kT0)
-    n_kT_initial = np.concatenate([_n0, _kT0])
+    # ----- Validate Tuple field types
+    for i, tg in enumerate(targets):
+        if not validate_namedtuple_field_types(tg):
+            logger.warning(f"Unable to verify the types of Target #{i}: {tg!s}.")
+    for i, bg in enumerate(bg_gases):
+        if not validate_namedtuple_field_types(bg):
+            logger.warning(f"Unable to verify the types of BgGas #{i}: {bg!s}.")
+    if not validate_namedtuple_field_types(device):
+        logger.warning(f"Unable to verify the types of {device!s}.")
+    if not validate_namedtuple_field_types(options):
+        logger.warning(f"Unable to verify the types of {options!s}.")
+    if not validate_namedtuple_field_types(model):
+        logger.warning(f"Unable to verify the types of {model!s}.")
 
-    # prepare solver options
-    if not solver_kwargs:
-        solver_kwargs = {}
-    solver_kwargs.setdefault("method", "Radau")
+    # ----- Generate Initial conditions
+    n_kT_initial = _assemble_initial_conditions(targets, device)
 
-    # save adjusted call parameters for passing on to Result
-    param = locals().copy()
-
+    # ----- Generate Callable
     with Parallel(n_jobs=n_threads, prefer="threads") as parallel:
         def mt(model, t, y, rates):
             if rates is not None:
@@ -942,8 +844,9 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
         else:
             rhs = lambda t, y, rates=None: mt(model, t, y, rates)  # noqa:E731
 
+    # ----- Run simulation
         logger.debug("Starting integration.")
-        res = scipy.integrate.solve_ivp(
+        res = solve_ivp(
             rhs, (0, t_max), n_kT_initial, vectorized=True, **solver_kwargs
         )
         if verbose:
@@ -953,6 +856,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
                   + f"~{res.y.shape[0]*res.njev} for jacobian approximation "
                   + f"({res.y.shape[0]*res.njev/k:.2%})")
 
+    # ----- Extract rates if demanded
         if rates:
             logger.debug("Assembling rate arrays.")
             # Recompute rates for final solution (this cannot be done parasitically due to
@@ -966,50 +870,46 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
                 value_type=numba.types.float64[:]
             )
             _ = rhs(res.t[0], res.y[:, 0], extractor)
-            rates = {}
+            ratebuffer = {}
             for k in extractor:
                 if len(extractor[k].shape) == 1:
-                    rates[k] = np.zeros((extractor[k].size, nt))
+                    ratebuffer[k] = np.zeros((extractor[k].size, nt))
 
             # Poll all steps
             for idx in range(nt):
                 if verbose and (idx % 100) == 0:
                     print("\r", f"Rates: {idx+1} / {nt}", end="")
-                # if res.t[idx] in _rates: #Technically this data should already exist
-                #     extractor = _rates[res.t[idx]]
-                # else: #In case it does not -> recompute
-                #     _ = model.rhs(res.t[idx], res.y[:, idx], extractor)
+
                 _ = rhs(res.t[idx], res.y[:, idx], extractor)
                 for key, val in extractor.items():
                     if len(val.shape) == 1:
-                        rates[key][:, idx] = val
+                        ratebuffer[key][:, idx] = val
 
             if verbose:
                 print("\rRates finished:", nt, "rates")
 
+    # ----- Result assembly
     out = []
     for i, trgt in enumerate(model.targets):
         logger.debug(f"Assembling result of target #{i}.")
+        irates = {}
         if rates:
-            irates = {}
-            for key in rates.keys():
-                _ir = rates[key]
+            for key in ratebuffer.keys():
+                _ir = ratebuffer[key]
                 if _ir.shape[0] != 1:
                     irates[key] = _ir[model.lb[i]:model.ub[i]]  # Per CS
                 else:
                     irates[key] = _ir  # scalar
-        else:
-            irates = None
+
         out.append(
             Result(
-                param=param,
                 t=res.t,
                 N=res.y[model.lb[i]:model.ub[i]],
                 kbT=res.y[model.nq + model.lb[i]:model.nq + model.ub[i]],
                 res=res,
                 target=trgt,
                 device=device,
-                rates=irates,
+                rates=irates or None,
                 model=model,
                 id_=i
             )
@@ -1017,3 +917,23 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
     if len(out) == 1:
         return out[0]
     return tuple(out)
+
+
+def _assemble_initial_conditions(targets: List[Element], device: Device) -> np.ndarray:
+    _kT0 = []
+    for t in targets:  # Make sure that initial temperature is not unreasonably small
+        if t.kT is None or t.n is None:
+            raise ValueError(f"{t!s} does not provide initial conditions (n, kT).")
+        kT = t.kT.copy()
+        minkT = np.maximum(device.fwhm/10 * np.arange(t.z+1), MINIMAL_KBT)
+        filter_ = t.n < 1.00001 * MINIMAL_N_1D
+        kT[filter_] = np.maximum(kT[filter_], minkT[filter_])
+        if np.not_equal(kT, t.kT).any():
+            logger.warning(
+                f"Initial temperature vector adjusted for {t!s}. "
+                + "This only affects charge states with densities at the minimum limit."
+                )
+        _kT0.append(kT)
+    _n0 = np.concatenate([t.n for t in targets])
+    _kT0 = np.concatenate(_kT0)
+    return np.concatenate([_n0, _kT0])
