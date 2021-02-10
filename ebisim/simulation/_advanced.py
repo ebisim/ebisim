@@ -3,7 +3,7 @@ This module contains the advanced simulation method and related resources.
 """
 from __future__ import annotations
 import logging
-from typing import NamedTuple, Any, Union, Optional, List
+from typing import Dict, NamedTuple, Any, Union, Optional, List, Tuple
 import numpy as np
 from scipy.integrate import solve_ivp
 import numba
@@ -724,8 +724,11 @@ def _adv_rhs(model, _t, y, rates=None):
     return np.concatenate((dn, dkT))
 
 
-def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rates=False,
-                        solver_kwargs=None, verbose=True, n_threads=1):
+def advanced_simulation(device: Device, targets: Union[Element, List[Element]], t_max: float,
+                        bg_gases: Union[BackgroundGas, List[BackgroundGas], None] = None,
+                        options: ModelOptions = None, rates: bool = False,
+                        solver_kwargs: Optional[Dict[str, Any]] = None,
+                        verbose: bool = True, n_threads: int = 1) -> Union[Result, Tuple[Result, ...]]:
     """
     Interface for performing advanced charge breeding simulations.
 
@@ -789,10 +792,19 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
     logger.debug("Initialising AdvancedModel object.")
     model = AdvancedModel.get(device, targets, bg_gases, options)
 
-    # ----- Validate types
-    for nt in targets + bg_gases + [device, options, model]:
-        if not validate_namedtuple_field_types(nt):
-            logger.warning(f"Unable to verify the types of {nt!s}.")
+    # ----- Validate Tuple field types
+    for i, tg in enumerate(targets):
+        if not validate_namedtuple_field_types(tg):
+            logger.warning(f"Unable to verify the types of Target #{i}: {tg!s}.")
+    for i, bg in enumerate(bg_gases):
+        if not validate_namedtuple_field_types(bg):
+            logger.warning(f"Unable to verify the types of BgGas #{i}: {bg!s}.")
+    if not validate_namedtuple_field_types(device):
+        logger.warning(f"Unable to verify the types of {device!s}.")
+    if not validate_namedtuple_field_types(options):
+        logger.warning(f"Unable to verify the types of {options!s}.")
+    if not validate_namedtuple_field_types(model):
+        logger.warning(f"Unable to verify the types of {model!s}.")
 
     # ----- Generate Initial conditions
     n_kT_initial = _assemble_initial_conditions(targets, device)
@@ -833,6 +845,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
         else:
             rhs = lambda t, y, rates=None: mt(model, t, y, rates)  # noqa:E731
 
+    # ----- Run simulation
         logger.debug("Starting integration.")
         res = solve_ivp(
             rhs, (0, t_max), n_kT_initial, vectorized=True, **solver_kwargs
@@ -844,6 +857,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
                   + f"~{res.y.shape[0]*res.njev} for jacobian approximation "
                   + f"({res.y.shape[0]*res.njev/k:.2%})")
 
+    # ----- Extract rates if demanded
         if rates:
             logger.debug("Assembling rate arrays.")
             # Recompute rates for final solution (this cannot be done parasitically due to
@@ -857,40 +871,37 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
                 value_type=numba.types.float64[:]
             )
             _ = rhs(res.t[0], res.y[:, 0], extractor)
-            rates = {}
+            ratebuffer = {}
             for k in extractor:
                 if len(extractor[k].shape) == 1:
-                    rates[k] = np.zeros((extractor[k].size, nt))
+                    ratebuffer[k] = np.zeros((extractor[k].size, nt))
 
             # Poll all steps
             for idx in range(nt):
                 if verbose and (idx % 100) == 0:
                     print("\r", f"Rates: {idx+1} / {nt}", end="")
-                # if res.t[idx] in _rates: #Technically this data should already exist
-                #     extractor = _rates[res.t[idx]]
-                # else: #In case it does not -> recompute
-                #     _ = model.rhs(res.t[idx], res.y[:, idx], extractor)
+
                 _ = rhs(res.t[idx], res.y[:, idx], extractor)
                 for key, val in extractor.items():
                     if len(val.shape) == 1:
-                        rates[key][:, idx] = val
+                        ratebuffer[key][:, idx] = val
 
             if verbose:
                 print("\rRates finished:", nt, "rates")
 
+    # ----- Result assembly
     out = []
     for i, trgt in enumerate(model.targets):
         logger.debug(f"Assembling result of target #{i}.")
+        irates = {}
         if rates:
-            irates = {}
-            for key in rates.keys():
-                _ir = rates[key]
+            for key in ratebuffer.keys():
+                _ir = ratebuffer[key]
                 if _ir.shape[0] != 1:
                     irates[key] = _ir[model.lb[i]:model.ub[i]]  # Per CS
                 else:
                     irates[key] = _ir  # scalar
-        else:
-            irates = None
+
         out.append(
             Result(
                 t=res.t,
@@ -899,7 +910,7 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
                 res=res,
                 target=trgt,
                 device=device,
-                rates=irates,
+                rates=irates or None,
                 model=model,
                 id_=i
             )
