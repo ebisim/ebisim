@@ -11,7 +11,7 @@ from joblib import Parallel, delayed
 
 from .. import xs
 from .. import plasma
-from ..utils import patch_namedtuple_docstrings
+from ..utils import patch_namedtuple_docstrings, validate_namedtuple_field_types
 from ..elements import Element
 from ..physconst import Q_E, M_P, PI, EPS_0, K_B
 from ..physconst import MINIMAL_N_1D, MINIMAL_KBT
@@ -243,6 +243,9 @@ class Device(NamedTuple):
             rad_re_idx=rad_re_idx
         )
 
+    def __str__(self) -> str:
+        return f"Device: I = {self.current:.2e} A, E = {self.e_kin:.2e} eV"
+
 
 _DEVICE_DOC = dict(
     current="<A> Beam current.",
@@ -312,10 +315,6 @@ patch_namedtuple_docstrings(ModelOptions, _MODELOPTIONS_DOC)
 
 DEFAULT_MODEL_OPTIONS = ModelOptions()  #: Default simulation options
 
-# Types needed by numba
-_T_BG_GAS = numba.typeof(BackgroundGas.get("He", 1e-8))
-_T_F8_ARRAY = numba.float64[:]  # Cannot be called in jitted code so need to predefine
-
 
 class AdvancedModel(NamedTuple):
     """
@@ -356,8 +355,16 @@ class AdvancedModel(NamedTuple):
     def get(cls, device: Device, targets: List[Element],
             bg_gases: Optional[List[BackgroundGas]] = None,
             options: ModelOptions = DEFAULT_MODEL_OPTIONS) -> AdvancedModel:
-        # Bind parameters
-        bg_gases = bg_gases if bg_gases is not None else numba.typed.List.empty_list(_T_BG_GAS)
+
+        # Types needed by numba
+        _T_BG_GAS = numba.typeof(BackgroundGas.get("He", 1e-8))
+        _T_F8_ARRAY = numba.float64[:]
+
+        bg_gases = bg_gases or []
+        if not bg_gases:
+            bg_gases_nblist = numba.typed.List.empty_list(_T_BG_GAS)
+        else:
+            bg_gases_nblist = numba.typed.List(bg_gases)
 
         # Determine array bounds for different targets in state vector
         lb = np.zeros(len(targets), dtype=np.int32)
@@ -369,7 +376,7 @@ class AdvancedModel(NamedTuple):
             offset = ub[i]
 
         # Compute total number of charge states for all targets (len of "n" or "kT" state vector)
-        nq = ub[-1]
+        nq = int(ub[-1])
 
         # Define vectors listing the charge state and mass for each state
         q = np.zeros(nq, dtype=np.int32)
@@ -396,8 +403,8 @@ class AdvancedModel(NamedTuple):
             _cxxs_trgts.append(xs.cxxs(q, trgt.ip))
         return cls(
             device=device,
-            targets=targets,
-            bg_gases=bg_gases,
+            targets=numba.typed.List(targets),
+            bg_gases=bg_gases_nblist,
             options=options,
             lb=lb,
             ub=ub,
@@ -410,6 +417,10 @@ class AdvancedModel(NamedTuple):
             cxxs_bggas=_cxxs_bggas,
             cxxs_trgts=_cxxs_trgts
         )
+
+    def __str__(self) -> str:
+        return (f"AdvancedModel: {self.device!s}, {self.targets!s}, "
+                + f"{self.bg_gases!s}, Options: [...]")
 
 
 @numba.njit(cache=True)
@@ -762,43 +773,31 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
     logger.info(f"rates = {rates}.")
     logger.info(f"solver_kwargs = {solver_kwargs}.")
     logger.info(f"verbose = {verbose}.")
-    if options is None:
-        options = DEFAULT_MODEL_OPTIONS
-    if not isinstance(targets, list):
-        targets = [targets]
-    targets = numba.typed.List(targets)
 
-    if bg_gases is None:
-        bg_gases = numba.typed.List.empty_list(_T_BG_GAS)
-    else:
-        if isinstance(bg_gases, BackgroundGas):
-            bg_gases = [bg_gases]
-        bg_gases = numba.typed.List(bg_gases)
+    # ----- Pretreat arguments
+    targets = [targets] if not isinstance(targets, list) else targets
 
+    bg_gases = bg_gases or []
+    bg_gases = [bg_gases] if not isinstance(bg_gases, list) else bg_gases
+
+    options = options or DEFAULT_MODEL_OPTIONS
+
+    solver_kwargs = solver_kwargs or {}
+    solver_kwargs.setdefault("method", "Radau")
+
+    # ----- Generate AdvancedModel
     logger.debug("Initialising AdvancedModel object.")
     model = AdvancedModel.get(device, targets, bg_gases, options)
 
-    _n0 = np.concatenate([t.n for t in targets])
-    _kT0 = []
-    for t in targets:  # Make sure that initial temperature is not unreasonably small
-        kT = t.kT.copy()
-        minkT = np.maximum(device.fwhm * np.arange(t.z+1), MINIMAL_KBT)
-        kT[t.n < 1.00001 * MINIMAL_N_1D] = \
-            np.maximum(kT[t.n < 1.00001 * MINIMAL_N_1D], minkT[t.n < 1.00001 * MINIMAL_N_1D])
-        if np.logical_and(np.not_equal(kT, t.kT), t.n > 1.00001 * MINIMAL_N_1D).any():
-            logger.warning(f"Initial temperature vector adjusted for {t}, new: {kT}")
-        _kT0.append(kT)
-    _kT0 = np.concatenate(_kT0)
-    n_kT_initial = np.concatenate([_n0, _kT0])
+    # ----- Validate types
+    for nt in targets + bg_gases + [device, options, model]:
+        if not validate_namedtuple_field_types(nt):
+            logger.warning(f"Unable to verify the types of {nt!s}.")
 
-    # prepare solver options
-    if not solver_kwargs:
-        solver_kwargs = {}
-    solver_kwargs.setdefault("method", "Radau")
+    # ----- Generate Initial conditions
+    n_kT_initial = _assemble_initial_conditions(targets, device)
 
-    # save adjusted call parameters for passing on to Result
-    param = locals().copy()
-
+    # ----- Generate Callable
     with Parallel(n_jobs=n_threads, prefer="threads") as parallel:
         def mt(model, t, y, rates):
             if rates is not None:
@@ -894,7 +893,6 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
             irates = None
         out.append(
             Result(
-                param=param,
                 t=res.t,
                 N=res.y[model.lb[i]:model.ub[i]],
                 kbT=res.y[model.nq + model.lb[i]:model.nq + model.ub[i]],
@@ -909,3 +907,23 @@ def advanced_simulation(device, targets, t_max, bg_gases=None, options=None, rat
     if len(out) == 1:
         return out[0]
     return tuple(out)
+
+
+def _assemble_initial_conditions(targets: List[Element], device: Device) -> np.ndarray:
+    _kT0 = []
+    for t in targets:  # Make sure that initial temperature is not unreasonably small
+        if t.kT is None or t.n is None:
+            raise ValueError(f"{t!s} does not provide initial conditions (n, kT).")
+        kT = t.kT.copy()
+        minkT = np.maximum(device.fwhm/10 * np.arange(t.z+1), MINIMAL_KBT)
+        filter_ = t.n < 1.00001 * MINIMAL_N_1D
+        kT[filter_] = np.maximum(kT[filter_], minkT[filter_])
+        if np.not_equal(kT, t.kT).any():
+            logger.warning(
+                f"Initial temperature vector adjusted for {t!s}. "
+                + "This only affects charge states with densities at the minimum limit."
+                )
+        _kT0.append(kT)
+    _n0 = np.concatenate([t.n for t in targets])
+    _kT0 = np.concatenate(_kT0)
+    return np.concatenate([_n0, _kT0])
