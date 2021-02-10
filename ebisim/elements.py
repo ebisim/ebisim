@@ -11,7 +11,7 @@ import logging
 from typing import NamedTuple, Tuple, Union, Optional
 import numpy as np
 
-from .utils import load_dr_data
+from .utils import load_dr_data, patch_namedtuple_docstrings
 from .xs import precompute_rr_quantities, lookup_lotz_factors
 from .physconst import MINIMAL_KBT, MINIMAL_N_1D, Q_E, K_B, PI
 
@@ -452,30 +452,35 @@ class Element(NamedTuple):
         return f"Element: {self.name} ({self.symbol}, Z = {self.z}, A = {self.a})"
 
 
-# Monkeypatching docstrings for all the fields of Element
-Element.z.__doc__ = "Atomic number"
-Element.symbol.__doc__ = "Element symbol e.g. H, He, Li"
-Element.name.__doc__ = "Element name"
-Element.a.__doc__ = "Mass number / approx. mass in proton masses"
-Element.ip.__doc__ = "Ionisation potential"
-Element.e_cfg.__doc__ = f"""Numpy array of electron configuration in different charge states.
+_ELEMENT_DOC = dict(
+    z="Atomic number",
+    symbol="Element symbol e.g. H, He, Li",
+    name="Element name",
+    a="Mass number / approx. mass in proton masses",
+    ip="Ionisation potential",
+    e_cfg=f"""\
+Numpy array of electron configuration in different charge states.
 The index of each row corresponds to the charge state.
-The columns are the subshells sorted as in {_SHELLORDER}."""
-Element.e_bind.__doc__ = f"""Numpy array of binding energies associated with electron subshells.
+The columns are the subshells sorted as in {_SHELLORDER}.""",
+    e_bind=f"""\
+Numpy array of binding energies associated with electron subshells.
 The index of each row corresponds to the charge state.
-The columns are the subshells sorted as in {_SHELLORDER}."""
-Element.rr_z_eff.__doc__ = "Numpy array of effective nuclear charges for RR cross sections."
-Element.rr_n_0_eff.__doc__ = "Numpy array of effective valence shell numbers for RR cross sections."
-Element.dr_cs.__doc__ = "Numpy array of charge states for DR cross sections."
-Element.dr_e_res.__doc__ = "Numpy array of resonance energies for DR cross sections."
-Element.dr_strength.__doc__ = "Numpy array of transition strengths for DR cross sections."
-Element.ei_lotz_a.__doc__ = "Numpy array of precomputed Lotz factor 'a' for each entry of 'e_cfg'."
-Element.ei_lotz_b.__doc__ = "Numpy array of precomputed Lotz factor 'b' for each entry of 'e_cfg'."
-Element.ei_lotz_c.__doc__ = "Numpy array of precomputed Lotz factor 'c' for each entry of 'e_cfg'."
-Element.n.__doc__ = """<1/m> Array holding the initial linear density of each charge state."""
-Element.kT.__doc__ = """<eV> Array holding the initial temperature of each charge state."""
-Element.cx.__doc__ = """Boolean flag determining whether neutral particles of this target are
-considered as charge exchange partners."""
+The columns are the subshells sorted as in {_SHELLORDER}.""",
+    rr_z_eff="Numpy array of effective nuclear charges for RR cross sections.",
+    rr_n_0_eff="Numpy array of effective valence shell numbers for RR cross sections.",
+    dr_cs="Numpy array of charge states for DR cross sections.",
+    dr_e_res="Numpy array of resonance energies for DR cross sections.",
+    dr_strength="Numpy array of transition strengths for DR cross sections.",
+    ei_lotz_a="Numpy array of precomputed Lotz factor 'a' for each entry of 'e_cfg'.",
+    ei_lotz_b="Numpy array of precomputed Lotz factor 'b' for each entry of 'e_cfg'.",
+    ei_lotz_c="Numpy array of precomputed Lotz factor 'c' for each entry of 'e_cfg'.",
+    n="<1/m> Array holding the initial linear density of each charge state.",
+    kT="<eV> Array holding the initial temperature of each charge state.",
+    cx="""\
+Boolean flag determining whether neutral particles of this target are
+considered as charge exchange partners.""",
+)
+patch_namedtuple_docstrings(Element, _ELEMENT_DOC)
 
 
 def get_element(element_id: Union[str, int], a: Optional[float] = None) -> Element:

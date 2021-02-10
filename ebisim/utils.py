@@ -5,7 +5,7 @@ have no real use outside this scope.
 """
 import logging
 from importlib.resources import open_text
-from typing import Dict, List, TextIO
+from typing import Dict, List, TextIO, Any
 import numpy as np
 
 from .resources import drdata as _drdata
@@ -110,3 +110,18 @@ def _nparray_from_jagged_list(list_of_lists: List[List]) -> np.ndarray:
     for irow, data in enumerate(list_of_lists):
         out[irow, :len(data)] = np.array(data)
     return out
+
+
+def patch_namedtuple_docstrings(named_tuple: Any, docstrings: Dict[str, str]) -> None:
+    """
+    Add docstrings to the fields of a namedtuple/NamedTuple
+
+    Parameters
+    ----------
+    named_tuple :
+        The class definition inheriting from namedtupe or NamedTuple
+    docstrings :
+        Dictionary with field names as keys and docstrings as values
+    """
+    for _k, _v in docstrings.items():
+        setattr(getattr(named_tuple, _k), "__doc__", _v)
