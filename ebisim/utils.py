@@ -129,6 +129,8 @@ def validate_namedtuple_field_types(instance: NamedTuple) -> bool:
         if isinstance(tp, ForwardRef):
             m = import_module(instance.__module__)
             tp = tp._evaluate(vars(m), {})
+        if tp == Any:
+            continue
         if "typing.Union" in str(getattr(tp, "__origin__", None)):
             tp = tp.__args__
         if tp == float:
