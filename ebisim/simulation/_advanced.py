@@ -1,8 +1,9 @@
 """
 This module contains the advanced simulation method and related resources.
 """
+from __future__ import annotations
 import logging
-from typing import NamedTuple, Any
+from typing import NamedTuple, Any, Union, Optional, List
 import numpy as np
 from scipy.integrate import solve_ivp
 import numba
@@ -54,19 +55,19 @@ class BackgroundGas(NamedTuple):
     n0: float
 
     @classmethod
-    def get(cls, element, p, T=300.0):
+    def get(cls, element: Union[Element, str, int], p: float, T: float = 300.0) -> BackgroundGas:
         """
         Factory method for defining a background gas.
 
         Parameters
         ----------
-        element : ebisim.elements.Element or str or int
+        element :
             An instance of the Element class, or an identifier for the element, i.e. either its
             name, symbol or proton number.
-        p : float
+        p :
             <mbar>
             Gas pressure.
-        T : float, optional
+        T :
             <K>
             Gas temperature, by default 300 K (Room temperature)
 
@@ -101,7 +102,7 @@ class Device(NamedTuple):
     current: float
     e_kin: float
     r_e: float
-    length: float
+    length: Optional[float]
     j: float
     v_ax: float
     v_ax_sc: float
@@ -119,50 +120,52 @@ class Device(NamedTuple):
     rad_re_idx: int
 
     @classmethod
-    def get(
-            cls, *, current, e_kin, r_e, length, v_ax, b_ax, r_dt,
-            v_ra=None, j=None, fwhm=None, n_grid=200, r_dt_bar=None
-            ):
+    def get(cls, *,
+            current: float, e_kin: float, r_e: float, v_ax: float, b_ax: float, r_dt: float,
+            length: Optional[float] = None, v_ra: Optional[float] = None,
+            j: Optional[float] = None, fwhm: Optional[float] = None,
+            n_grid: int = 400, r_dt_bar: Optional[float] = None) -> Device:
         """
         Factory method for defining a device.
+        All arguments are keyword only to reduce the chance of mixing them up.
 
         Parameters
         ----------
-        current : float
+        current :
             <A>
             Electron beam current.
-        e_kin : float
+        e_kin :
             <eV>
             Uncorrected electron beam energy.
-        r_e : float
+        r_e :
             <m>
             Electron beam radius.
-        length : float
-            <m>
-            Trap length.
-        v_ax : float
+        v_ax :
             <V>
             Axial barrier bias.
-        b_ax : float
+        b_ax :
             <T>
             Axial magnetic flux density in the trap.
-        r_dt : float
+        r_dt :
             <m>
             Drift tube radius.
-        v_ra : float, optional
+        length :
+            <m>
+            Trap length -> Currently not used in simulations.
+        v_ra :
             <V>
-            Override for radial trap depth, by default None.
+            Override for radial trap depth.
             Only effective if ModelOptions.RADIAL_DYNAMICS=False.
-        j : float, optional
+        j :
             <A/cm^2>
-            Override for current density, by default None.
-        fwhm : float, optional
+            Override for current density.
+        fwhm :
             <eV>
-            Override for the electron beam energy spread, by default None.
+            Override for the electron beam energy spread.
             Only effective if ModelOptions.RADIAL_DYNAMICS=False.
-        n_grid : int, optional
-            Approximate number of nodes for the radial mesh, by default 200.
-        r_dt_bar : float, optional
+        n_grid :
+            Approximate number of nodes for the radial mesh.
+        r_dt_bar :
             Radius of the barrier drift tubes.
             If not passed, assuming equal radius as trap drift tube.
 
@@ -180,7 +183,7 @@ class Device(NamedTuple):
         ))
         logger.debug("Device.get: Call fd_system_nonuniform_grid.")
         rad_ldu = fd_system_nonuniform_grid(rad_grid)
-        rad_re_idx = np.argmin((rad_grid-r_e)**2)
+        rad_re_idx = int(np.argmin((rad_grid-r_e)**2))
 
         logger.debug("Device.get: Trap - Call boltzmann_radial_potential_linear_density_ebeam.")
         phi, _, __ = boltzmann_radial_potential_linear_density_ebeam(
@@ -222,7 +225,7 @@ class Device(NamedTuple):
             current=float(current),
             e_kin=float(e_kin),
             r_e=float(r_e),
-            length=float(length),
+            length=float(length) if length is not None else None,
             j=float(j),
             v_ax=float(v_ax),
             v_ax_sc=float(v_ax_sc),
@@ -309,7 +312,7 @@ patch_namedtuple_docstrings(ModelOptions, _MODELOPTIONS_DOC)
 
 DEFAULT_MODEL_OPTIONS = ModelOptions()  #: Default simulation options
 
-
+# Types needed by numba
 _T_BG_GAS = numba.typeof(BackgroundGas.get("He", 1e-8))
 _T_F8_ARRAY = numba.float64[:]  # Cannot be called in jitted code so need to predefine
 
@@ -350,7 +353,9 @@ class AdvancedModel(NamedTuple):
     cxxs_trgts: Any  # numba.types.ListType(_T_F8_ARRAY)
 
     @classmethod
-    def get(cls, device, targets, bg_gases=None, options=DEFAULT_MODEL_OPTIONS):
+    def get(cls, device: Device, targets: List[Element],
+            bg_gases: Optional[List[BackgroundGas]] = None,
+            options: ModelOptions = DEFAULT_MODEL_OPTIONS) -> AdvancedModel:
         # Bind parameters
         bg_gases = bg_gases if bg_gases is not None else numba.typed.List.empty_list(_T_BG_GAS)
 
