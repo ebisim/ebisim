@@ -4,7 +4,7 @@ simulation code, e.g. loading resources. These functions are meant for internal 
 have no real use outside this scope.
 """
 from importlib.resources import open_text
-from typing import Dict, ForwardRef, List, NamedTuple, TextIO, Any
+from typing import Dict, ForwardRef, List, TextIO, Any
 from importlib import import_module
 import numpy as np
 
@@ -117,7 +117,7 @@ def patch_namedtuple_docstrings(named_tuple: Any, docstrings: Dict[str, str]) ->
         setattr(getattr(named_tuple, _k), "__doc__", _v)
 
 
-def validate_namedtuple_field_types(instance: NamedTuple) -> bool:
+def validate_namedtuple_field_types(instance: Any) -> bool:
     """
     Checks if the values of a typing.NamedTuple instance agree with the
     types that were annotated in the class definition.
