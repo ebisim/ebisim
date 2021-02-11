@@ -1,7 +1,8 @@
 """
 This module contains the basic simulation method.
 """
-
+from __future__ import annotations
+from typing import Optional, Dict, Any, Union
 import numpy as np
 import scipy.integrate
 import scipy.interpolate
@@ -12,9 +13,9 @@ from ..physconst import Q_E
 from ._result import Result
 
 
-def basic_simulation(element, j, e_kin, t_max,
-                     dr_fwhm=None, N_initial=None, CNI=False,
-                     solver_kwargs=None):
+def basic_simulation(element: Union[Element, str, int], j: float, e_kin: float, t_max: float,
+                     dr_fwhm: Optional[float] = None, N_initial: Optional[np.ndarray] = None,
+                     CNI: bool = False, solver_kwargs: Optional[Dict[str, Any]] = None) -> Result:
     """
     Interface for performing basic charge breeding simulations.
 
@@ -28,43 +29,39 @@ def basic_simulation(element, j, e_kin, t_max,
 
     Parameters
     ----------
-    element : ebisim.elements.Element or str or int
+    element :
         An instance of the Element class, or an identifier for the element, i.e. either its
         name, symbol or proton number.
-    j : float
+    j :
         <A/cm^2>
         Current density
-    e_kin : float
+    e_kin :
         <eV>
         Electron beam energy
-    t_max : float
+    t_max :
         <s>
         Simulated breeding time
-    dr_fwhm : None or float, optional
+    dr_fwhm :
         <eV>
         If a value is given, determines the energy spread of the electron beam
         (in terms of Full Width Half Max) and hence the effective width of DR resonances.
-        Otherwise DR is excluded from the simulation. By default None.
-    N_initial : None or numpy.array, optional
+        Otherwise DR is excluded from the simulation.
+    N_initial :
         Determines the initial charge state distribution if given, must have Z + 1 entries, where
         the array index corresponds to the charge state.
         If no value is given the distribution defaults to 100% of 1+ ions at t = 0 s, or a small
         amount of neutral atoms in the case of CNI.
-        By default None.
-    CNI : bool, optional
+    CNI :
         If Continuous Neutral Injection is activated, the neutrals are assumed to form an
         infinite reservoir. Their absolute number will not change over time and hence they act as a
         constant source of new singly charged ions. Therefore the absolute amount of ions increases
         over time.
-        By default False.
-    solver_kwargs : None or dict, optional
+    solver_kwargs :
         If supplied these keyword arguments are unpacked in the solver call.
         Refer to the documentation of scipy.integrate.solve_ivp for more information.
-        By default None.
 
     Returns
     -------
-    ebisim.simulation.Result
         An instance of the Result class, holding the simulation parameters, timesteps and
         charge state distribution.
     """
