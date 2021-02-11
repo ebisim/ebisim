@@ -1,20 +1,14 @@
 """
 This module contains the simulation result class.
 """
-import logging
 from enum import IntEnum
 import numpy as np
 import scipy.integrate
 import scipy.interpolate
 
 from .. import plotting
-from ..elements import Element
 from ._radial_dist import boltzmann_radial_potential_linear_density_ebeam
 from ..physconst import MINIMAL_N_1D, MINIMAL_KBT
-
-logger = logging.getLogger(__name__)
-
-logger.debug("Defining Rate(IntEnum).")
 
 
 class Rate(IntEnum):
@@ -235,9 +229,6 @@ _RATE_LABELS = {
 }
 
 
-logger.debug("Defining Result.")
-
-
 class Result:
     """
     Instances of this class are containers for the results of ebisim simulations and contain a
@@ -247,8 +238,6 @@ class Result:
 
     Parameters
     ----------
-    param : dict, optional
-        A dictionary containing general simulation parameters, by default None.
     t : numpy.ndarray, optional
         An array holding the time step coordinates, by default None.
     N : numpy.ndarray, optional
@@ -269,11 +258,8 @@ class Result:
 
     """
 
-    def __init__(self, param=None, t=None, N=None, kbT=None, res=None, rates=None,
+    def __init__(self, t=None, N=None, kbT=None, res=None, rates=None,
                  target=None, device=None, model=None, id_=None):
-        self.param = param if param is not None else {}
-        self.param.pop("targets", None)  # Not needed, prevents pickling
-        self.param.pop("bg_gases", None)  # Not needed, prevents pickling
         self.t = t
         self.N = N
         self.kbT = kbT
@@ -421,24 +407,20 @@ class Result:
 
         """
         if self.target:
-            element = Element.as_element(self.target)
-        elif "element" in self.param:
-            element = self.param["element"]
-        if element is not None:
-            title = f"{element.latex_isotope()} {stub.lower()}"
+            title = f"{self.target.latex_isotope()} {stub.lower()}"
         else:
             title = stub
 
         if self.device:
             e_kin = self.device.e_kin
             j = self.device.j
-        elif "e_kin" in self.param and "j" in self.param:
-            e_kin = self.param["e_kin"]
-            j = self.param["j"]
+            fwhm = self.device.fwhm
+        else:
+            e_kin = j = fwhm = None
         if e_kin is not None and j is not None:
             title = title + f" ($j = {j:0.1f}$ A/cm$^2$, $E_{{e}} = {e_kin:0.1f}$ eV)"
-        if self.param.get("dr_fwhm", None) is not None:
-            title = title[:-1] + f", FWHM = {self.param['dr_fwhm']:0.1f} eV)"
+        if fwhm is not None:
+            title = title[:-1] + f", FWHM = {fwhm:0.1f} eV)"
         return title
 
     def plot_charge_states(self, relative=False, **kwargs):

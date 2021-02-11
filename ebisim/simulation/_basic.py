@@ -2,7 +2,7 @@
 This module contains the basic simulation method.
 """
 from __future__ import annotations
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any, Union, NamedTuple
 import numpy as np
 import scipy.integrate
 import scipy.interpolate
@@ -11,6 +11,16 @@ from .. import xs
 from ..elements import Element
 from ..physconst import Q_E
 from ._result import Result
+
+
+class BasicDevice(NamedTuple):
+    """
+    A mock device class for holding simulations parameters for basic_simulations.
+    """
+
+    e_kin: float
+    j: float
+    fwhm: Optional[float]
 
 
 def basic_simulation(element: Union[Element, str, int], j: float, e_kin: float, t_max: float,
@@ -81,10 +91,8 @@ def basic_simulation(element: Union[Element, str, int], j: float, e_kin: float, 
         solver_kwargs = {}
     solver_kwargs.setdefault("method", "LSODA")
 
-    # save adjusted call parameters for passing on to Result
-    param = locals().copy()
-
     # convert current density A/cm**2 to particle flux density electrons/s/m**2
+    j_human = j
     j = j * 1.e4 / Q_E
 
     # compute cross section
@@ -104,4 +112,5 @@ def basic_simulation(element: Union[Element, str, int], j: float, e_kin: float, 
     dNdt = lambda _, N: _jac.dot(N)  # noqa:E731
 
     res = scipy.integrate.solve_ivp(dNdt, (0, t_max), N_initial, jac=jac, **solver_kwargs)
-    return Result(param=param, t=res.t, N=res.y, res=res)
+    return Result(t=res.t, N=res.y, res=res,
+                  device=BasicDevice(e_kin=e_kin, j=j_human, fwhm=dr_fwhm), target=element)
