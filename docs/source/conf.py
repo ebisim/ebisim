@@ -192,6 +192,9 @@ apidoc_module_first = True
 os.environ["SPHINX_APIDOC_OPTIONS"] = "members,undoc-members,inherited-members,show-inheritance"
 
 autodoc_member_order = "groupwise"
+autodoc_typehints = "description"
+
+napoleon_use_rtype = False
 
 
 def setup(app):

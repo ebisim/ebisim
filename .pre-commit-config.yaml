@@ -16,3 +16,4 @@ repos:
     hooks:
     -   id: mypy
         additional_dependencies: [numpy>=1.20]
+        exclude: ^(ebisim.egg_info|docs|temp|test)/
