@@ -10,13 +10,14 @@ import scipy.interpolate
 from .. import xs
 from ..elements import Element
 from ..physconst import Q_E
-from ._result import Result
+from ._result import BasicResult
 from._basic_helpers import BasicDevice
 
 
 def basic_simulation(element: Union[Element, str, int], j: float, e_kin: float, t_max: float,
                      dr_fwhm: Optional[float] = None, N_initial: Optional[np.ndarray] = None,
-                     CNI: bool = False, solver_kwargs: Optional[Dict[str, Any]] = None) -> Result:
+                     CNI: bool = False,
+                     solver_kwargs: Optional[Dict[str, Any]] = None) -> BasicResult:
     """
     Interface for performing basic charge breeding simulations.
 
@@ -63,7 +64,7 @@ def basic_simulation(element: Union[Element, str, int], j: float, e_kin: float, 
 
     Returns
     -------
-        An instance of the Result class, holding the simulation parameters, timesteps and
+        An instance of the BasicResult class, holding the simulation parameters, timesteps and
         charge state distribution.
     """
     # cast element to Element if necessary
@@ -103,5 +104,5 @@ def basic_simulation(element: Union[Element, str, int], j: float, e_kin: float, 
     dNdt = lambda _, N: _jac.dot(N)  # noqa:E731
 
     res = scipy.integrate.solve_ivp(dNdt, (0, t_max), N_initial, jac=jac, **solver_kwargs)
-    return Result(t=res.t, N=res.y, res=res,
-                  device=BasicDevice(e_kin=e_kin, j=j_human, fwhm=dr_fwhm), target=element)
+    return BasicResult(t=res.t, N=res.y, res=res,
+                       device=BasicDevice(e_kin=e_kin, j=j_human, fwhm=dr_fwhm), target=element)

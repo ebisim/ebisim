@@ -22,7 +22,7 @@ from ..utils import validate_namedtuple_field_types
 from ..elements import Element
 from ..physconst import Q_E, M_P, PI
 from ..physconst import MINIMAL_N_1D, MINIMAL_KBT
-from ._result import Result, Rate
+from ._result import AdvancedResult, Rate
 from ._radial_dist import (
     boltzmann_radial_potential_linear_density_ebeam,
     # heat_capacity
@@ -346,7 +346,8 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
                         bg_gases: Union[BackgroundGas, List[BackgroundGas], None] = None,
                         options: ModelOptions = None, rates: bool = False,
                         solver_kwargs: Optional[Dict[str, Any]] = None,
-                        verbose: bool = True, n_threads: int = 1) -> Union[Result, Tuple[Result, ...]]:
+                        verbose: bool = True, n_threads: int = 1
+                        ) -> Union[AdvancedResult, Tuple[AdvancedResult, ...]]:
     """
     Interface for performing advanced charge breeding simulations.
 
@@ -381,7 +382,7 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
 
     Returns
     -------
-        An instance of the Result class, holding the simulation parameters, timesteps and
+        An instance of the AdvancedResult class, holding the simulation parameters, timesteps and
         charge state distribution including the species temperature.
     """
     logger.info("Preparing advanced simulation.")
@@ -520,7 +521,7 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
                     irates[key] = _ir  # scalar
 
         out.append(
-            Result(
+            AdvancedResult(
                 t=res.t,
                 N=res.y[model.lb[i]:model.ub[i]],
                 kbT=res.y[model.nq + model.lb[i]:model.nq + model.ub[i]],

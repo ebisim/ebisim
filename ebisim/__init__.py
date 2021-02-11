@@ -20,7 +20,8 @@ from .xs import (
     )
 
 from .simulation import (
-    Result,
+    BasicResult,
+    AdvancedResult,
     basic_simulation,
     advanced_simulation,
     Device,
@@ -61,7 +62,7 @@ __all__ = [
     "rrxs_vec", "rrxs_mat", "rrxs_energyscan",
     "drxs_vec", "drxs_mat", "drxs_energyscan",
     # simulation
-    "Result", "basic_simulation", "advanced_simulation", "Target", "Device",
+    "BasicResult", "AdvancedResult", "basic_simulation", "advanced_simulation", "Target", "Device",
     "ModelOptions", "BackgroundGas", "AdvancedModel", "energy_scan", "EnergyScanResult", "Rate",
     # physconst
     "Q_E", "M_E", "PI", "EPS_0", "K_B", "C_L", "ALPHA",
