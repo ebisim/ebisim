@@ -3,13 +3,12 @@ This subpackage contains functions and classes provide an interface to run simul
 their results.
 """
 
-from ._result import Result, Rate
+from ._result import BasicResult, AdvancedResult, Rate
 
 from ._basic import basic_simulation
 
 from ._advanced import (
     advanced_simulation,
-    Target,
     Device,
     ModelOptions,
     BackgroundGas,
@@ -34,11 +33,11 @@ from ._radial_dist import (
 )
 
 __all__ = [
-    "Result",
+    "BasicResult",
+    "AdvancedResult",
     "Rate",
     "basic_simulation",
     "advanced_simulation",
-    "Target",
     "Device",
     "ModelOptions",
     "BackgroundGas",

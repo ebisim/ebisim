@@ -1,20 +1,20 @@
 """
 This module contains the simulation result class.
 """
-import logging
+from __future__ import annotations
 from enum import IntEnum
+from typing import Generic, Optional, Dict, Any, Tuple, TypeVar, Callable
 import numpy as np
 import scipy.integrate
 import scipy.interpolate
+from matplotlib.pyplot import Figure
 
 from .. import plotting
-from ..elements import Element
+from .. elements import Element
+from ._advanced_helpers import Device, AdvancedModel
+from ._basic_helpers import BasicDevice
 from ._radial_dist import boltzmann_radial_potential_linear_density_ebeam
 from ..physconst import MINIMAL_N_1D, MINIMAL_KBT
-
-logger = logging.getLogger(__name__)
-
-logger.debug("Defining Rate(IntEnum).")
 
 
 class Rate(IntEnum):
@@ -110,7 +110,7 @@ class Rate(IntEnum):
 _PER_M_PER_S = r"(m$^{-1}$ s$^{-1}$)"
 _EV_PER_S = r"(eV s$^{-1}$)"
 _PER_S = r"(s$^{-1}$)"
-_RATE_LABELS = {
+_RATE_LABELS: Dict[Rate, Dict[str, Any]] = {
     Rate.EI: dict(
         title="EI",
         ylabel="Ionisation rate " + _PER_M_PER_S,
@@ -235,69 +235,87 @@ _RATE_LABELS = {
 }
 
 
-logger.debug("Defining Result.")
+GenericDevice = TypeVar("GenericDevice", Device, BasicDevice)  # Needed for parametric polymorphism of Result classes
 
 
-class Result:
+class BasicResult(Generic[GenericDevice]):
     """
-    Instances of this class are containers for the results of ebisim simulations and contain a
+    Instances of this class are containers for the results of ebisim basic_simulations and contain a
     variety of convenience methods for simple plot generation etc.
-
-    The required attributes can either be set during instantiation or manually added afterwards.
-
-    Parameters
-    ----------
-    param : dict, optional
-        A dictionary containing general simulation parameters, by default None.
-    t : numpy.ndarray, optional
-        An array holding the time step coordinates, by default None.
-    N : numpy.ndarray, optional
-        An array holding the occupancy of each charge state at a given time, by default None.
-    kbT : numpy.ndarray, optional
-        An array holding the temperature of each charge state at a given time, by default None.
-    res : optional
-        The result object returned by scipy.integrate.solve_ivp. This can contain useful
-        information about the solver performance etc. Refer to scipy documentation for details,
-        by default None.
-    rates : dict, optional
-        A dictionary containing the different breeding rates in arrays shaped like N,
-        by default None.
-    target : ebisim.simulation.Target, optional
-        If coming from advanced_simulation, this is the target represented by this Result.
-    device : ebisim.simulation.Device, optional
-        If coming from advanced_simulation, this is the machine / electron beam description.
-
     """
+    _abundance_label = "Abundance"
 
-    def __init__(self, param=None, t=None, N=None, kbT=None, res=None, rates=None,
-                 target=None, device=None, model=None, id_=None):
-        self.param = param if param is not None else {}
-        self.param.pop("targets", None)  # Not needed, prevents pickling
-        self.param.pop("bg_gases", None)  # Not needed, prevents pickling
+    def __init__(self, *, t: np.ndarray, N: np.ndarray, device: GenericDevice,
+                 target: Element, res: Optional[Any] = None):
+        """
+        Parameters
+        ----------
+        t :
+            An array holding the time step coordinates.
+        N :
+            An array holding the occupancy of each charge state at a given time.
+        device :
+            If coming from advanced_simulation, this is the machine / electron beam description.
+        target :
+            If coming from advanced_simulation, this is the target represented by this Result.
+        res :
+            The result object returned by scipy.integrate.solve_ivp. This can contain useful
+            information about the solver performance etc. Refer to scipy documentation for details.
+        """
         self.t = t
         self.N = N
-        self.kbT = kbT
-        self.res = res
-        self.rates = rates
+        self.device: GenericDevice = device
         self.target = target
-        self.device = device
-        if model is not None:
-            model = model._replace(
-                targets=list(model.targets),
-                bg_gases=list(model.bg_gases),
-                cxxs_bggas=list(model.cxxs_bggas),
-                cxxs_trgts=list(model.cxxs_trgts)
-            )
-        self.model = model
-        self.id = id_
+        self.res = res
 
-    def times_of_highest_abundance(self):
+    @property
+    def _dense_interpolator(self) -> Optional[Callable[[float], np.ndarray]]:
+        if self.res and self.res.sol:
+            return self.res.sol
+        else:
+            return None
+
+    @property
+    def _abundance_interpolator(self) -> Callable[[float], np.ndarray]:
+        return self._dense_interpolator or scipy.interpolate.interp1d(self.t, self.N)
+
+    def _check_time_in_domain(self, t: float) -> None:
+        if t < self.t.min() or t > self.t.max():
+            raise ValueError("Value for t lies outside the simulated domain.")
+
+    def _param_title(self, stub):
+        """
+        Generates a plot title by merging the stub with some general simulation parameters.
+        Defaults to the stub if no parameters are available
+
+        Parameters
+        ----------
+        stub :
+            Title stub for the plot
+
+        Returns
+        -------
+            A LaTeX formatted title string compiled from the stub, current density and fwhm.
+
+        """
+        title = f"{self.target.latex_isotope()} {stub.lower()}"  #: TODO: Fix case
+
+        e_kin = self.device.e_kin
+        j = self.device.j
+
+        title = title + f" ($j = {j:0.1f}$ A/cm$^2$, $E_{{e}} = {e_kin:0.1f}$ eV)"
+
+        fwhm = self.device.fwhm
+        if fwhm is not None:
+            title = title[:-1] + f", FWHM = {fwhm:0.1f} eV)"
+        return title
+
+    def times_of_highest_abundance(self) -> np.ndarray:
         """
         Yields the point of time with the highest abundance for each charge state
 
         Returns
         -------
-        numpy.ndarray
             <s>
             Array of times.
 
@@ -305,88 +323,189 @@ class Result:
         args = np.argmax(self.N, axis=1)
         return self.t[args]
 
-    def abundance_at_time(self, t):
+    def abundance_at_time(self, t: float) -> np.ndarray:
         """
         Yields the abundance of each charge state at a given time
 
         Parameters
         ----------
-        t : float
+        t :
             <s>
             Point of time to evaluate.
 
         Returns
         -------
-        numpy.ndarray
             Abundance of each charge state, array index corresponds to charge state.
 
         """
-        if t < self.t.min() or t > self.t.max():
-            raise ValueError("Value for t lies outside the simulated domain.")
-        if self.res and self.res.sol:
-            if self.model is not None:
-                return self.res.sol(t)[self.model.lb[self.id]:self.model.ub[self.id]]
-            else:
-                return self.res.sol(t)
-        interp = scipy.interpolate.interp1d(self.t, self.N)
-        return interp(t)
+        self._check_time_in_domain(t)
+        return self._abundance_interpolator(t)
 
-    def temperature_at_time(self, t):
+    def plot_charge_states(self, relative: bool = False, **kwargs: Any) -> Figure:
+        """
+        Plot the charge state evolution of this result object.
+
+        Parameters
+        ----------
+        relative :
+            Flags whether the absolute numbers or a relative fraction should be plotted at each
+            timestep, by default False.
+        kwargs
+            Keyword arguments are handed down to ebisim.plotting.plot_generic_evolution,
+            cf. documentation thereof.
+            If no arguments are provided, reasonable default values are injected.
+
+        Returns
+        -------
+            Figure handle of the generated plot.
+
+        Raises
+        ------
+        ValueError
+            If the required data (self.t, self.N) is not available, i.e.
+            corresponding attributes of this Result instance have not been set correctly.
+
+        """
+        kwargs.setdefault("xlim", (1e-4, self.t.max()))
+        kwargs.setdefault("ylim", (0, self.N.sum(axis=0).max()*1.05))
+        kwargs.setdefault("title", self._param_title("Charge states"))
+        kwargs.setdefault("yscale", "linear")
+        kwargs.setdefault("plot_total", True)
+
+        if relative:
+            kwargs["ylim"] = (0, 1.1)
+            kwargs.setdefault("ylabel", "Relative abundance")
+            fig = plotting.plot_generic_evolution(self.t, self.N/np.sum(self.N, axis=0), **kwargs)
+        else:
+            kwargs.setdefault("ylabel", self._abundance_label)
+            fig = plotting.plot_generic_evolution(self.t, self.N, **kwargs)
+        return fig
+
+    plot = plot_charge_states  #: Alias for plot_charge_states
+
+
+class AdvancedResult(BasicResult[Device]):
+    """
+    Instances of this class are containers for the results of ebisim advanced_simulations and contain a
+    variety of convenience methods for simple plot generation etc.
+    """
+    _abundance_label = "Linear density (m$^{-1}$)"
+
+    def __init__(self, *, t: np.ndarray, N: np.ndarray, device: Device, target: Element,
+                 kbT: np.ndarray, model: AdvancedModel, id_: int,
+                 res: Optional[Any] = None, rates: Optional[Dict[Rate, np.ndarray]] = None):
+        """
+        Parameters
+        ----------
+        t :
+            An array holding the time step coordinates.
+        N :
+            An array holding the occupancy of each charge state at a given time.
+        device :
+            If coming from advanced_simulation, this is the machine / electron beam description.
+        target :
+            If coming from advanced_simulation, this is the target represented by this Result.
+        kbT :
+            An array holding the temperature of each charge state at a given time.
+        model :
+            The AdvancedModel instance that was underlying the advanced_simulation
+        id_ :
+            The position of this target in the list of all simulated targets.
+        res :
+            The result object returned by scipy.integrate.solve_ivp. This can contain useful
+            information about the solver performance etc. Refer to scipy documentation for details.
+        rates :
+            A dictionary containing the different breeding rates in arrays shaped like N.
+        """
+        super().__init__(t=t, N=N, device=device, target=target, res=res)
+        self.kbT = kbT
+        self.target = target
+        self.device = device
+        self.rates = rates
+        model = model._replace(
+            targets=list(model.targets),
+            bg_gases=list(model.bg_gases),
+            cxxs_bggas=list(model.cxxs_bggas),
+            cxxs_trgts=list(model.cxxs_trgts)
+        )
+        self.model = model
+        self.id = id_
+
+    @property
+    def _abundance_interpolator(self) -> Callable[[float], np.ndarray]:
+        dinterp = self._dense_interpolator
+        if dinterp is not None:
+            lower = self.model.lb[self.id]
+            upper = self.model.ub[self.id]
+            interp = lambda t: dinterp(t)[lower:upper]  # noqa:E731
+        else:
+            interp = scipy.interpolate.interp1d(self.t, self.N)
+        return interp
+
+    @property
+    def _temperature_interpolator(self) -> Callable[[float], np.ndarray]:
+        dinterp = self._dense_interpolator
+        if dinterp is not None and self.res is not None:
+            lower = self.res.y.shape[0]//2 + self.model.lb[self.id]
+            upper = self.res.y.shape[0]//2 + self.model.ub[self.id]
+            interp = lambda t: dinterp(t)[lower:upper]  # noqa:E731
+        else:
+            interp = scipy.interpolate.interp1d(self.t, self.kbT)
+        return interp
+
+    def _density_filter(self, data, threshold):
+        filtered = data.copy()
+        filtered[self.N < threshold] = np.nan
+        return filtered
+
+    def temperature_at_time(self, t: float) -> np.ndarray:
         """
         Yields the temperature of each charge state at a given time
 
         Parameters
         ----------
-        t : float
+        t :
             <s>
             Point of time to evaluate.
 
         Returns
         -------
-        numpy.ndarray
             <eV>
             Temperature of each charge state, array index corresponds to charge state.
 
         """
-        if t < self.t.min() or t > self.t.max():
-            raise ValueError("Value for t lies outside the simulated domain.")
-        if self.kbT is not None:
-            if self.res and self.res.sol:
-                return self.res.sol(t)[
-                    self.model.lb[self.id]+self.res.y.shape[0]//2:
-                    self.model.ub[self.id]+self.res.y.shape[0]//2]
-            interp = scipy.interpolate.interp1d(self.t, self.kbT)
-            return interp(t)
-        else:
-            raise LookupError("This result does not contain temperature information.")
+        self._check_time_in_domain(t)
+        return self._temperature_interpolator(t)
 
-    def radial_distribution_at_time(self, t):
+    def radial_distribution_at_time(self, t: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Yields the radial distribution information at time
 
         Parameters
         ----------
-        t : float
+        t :
             <s>
             Point of time to evaluate.
 
         Returns
         -------
-        phi : numpy.ndarray
+        phi :
             Radial potential
-        n3d : numpy.ndarray
+        n3d :
             On axis 3D density for each charge state.
-        shapes : numpy.ndarray
+        shapes :
             The Boltzmann shape factors for each charge state.
         """
-        if t < self.t.min() or t > self.t.max():
-            raise ValueError("Value for t lies outside the simulated domain.")
-        if self.res and self.res.sol:
-            y = self.res.sol(t)
-        else:
-            # interp = scipy.interpolate.interp1d(self.t, self.res.y)
-            # y = interp(t)
-            y = self.res.y[:, np.argmin((t-self.res.t)**2)]
+        self._check_time_in_domain(t)
+
+        interp = self._dense_interpolator
+        if interp is None:
+            if self.res is None:
+                raise ValueError("Required Data not available, "
+                                 + "something went wrong during the creation of this result.")
+            interp = scipy.interpolate.interp1d(self.t, self.res.y)
+        y = interp(t)
+
         n = y[:self.model.ub[-1]]
         n = np.maximum(n, MINIMAL_N_1D)
         kT = y[self.model.ub[-1]:]
@@ -399,153 +518,55 @@ class Result:
         )
         return phi, n3d, shapes
 
-    def _density_filter(self, data, threshold):
-        filtered = data.copy()
-        filtered[self.N < threshold] = np.nan
-        return filtered
-
-    def _param_title(self, stub):
-        """
-        Generates a plot title by merging the stub with some general simulation parameters.
-        Defaults to the stub if no parameters are available
-
-        Parameters
-        ----------
-        stub : str
-            Title stub for the plot
-
-        Returns
-        -------
-        str
-            A LaTeX formatted title string compiled from the stub, current density and fwhm.
-
-        """
-        if self.target:
-            element = Element.as_element(self.target)
-        elif "element" in self.param:
-            element = self.param["element"]
-        if element is not None:
-            title = f"{element.latex_isotope()} {stub.lower()}"
-        else:
-            title = stub
-
-        if self.device:
-            e_kin = self.device.e_kin
-            j = self.device.j
-        elif "e_kin" in self.param and "j" in self.param:
-            e_kin = self.param["e_kin"]
-            j = self.param["j"]
-        if e_kin is not None and j is not None:
-            title = title + f" ($j = {j:0.1f}$ A/cm$^2$, $E_{{e}} = {e_kin:0.1f}$ eV)"
-        if self.param.get("dr_fwhm", None) is not None:
-            title = title[:-1] + f", FWHM = {self.param['dr_fwhm']:0.1f} eV)"
-        return title
-
-    def plot_charge_states(self, relative=False, **kwargs):
-        """
-        Plot the charge state evolution of this result object.
-
-        Parameters
-        ----------
-        relative : bool, optional
-            Flags whether the absolute numbers or a relative fraction should be plotted at each
-            timestep, by default False.
-        **kwargs
-            Keyword arguments are handed down to ebisim.plotting.plot_generic_evolution,
-            cf. documentation thereof.
-            If no arguments are provided, reasonable default values are injected.
-
-        Returns
-        -------
-        matplotlib.Figure
-            Figure handle of the generated plot.
-
-        Raises
-        ------
-        ValueError
-            If the required data (self.t, self.N) is not available, i.e.
-            corresponding attributes of this Result instance have not been set correctly.
-
-        """
-        if self.t is None or self.N is None:
-            raise ValueError("The t or N field does not contain any plottable data.")
-
-        kwargs.setdefault("xlim", (1e-4, self.t.max()))
-        kwargs.setdefault("ylim", (0, self.N.sum(axis=0).max()*1.05))
-        kwargs.setdefault("title", self._param_title("Charge states"))
-        kwargs.setdefault("yscale", "linear")
-        kwargs.setdefault("plot_total", True)
-
-        if relative or self.kbT is None:  # Hack to determine whether basic or advanced sim
-            kwargs.setdefault("ylabel", "Relative abundance")
-        else:
-            kwargs.setdefault("ylabel", "Linear density (m$^{-1}$)")
-
-        if relative:
-            kwargs["ylim"] = (0, 1.1)
-            fig = plotting.plot_generic_evolution(self.t, self.N/np.sum(self.N, axis=0), **kwargs)
-        else:
-            fig = plotting.plot_generic_evolution(self.t, self.N, **kwargs)
-        return fig
-
-    plot = plot_charge_states  #: Alias for plot_charge_states
-
-    def plot_radial_distribution_at_time(self, t, **kwargs):
+    def plot_radial_distribution_at_time(self, t: float, **kwargs: Any) -> Figure:
         """
         Plot the radial ion distribution at time t.
 
         Parameters
         ----------
-        t : float
+        t :
             <s>
             Point of time to evaluate.
-        **kwargs
+        kwargs
             Keyword arguments are handed down to ebisim.plotting.plot_radial_distribution and
             ebisim.plotting.plot_generic_evolution, cf. documentation thereof.
             If no arguments are provided, reasonable default values are injected.
 
         Returns
         -------
-        matplotlib.Figure
             Figure handle of the generated plot.
         """
-        if t < self.t.min() or t > self.t.max():
-            raise ValueError("Value for t lies outside the simulated domain.")
-        if self.kbT is not None:
-            phi, n3d, shapes = self.radial_distribution_at_time(t)
-            dens = (n3d * shapes)[self.model.lb[self.id]:self.model.ub[self.id]]
-            denslim = 10**np.ceil(np.log10(dens.max()))
+        phi, n3d, shapes = self.radial_distribution_at_time(t)
+        dens = (n3d * shapes)[self.model.lb[self.id]:self.model.ub[self.id]]
+        denslim = 10**np.ceil(np.log10(dens.max()))
 
-            title = self._param_title(f"Radial distribution at t = {1000*t:.1f} ms")
+        title = self._param_title(f"Radial distribution at t = {1000*t:.1f} ms")
 
-            kwargs.setdefault("xscale", "log")
-            kwargs.setdefault("yscale", "log")
-            kwargs.setdefault("title", title)
-            kwargs.setdefault("xlim", (self.device.r_e/100, self.device.r_dt))
-            kwargs.setdefault("ylim", (denslim/10**10, denslim))
+        kwargs.setdefault("xscale", "log")
+        kwargs.setdefault("yscale", "log")
+        kwargs.setdefault("title", title)
+        kwargs.setdefault("xlim", (self.device.r_e/100, self.device.r_dt))
+        kwargs.setdefault("ylim", (denslim/10**10, denslim))
 
-            fig = plotting.plot_radial_distribution(
-                self.device.rad_grid, dens, phi, self.device.r_e, **kwargs
-            )
+        fig = plotting.plot_radial_distribution(
+            self.device.rad_grid, dens, phi, self.device.r_e, **kwargs
+        )
 
-            return fig
-        else:
-            raise LookupError("This result does not contain temperature information.")
+        return fig
 
-    def plot_energy_density(self, **kwargs):
+    def plot_energy_density(self, **kwargs: Any) -> Figure:
         """
         Plot the energy density evolution of this result object.
 
         Parameters
         ----------
-        **kwargs
+        kwargs
             Keyword arguments are handed down to ebisim.plotting.plot_generic_evolution,
             cf. documentation thereof.
             If no arguments are provided, reasonable default values are injected.
 
         Returns
         -------
-        matplotlib.Figure
             Figure handle of the generated plot.
 
         Raises
@@ -555,9 +576,6 @@ class Result:
             corresponding attributes of this Result instance have not been set correctly.
 
         """
-        if self.t is None or self.kbT is None:
-            raise ValueError("The t or kbT field does not contain any plottable data.")
-
         e_den = self.N * self.kbT
         ymin = 10**(np.floor(np.log10(e_den[:, 0].sum(axis=0)) - 1))
         ymax = 10**(np.ceil(np.log10(e_den.sum(axis=0).max()) + 1))
@@ -571,23 +589,22 @@ class Result:
         fig = plotting.plot_generic_evolution(self.t, e_den, **kwargs)
         return fig
 
-    def plot_temperature(self, dens_threshold=1000*MINIMAL_N_1D, **kwargs):
+    def plot_temperature(self, dens_threshold: float = 1000*MINIMAL_N_1D, **kwargs: Any) -> Figure:
         """
         Plot the temperature evolution of this result object.
 
         Parameters
         ----------
-        dens_threshold : float, optional
+        dens_threshold :
             If given temperatures are only plotted where the particle denisty is larger than
             the threshold value.
-        **kwargs
+        kwargs
             Keyword arguments are handed down to ebisim.plotting.plot_generic_evolution,
             cf. documentation thereof.
             If no arguments are provided, reasonable default values are injected.
 
         Returns
         -------
-        matplotlib.Figure
             Figure handle of the generated plot
 
         Raises
@@ -597,9 +614,6 @@ class Result:
             corresponding attributes of this Result instance have not been set correctly.
 
         """
-        if self.t is None or self.kbT is None:
-            raise ValueError("The t or kbT field does not contain any plottable data.")
-
         filtered_kbT = self._density_filter(self.kbT, dens_threshold)
 
         kwargs.setdefault("xlim", (1e-4, self.t.max()))
@@ -616,26 +630,26 @@ class Result:
         fig = plotting.plot_generic_evolution(self.t, filtered_kbT, **kwargs)
         return fig
 
-    def plot_rate(self, rate_key, dens_threshold=1000*MINIMAL_N_1D, **kwargs):
+    def plot_rate(self, rate_key: Rate,
+                  dens_threshold: float = 1000*MINIMAL_N_1D, **kwargs) -> Figure:
         """
         Plots the requested ionisation- or energy flow rates.
 
         Parameters
         ----------
-        rate_key : ebisim.simulation.Rate
+        rate_key :
             The key identifying the rate to be plotted.
             See ebisim.simulation.Rate for valid values.
-        dens_threshold : float, optional
+        dens_threshold :
             If given temperatures are only plotted where the particle denisty is larger than
             the threshold value.
-        **kwargs
+        kwargs
             Keyword arguments are handed down to ebisim.plotting.plot_generic_evolution,
             cf. documentation thereof.
             If no arguments are provided, reasonable default values are injected.
 
         Returns
         -------
-        matplotlib.Figure
             Figure handle of the generated plot
 
         Raises

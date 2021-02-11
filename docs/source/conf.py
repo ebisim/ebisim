@@ -193,6 +193,10 @@ os.environ["SPHINX_APIDOC_OPTIONS"] = "members,undoc-members,inherited-members,s
 
 autodoc_member_order = "groupwise"
 autodoc_typehints = "description"
+# Rudimentary fix for problems with docs of BasicResult and AdvancedResult
+# due to generic typing, they don't get properly documented by sphinx, this at least shows the init
+# parameters
+autoclass_content = "both"
 
 napoleon_use_rtype = False
 

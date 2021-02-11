@@ -20,10 +20,10 @@ from .xs import (
     )
 
 from .simulation import (
-    Result,
+    BasicResult,
+    AdvancedResult,
     basic_simulation,
     advanced_simulation,
-    Target,
     Device,
     ModelOptions,
     BackgroundGas,
@@ -54,13 +54,15 @@ from .plotting import plot_eixs, plot_rrxs, plot_drxs, plot_combined_xs
 
 from . import beams
 
+Target = Element  # Element and Target used to be different things, now they are the same.
+
 __all__ = [
     # xs
     "eixs_vec", "eixs_mat", "eixs_energyscan",
     "rrxs_vec", "rrxs_mat", "rrxs_energyscan",
     "drxs_vec", "drxs_mat", "drxs_energyscan",
     # simulation
-    "Result", "basic_simulation", "advanced_simulation", "Target", "Device",
+    "BasicResult", "AdvancedResult", "basic_simulation", "advanced_simulation", "Target", "Device",
     "ModelOptions", "BackgroundGas", "AdvancedModel", "energy_scan", "EnergyScanResult", "Rate",
     # physconst
     "Q_E", "M_E", "PI", "EPS_0", "K_B", "C_L", "ALPHA",
