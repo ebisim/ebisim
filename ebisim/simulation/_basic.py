@@ -2,7 +2,7 @@
 This module contains the basic simulation method.
 """
 from __future__ import annotations
-from typing import Optional, Dict, Any, Union, NamedTuple
+from typing import Optional, Dict, Any, Union
 import numpy as np
 import scipy.integrate
 import scipy.interpolate
@@ -11,16 +11,7 @@ from .. import xs
 from ..elements import Element
 from ..physconst import Q_E
 from ._result import Result
-
-
-class BasicDevice(NamedTuple):
-    """
-    A mock device class for holding simulations parameters for basic_simulations.
-    """
-
-    e_kin: float
-    j: float
-    fwhm: Optional[float]
+from._basic_helpers import BasicDevice
 
 
 def basic_simulation(element: Union[Element, str, int], j: float, e_kin: float, t_max: float,
