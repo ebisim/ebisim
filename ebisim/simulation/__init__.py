@@ -9,7 +9,6 @@ from ._basic import basic_simulation
 
 from ._advanced import (
     advanced_simulation,
-    Target,
     Device,
     ModelOptions,
     BackgroundGas,
@@ -38,7 +37,6 @@ __all__ = [
     "Rate",
     "basic_simulation",
     "advanced_simulation",
-    "Target",
     "Device",
     "ModelOptions",
     "BackgroundGas",

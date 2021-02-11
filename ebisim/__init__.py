@@ -23,7 +23,6 @@ from .simulation import (
     Result,
     basic_simulation,
     advanced_simulation,
-    Target,
     Device,
     ModelOptions,
     BackgroundGas,
@@ -53,6 +52,8 @@ from .elements import Element, get_element
 from .plotting import plot_eixs, plot_rrxs, plot_drxs, plot_combined_xs
 
 from . import beams
+
+Target = Element  # Element and Target used to be different things, now they are the same.
 
 __all__ = [
     # xs
