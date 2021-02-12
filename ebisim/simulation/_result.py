@@ -235,7 +235,8 @@ _RATE_LABELS: Dict[Rate, Dict[str, Any]] = {
 }
 
 
-GenericDevice = TypeVar("GenericDevice", Device, BasicDevice)  # Needed for parametric polymorphism of Result classes
+# Needed for parametric polymorphism of Result classes
+GenericDevice = TypeVar("GenericDevice", Device, BasicDevice)
 
 
 class BasicResult(Generic[GenericDevice]):
@@ -386,8 +387,8 @@ class BasicResult(Generic[GenericDevice]):
 
 class AdvancedResult(BasicResult[Device]):
     """
-    Instances of this class are containers for the results of ebisim advanced_simulations and contain a
-    variety of convenience methods for simple plot generation etc.
+    Instances of this class are containers for the results of ebisim advanced_simulations
+    and contain a variety of convenience methods for simple plot generation etc.
     """
     _abundance_label = "Linear density (m$^{-1}$)"
 

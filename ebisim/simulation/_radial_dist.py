@@ -738,7 +738,8 @@ def boltzmann_radial_potential_linear_density_ebeam_sor(
             phi = phi_m1 + mu*rk
 
         # if np.max(np.abs((phi-phi_m1)[:-1]/phi[:-1])) < 1e-3:
-        elif np.linalg.norm(phi - phi_m1)/np.linalg.norm(phi) < 1e-10 and np.linalg.norm(f)/f0n < 1e-10:
+        elif (np.linalg.norm(phi - phi_m1)/np.linalg.norm(phi)
+              < 1e-10 and np.linalg.norm(f)/f0n < 1e-10):
             break
 
         phi_m2 = phi_m1

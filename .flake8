@@ -15,7 +15,7 @@ exclude =
     #Decide whether to keep
     temp
 
-max-line-length = 120
+max-line-length = 100
 
 per-file-ignores =
     # whitespace in adv_rhs
