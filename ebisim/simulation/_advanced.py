@@ -544,7 +544,12 @@ def _assemble_initial_conditions(targets: List[Element], device: Device) -> np.n
         if t.kT is None or t.n is None:
             raise ValueError(f"{t!s} does not provide initial conditions (n, kT).")
         kT = t.kT.copy()
-        minkT = np.maximum(device.fwhm/10 * np.arange(t.z+1), MINIMAL_KBT)
+        # I tried to reduce the value of minkT and it caused crashes, I have no solid
+        # argument for a value here, but it is obvius that the simulation stability is very
+        # sensitive to the temperature/radial well ratio. This must be normalisation issues
+        # since it presents itself as np.nan or np.inf being produced during the solution
+        # of the rate equations
+        minkT = np.maximum(device.fwhm * np.arange(t.z+1), MINIMAL_KBT)
         filter_ = t.n < 1.00001 * MINIMAL_N_1D
         kT[filter_] = np.maximum(kT[filter_], minkT[filter_])
         if np.not_equal(kT, t.kT).any():
