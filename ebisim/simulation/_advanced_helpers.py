@@ -156,6 +156,17 @@ class Device(NamedTuple):
         ebisim.simulation.Device
             The populated device object.
         """
+        # Enforcing typing here seems to help with spooky segfaults,
+        # which are probably caused by calling the Boltzmann Poission solver with varying types
+        # At some point I should figure this out and fix or report the underlying problem
+        current = float(current)
+        e_kin = float(e_kin)
+        r_e = float(r_e)
+        v_ax = float(v_ax)
+        b_ax = float(b_ax)
+        r_dt = float(r_dt)
+        n_grid = int(n_grid)
+
         logger.debug(f"Device.get({current}, {e_kin}, {r_e}, {length}, "
                      + f"{v_ax}, {b_ax}, {r_dt}, {v_ra}, {j}, {fwhm}, {n_grid})")
         rad_grid = np.concatenate((
