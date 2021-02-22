@@ -156,12 +156,12 @@ def plot_generic_evolution(t, y, plot_total=False, ax=None, cs=None, **kwargs):
     ls = kwargs.pop("ls", None)
     for cs_ in range(n):
         if (cs_ not in cs) or np.array_equal(np.unique(y[cs_, :]), np.array([0])):
-            ax.loglog([], [])  # Ghost draw for purely zero cases
+            ax.plot([], [])  # Ghost draw for purely zero cases
         else:
             if ls:
-                ax.loglog(t, y[cs_, :], ls=ls, label=str(cs_) + "+")
+                ax.plot(t, y[cs_, :], ls=ls, label=str(cs_) + "+")
             else:
-                ax.loglog(t, y[cs_, :], label=str(cs_) + "+")
+                ax.plot(t, y[cs_, :], label=str(cs_) + "+")
     if plot_total:
         ax.plot(t, np.nansum(y, axis=0), c="k", ls="--", figure=fig, label="total")
 
