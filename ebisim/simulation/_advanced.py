@@ -486,7 +486,7 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
             # extractor = list(_rates.values())[0]
             extractor = numba.typed.Dict.empty(
                 key_type=numba.typeof(Rate.EI),
-                value_type=numba.types.float64[:]
+                value_type=numba.types.float64[::1]
             )
             _ = rhs(res.t[0], res.y[:, 0], extractor)
             ratebuffer = {}

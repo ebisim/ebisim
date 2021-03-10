@@ -351,7 +351,7 @@ class AdvancedModel(NamedTuple):
 
         # Types needed by numba
         _T_BG_GAS = numba.typeof(BackgroundGas.get("He", 1e-8))
-        _T_F8_ARRAY = numba.float64[:]
+        _T_F8_ARRAY = numba.float64[::1]
 
         bg_gases = bg_gases or []
         if not bg_gases:
