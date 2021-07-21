@@ -61,6 +61,17 @@ def _smooth_to_zero(x):
     return x
 
 
+# @numba.njit(cache=True)
+# def _smooth_temp_rate_to_zero(n, dkT):
+#     N1 = MINIMAL_N_1D/100
+#     N2 = MINIMAL_N_1D
+#     dkT = dkT.copy()
+#     dkT[n < N1] = 0
+#     fil = np.logical_and(N1 < n, n < N2)
+#     dkT[fil] = dkT[fil] * _cubic_spline(n[fil], N1, N2, 0., 1., 0., 1.)
+#     return dkT
+
+
 @numba.njit(cache=True, nogil=True)
 def _chunked_adv_rhs(model, t, y, rates=None):
     if y.ndim == 1:
@@ -98,7 +109,6 @@ def _adv_rhs(model, _t, y, rates=None):
     numpy.ndarray
         dy/dt
     """
-    # pylint: disable=bad-whitespace
     # Split y into useful parts
     n   = y[:model.nq]
     kT  = y[model.nq:]
@@ -188,9 +198,6 @@ def _adv_rhs(model, _t, y, rates=None):
     ri  = np.sum(rij, axis=-1)
     # Thermal ion velocities
     v_th = np.sqrt(8 * Q_E * kT/(PI * model.a * M_P))  # Thermal velocities
-    # v_z = np.sqrt(kT/(self.a*M_P))
-    # f_ax = v_z/(2*self.device.length) # Axial roundtrip frequency
-    # f_ra = v_z/(2*self.device.r_dt) #Radial single pass frequency
 
     # update cross sections?
     if model.options.RECOMPUTE_CROSS_SECTIONS:
@@ -261,15 +268,11 @@ def _adv_rhs(model, _t, y, rates=None):
     if model.options.ESCAPE_AXIAL:
         w_ax      = plasma.trapping_strength_axial(kT, model.q, v_ax)
         R_ax_co      = plasma.collisional_escape_rate(ri, w_ax) * n
-        free_ax, tfact_ax = plasma.roundtrip_escape(w_ax)
-        R_ax_rt   = free_ax * n * ri  # f_ax
+        R_ax_co = np.maximum(R_ax_co, 0.0)
         for k in model.lb:
-            R_ax_rt[k] = 0
             R_ax_co[k] = 0
-        # R_ax_co[n < 10*MINIMAL_N_1D] = 0
-        # R_ax_rt[n < 10*MINIMAL_N_1D] = 0
-        dn       -= R_ax_co + R_ax_rt
-        dkT      -= R_ax_co / n_r * w_ax * kT + R_ax_rt / n_r * (tfact_ax - 1) * kT
+        dn       -= R_ax_co
+        dkT      -= 2/3*plasma.collisional_escape_rate(ri, w_ax) * w_ax * kT
 
     # Radial escape
     if model.options.ESCAPE_RADIAL:
@@ -277,21 +280,14 @@ def _adv_rhs(model, _t, y, rates=None):
             kT, model.q, model.a, v_ra, model.device.b_ax, model.device.r_dt
         )
         R_ra_co      = plasma.collisional_escape_rate(ri, w_ra) * n
-        free_ra, tfact_ra = plasma.roundtrip_escape(w_ra)
-        R_ra_rt   = free_ra * n * ri  # f_ra
+        R_ra_co = np.maximum(R_ra_co, 0.0)
         for k in model.lb:
-            R_ra_rt[k] = 0
             R_ra_co[k] = 0
-        # R_ra_co[n < 10*MINIMAL_N_1D] = 0
-        # R_ra_rt[n < 10*MINIMAL_N_1D] = 0
-        dn       -= R_ra_co + R_ra_rt
-        dkT      -= R_ra_co / n_r * w_ra * kT + R_ra_rt / n_r * (tfact_ra - 1) * kT
+        dn       -= R_ra_co
+        dkT      -= 2/3*plasma.collisional_escape_rate(ri, w_ra) * w_ra * kT
 
-    # TODO: Expansion cooling
-
-    # Check if neutrals are depletable or if there is continuous neutral injection
+    # Kill all neutral rates - seems to improve stability - assumes nonchanging background gas
     for k in model.lb:
-        # Kill all neutral rates - seems to improve stability
         dn[k] = 0.0
         dkT[k] = 0.0
 
@@ -312,16 +308,10 @@ def _adv_rhs(model, _t, y, rates=None):
             rates[Rate.W_AX]    = w_ax
             rates[Rate.AX_CO] = R_ax_co
             rates[Rate.T_AX_CO] = R_ax_co * (kT + w_ax * kT)/n_r
-            rates[Rate.AX_RT] = R_ax_rt
-            rates[Rate.T_AX_RT] = R_ax_rt * (tfact_ax - 1) * kT/n_r
-            # rates["free_ax"] = free_ax
         if model.options.ESCAPE_RADIAL:
             rates[Rate.W_RA]    = w_ra
             rates[Rate.RA_CO] = R_ra_co
             rates[Rate.T_RA_CO] = R_ra_co * (kT + w_ra * kT)/n_r
-            rates[Rate.RA_RT] = R_ra_rt
-            rates[Rate.T_RA_RT] = R_ra_rt * (tfact_ra - 1) * kT/n_r
-            # rates["free_ra"] = free_ra
         if model.options.COLLISIONAL_THERMALISATION:
             rates[Rate.T_COLLISIONAL_THERMALISATION] = _dkT_ct
         if model.options.SPITZER_HEATING:
@@ -338,7 +328,6 @@ def _adv_rhs(model, _t, y, rates=None):
         rates[Rate.COLLISION_RATE_SELF] = np.diag(rij).copy()
         rates[Rate.COLLISION_RATE_TOTAL] = ri
 
-    dkT[n < MINIMAL_N_1D/10.] = 0
     return np.concatenate((dn, dkT))
 
 

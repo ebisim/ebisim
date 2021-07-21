@@ -36,14 +36,8 @@ class Rate(IntEnum):
     LOSSES_AXIAL_COLLISIONAL = 105
     AX_CO = 105
 
-    LOSSES_AXIAL_ROUNDTRIP = 106
-    AX_RT = 106
-
     LOSSES_RADIAL_COLLISIONAL = 107
     RA_CO = 107
-
-    LOSSES_RADIAL_ROUNDTRIP = 108
-    RA_RT = 108
 
     # T_ELECTRON_IONISATION = 201
     # T_EI = 201
@@ -60,14 +54,8 @@ class Rate(IntEnum):
     T_LOSSES_AXIAL_COLLISIONAL = 205
     T_AX_CO = 205
 
-    T_LOSSES_AXIAL_ROUNDTRIP = 206
-    T_AX_RT = 206
-
     T_LOSSES_RADIAL_COLLISIONAL = 207
     T_RA_CO = 207
-
-    T_LOSSES_RADIAL_ROUNDTRIP = 208
-    T_RA_RT = 208
 
     T_COLLISIONAL_THERMALISATION = 301
     COLLISIONAL_THERMALISATION = 301
@@ -131,16 +119,8 @@ _RATE_LABELS: Dict[Rate, Dict[str, Any]] = {
         title="Ax. coll. losses",
         ylabel="Loss rate " + _PER_M_PER_S,
     ),
-    Rate.AX_RT: dict(
-        title="Ax. roundtrip losses",
-        ylabel="Loss rate " + _PER_M_PER_S,
-    ),
     Rate.RA_CO: dict(
         title="Rad. coll. losses",
-        ylabel="Loss rate " + _PER_M_PER_S,
-    ),
-    Rate.RA_RT: dict(
-        title="Rad. roundtrip losses",
         ylabel="Loss rate " + _PER_M_PER_S,
     ),
     # Rate.T_EI: dict(
@@ -163,16 +143,8 @@ _RATE_LABELS: Dict[Rate, Dict[str, Any]] = {
         title="Ax. coll. losses",
         ylabel="Cooling rate " + _EV_PER_S,
     ),
-    Rate.T_AX_RT: dict(
-        title="Ax. roundtrip losses",
-        ylabel="Cooling rate " + _EV_PER_S,
-    ),
     Rate.T_RA_CO: dict(
         title="Rad. coll. losses",
-        ylabel="Cooling rate " + _EV_PER_S,
-    ),
-    Rate.T_RA_RT: dict(
-        title="Rad. roundtrip losses",
         ylabel="Cooling rate " + _EV_PER_S,
     ),
     Rate.COLLISIONAL_THERMALISATION: dict(
