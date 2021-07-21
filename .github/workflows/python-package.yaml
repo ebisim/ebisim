@@ -27,15 +27,16 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install flake8 pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        python -m pip install .
     - name: Lint with flake8
       run: |
         flake8 .
     - name: Test with pytest
       run: |
         pytest
-        
+
   mypy:
-    
+
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -51,4 +52,3 @@ jobs:
     - name: Run Mypy
       run: |
         mypy ebisim
-    
