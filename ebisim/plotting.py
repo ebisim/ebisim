@@ -212,8 +212,9 @@ def plot_radial_distribution(r, dens, phi=None, r_e=None, ax=None, ax2=None, **k
 
     kwargs.setdefault("xlabel", "Radius (m)")
     kwargs.setdefault("ylabel", "Density (m$^{-3}$)")
+    kwargs.setdefault("plot_total", True)
     ylimphi = kwargs.pop("ylimphi", None)
-    plot_generic_evolution(r, dens, plot_total=True, ax=ax, **kwargs)
+    plot_generic_evolution(r, dens, ax=ax, **kwargs)
     if r_e is not None:
         ax.axvline(r_e, c="k", ls="--")
     if phi is not None:
