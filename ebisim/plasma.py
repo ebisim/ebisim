@@ -120,15 +120,18 @@ def clog_ei(Ni, Ne, kbTi, kbTe, Ai, qi):
     qqten = qi * qi * 10
     redkbTi = kbTi * M_E / (Ai * M_P)
     if redkbTi <= kbTe <= qqten:
-        return 23. - np.log(Ne**0.5 * qi * kbTe**-1.5)
+        res = 23. - np.log(Ne**0.5 * qi * kbTe**-1.5)
     elif redkbTi <= qqten <= kbTe:
-        return 24. - np.log(Ne**0.5 / kbTe)
+        res = 24. - np.log(Ne**0.5 / kbTe)
     elif kbTe <= redkbTi:
-        return 16. - np.log(Ni**0.5 * kbTi**-1.5 * qi * qi * Ai)
+        res = 16. - np.log(Ni**0.5 * kbTi**-1.5 * qi * qi * Ai)
     # The next case should not usually arise in any realistic situation but the solver may probe it
     # Hence it is purely a rough guess
     else:  # (if qqten <= redkbTi <= kbTe)
-        return 24. - np.log(Ne**0.5 / kbTe)
+        res = 24. - np.log(Ne**0.5 / kbTe)
+    if res < 0:
+        res = 0.0
+    return res
 
 
 logger.debug("Defining clog_ii.")
