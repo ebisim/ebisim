@@ -10,7 +10,7 @@ EMAIL = None
 DESCRIPTION = "A package for simulating the charge state distribution evolution in an EBIS/EBIT."
 URL = "https://github.com/HPLegion/ebisim"
 PYTHON_REQUIRES = ">=3.7.0"
-INSTALL_REQUIRES = ["numpy>=1.17", "scipy>=1.3", "numba>=0.50", "matplotlib>=3", "joblib>=0.17"]
+INSTALL_REQUIRES = ["numpy>=1.17", "scipy>=1.3", "numba>=0.50", "matplotlib>=3"]
 CLASSIFIERS = [
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
