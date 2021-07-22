@@ -4,10 +4,12 @@ This module contains the advanced simulation method and related resources.
 from __future__ import annotations
 import logging
 from typing import Dict, Any, Union, Optional, List, Tuple
+from functools import lru_cache
+from concurrent.futures.thread import ThreadPoolExecutor
+
 import numpy as np
 from scipy.integrate import solve_ivp
 import numba
-from joblib import Parallel, delayed
 
 from .. import xs
 from .. import plasma
@@ -36,6 +38,10 @@ logger.debug("Patching numba.types.EnumMember __hash__.")
 
 @numba.extending.overload_method(numba.types.EnumMember, '__hash__')
 def enum_hash(val):  # pylint: disable=unused-argument
+    """
+    Patch for numba to allow IntEnum as typed Dict keys.
+    This will be fixed in numba starting with Release 0.54
+    """
     def impl(val):
         return hash(val.value)
     return impl
@@ -414,94 +420,184 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
         logger.warning(f"Unable to verify the types of {model!s}.")
 
     # ----- Generate Initial conditions
-    n_kT_initial = _assemble_initial_conditions(targets, device)
+    n_kT_initial = _assemble_initial_conditions(model)
 
     # ----- Generate Callable
-    with Parallel(n_jobs=n_threads, prefer="threads") as parallel:
-        def mt(model, t, y, rates):
-            if rates is not None:
+    if n_threads < 2:
+        executor = None
+
+        def rhs(t, y, rates=None):
+            return _chunked_adv_rhs(model, t, y, rates)
+
+    else:
+        executor = ThreadPoolExecutor()
+
+        def rhs(t, y, rates=None):
+            n_cols = 1 if y.ndim == 1 else y.shape[1]
+            if n_cols == 1 or rates is not None:
                 return _chunked_adv_rhs(model, t, y, rates)
+            else:
+                f = lambda ix: _chunked_adv_rhs(model, t, y[:, ix[0]:ix[1]])  # noqa: E731
+                ix = _multithreading_indices(n_cols, n_threads)
+                res = list(executor.map(f, ix))
+                return np.concatenate(res, axis=-1)
 
-            nc = 1 if y.ndim == 1 else y.shape[1]
-            cl = n_threads * [nc//n_threads, ]
-            for _k in range(n_threads):
-                if _k < (nc % n_threads):
-                    cl[_k] += 1
-            jobs = []
-            for _k in range(n_threads):
-                if cl[_k] > 0:
-                    jobs.append(
-                        delayed(_chunked_adv_rhs)(model, t, y[:, sum(cl[:_k]):sum(cl[:_k+1])])
-                    )
-            res = parallel(jobs)
-            return np.concatenate(res, axis=-1)
-
-        if verbose:
-            logger.debug("Wrapping rhs in progress meter.")
-            k_old = k = 0
-            print("")
-
-            def rhs(t, y, rates=None):
-                nonlocal k
-                nonlocal k_old
-                k += 1 if len(y.shape) == 1 else y.shape[1]
-                if k-k_old > 99:
-                    print("\r", f"Integration: {k} calls, t = {t:.4e} s", end="")
-                    k_old = k
-                return mt(model, t, y, rates)
-        else:
-            rhs = lambda t, y, rates=None: mt(model, t, y, rates)  # noqa:E731
+    if verbose:
+        rhs = _RHSProgressWrapper(rhs)
 
     # ----- Run simulation
-        logger.debug("Starting integration.")
-        res = solve_ivp(
-            rhs, (0, t_max), n_kT_initial, vectorized=True, **solver_kwargs
-        )
-        if verbose:
-            print("\rIntegration finished:", k, "calls                    ")
-            print(res.message)
-            print(f"Calls: {k} of which ~{res.nfev} normal ({res.nfev/k:.2%}) and "
-                  + f"~{res.y.shape[0]*res.njev} for jacobian approximation "
-                  + f"({res.y.shape[0]*res.njev/k:.2%})")
+    logger.debug("Starting integration.")
+    res = solve_ivp(
+        rhs, (0, t_max), n_kT_initial, vectorized=True, **solver_kwargs
+    )
+    if isinstance(rhs, _RHSProgressWrapper):
+        rhs.finalize_integration_report(res)
 
     # ----- Extract rates if demanded
-        if rates:
-            logger.debug("Assembling rate arrays.")
-            # Recompute rates for final solution (this cannot be done parasitically due to
-            # the solver approximating the jacobian and calling rhs with bogus values).
-            nt = res.t.size
-
-            # Poll once to get the available rates
-            # extractor = list(_rates.values())[0]
-            extractor = numba.typed.Dict.empty(
-                key_type=numba.typeof(Rate.EI),
-                value_type=numba.types.float64[::1]
-            )
-            _ = rhs(res.t[0], res.y[:, 0], extractor)
-            ratebuffer = {}
-            for k in extractor:
-                if len(extractor[k].shape) == 1:
-                    ratebuffer[k] = np.zeros((extractor[k].size, nt))
-
-            # Poll all steps
-            for idx in range(nt):
-                if verbose and (idx % 100) == 0:
-                    print("\r", f"Rates: {idx+1} / {nt}", end="")
-
-                _ = rhs(res.t[idx], res.y[:, idx], extractor)
-                for key, val in extractor.items():
-                    if len(val.shape) == 1:
-                        ratebuffer[key][:, idx] = val
-
-            if verbose:
-                print("\rRates finished:", nt, "rates")
+    ratebuffer = _gather_rates(rhs, res) if rates else None
 
     # ----- Result assembly
+    if executor is not None:
+        executor.shutdown()
+    return _assemble_results(model, res, ratebuffer)
+
+
+class _RHSProgressWrapper:
+    def __init__(self, rhs):
+        self.rhs = rhs
+        self.k = 0
+        self.k_last_emit = 0
+        self.steps = 0
+        self.m = 0
+
+    def __call__(self, t: float, y: np.ndarray, rates: Optional[Any] = None):
+        self._log_progress(t, y, rates)
+        return self.rhs(t, y, rates)
+
+    def _log_progress(self, t: float, y: np.ndarray, rates: Optional[Any]) -> None:
+        if rates is None:
+            inc = 1 if len(y.shape) == 1 else y.shape[1]
+            self.k = self.k + inc
+            if self.k - self.k_last_emit > 99:
+                print(f"Integration: {self.k} calls, t = {t:.4e} s", end="\r")
+                self.k_last_emit = self.k
+        else:
+            self.m += 1
+            if not self.m % 100:
+                print(f"Rates: {self.m+1} / {self.steps}", end="\r")
+
+    def finalize_integration_report(self, res: Any) -> None:
+        """
+        Call after integration finishes to finalize the progress display
+
+        Parameters
+        ----------
+        res :
+            The solve_ivp result object
+        """
+        self.steps = res.t.size
+        print("\rIntegration finished:", self.k, "calls                    ")
+        print(res.message)
+        print(f"Calls: {self.k} of which ~{res.nfev} normal ({res.nfev/self.k:.2%}) and "
+              + f"~{res.y.shape[0]*res.njev} for jacobian approximation "
+              + f"({res.y.shape[0]*res.njev/self.k:.2%})")
+
+    def finalize_rate_report(self) -> None:
+        """
+        Call after rate extraction finishes to finalize the rate progress display
+        """
+        print("Rates finished:", self.steps, "rates")
+
+
+@lru_cache(maxsize=None)
+def _multithreading_indices(n_cols: int, n_threads: int) -> Tuple[Tuple[int, int], ...]:
+    """
+    Computes a balanced distribution of column indices for the multithreaded
+    vectorised version of the RHS function
+
+    Parameters
+    ----------
+    n_cols :
+        Number of columns to distribute
+    n_threads :
+        Max number of available threads
+
+    Returns
+    -------
+        Tuple of start / stop index pairs
+    """
+    cl = n_threads * [n_cols//n_threads, ]
+    for _k in range(n_threads):
+        if _k < (n_cols % n_threads):
+            cl[_k] += 1
+    indices = []
+    for _k in range(n_threads):
+        if cl[_k] > 0:
+            indices.append((sum(cl[:_k]), sum(cl[:_k+1])))
+    return tuple(indices)
+
+
+def _assemble_initial_conditions(model: AdvancedModel) -> np.ndarray:
+    _kT0 = []
+    for t in model.targets:  # Make sure that initial temperature is not unreasonably small
+        if t.kT is None or t.n is None:
+            raise ValueError(f"{t!s} does not provide initial conditions (n, kT).")
+        kT = t.kT.copy()
+        # I tried to reduce the value of minkT and it caused crashes, I have no solid
+        # argument for a value here, but it is obvius that the simulation stability is very
+        # sensitive to the temperature/radial well ratio. This must be normalisation issues
+        # since it presents itself as np.nan or np.inf being produced during the solution
+        # of the rate equations
+        minkT = np.maximum(model.device.fwhm * np.arange(t.z+1), MINIMAL_KBT)
+        filter_ = t.n < 1.00001 * MINIMAL_N_1D
+        kT[filter_] = np.maximum(kT[filter_], minkT[filter_])
+        if np.not_equal(kT, t.kT).any():
+            logger.warning(
+                f"Initial temperature vector adjusted for {t!s}. "
+                + "This only affects charge states with densities at the minimum limit."
+                )
+        _kT0.append(kT)
+    _n0 = np.concatenate([t.n for t in model.targets])
+    _kT0 = np.concatenate(_kT0)
+    return np.concatenate([_n0, _kT0])
+
+
+def _gather_rates(rhs, res):
+    logger.debug("Assembling rate arrays.")
+    # Recompute rates for final solution (this cannot be done parasitically due to
+    # the solver approximating the jacobian and calling rhs with bogus values).
+    nt = res.t.size
+
+    # Poll once to get the available rates
+    extractor = numba.typed.Dict.empty(
+        key_type=numba.typeof(Rate.EI),
+        value_type=numba.types.float64[::1]
+    )
+    _ = rhs(res.t[0], res.y[:, 0], extractor)
+    ratebuffer = {}
+    for k in extractor:
+        if len(extractor[k].shape) == 1:
+            ratebuffer[k] = np.zeros((extractor[k].size, nt))
+
+    # Poll all steps
+    for idx in range(nt):
+        _ = rhs(res.t[idx], res.y[:, idx], extractor)
+        for key, val in extractor.items():
+            if len(val.shape) == 1:
+                ratebuffer[key][:, idx] = val
+
+    if isinstance(rhs, _RHSProgressWrapper):
+        rhs.finalize_rate_report()
+
+    return ratebuffer
+
+
+def _assemble_results(model, res, ratebuffer):
     out = []
     for i, trgt in enumerate(model.targets):
         logger.debug(f"Assembling result of target #{i}.")
         irates = {}
-        if rates:
+        if ratebuffer is not None:
             for key in ratebuffer.keys():
                 _ir = ratebuffer[key]
                 if _ir.shape[0] != 1:
@@ -516,7 +612,7 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
                 kbT=res.y[model.nq + model.lb[i]:model.nq + model.ub[i]],
                 res=res,
                 target=trgt,
-                device=device,
+                device=model.device,
                 rates=irates or None,
                 model=model,
                 id_=i
@@ -525,28 +621,3 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
     if len(out) == 1:
         return out[0]
     return tuple(out)
-
-
-def _assemble_initial_conditions(targets: List[Element], device: Device) -> np.ndarray:
-    _kT0 = []
-    for t in targets:  # Make sure that initial temperature is not unreasonably small
-        if t.kT is None or t.n is None:
-            raise ValueError(f"{t!s} does not provide initial conditions (n, kT).")
-        kT = t.kT.copy()
-        # I tried to reduce the value of minkT and it caused crashes, I have no solid
-        # argument for a value here, but it is obvius that the simulation stability is very
-        # sensitive to the temperature/radial well ratio. This must be normalisation issues
-        # since it presents itself as np.nan or np.inf being produced during the solution
-        # of the rate equations
-        minkT = np.maximum(device.fwhm * np.arange(t.z+1), MINIMAL_KBT)
-        filter_ = t.n < 1.00001 * MINIMAL_N_1D
-        kT[filter_] = np.maximum(kT[filter_], minkT[filter_])
-        if np.not_equal(kT, t.kT).any():
-            logger.warning(
-                f"Initial temperature vector adjusted for {t!s}. "
-                + "This only affects charge states with densities at the minimum limit."
-                )
-        _kT0.append(kT)
-    _n0 = np.concatenate([t.n for t in targets])
-    _kT0 = np.concatenate(_kT0)
-    return np.concatenate([_n0, _kT0])
