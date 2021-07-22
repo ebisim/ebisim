@@ -5,11 +5,11 @@ from __future__ import annotations
 import logging
 from typing import Dict, Any, Union, Optional, List, Tuple
 from functools import lru_cache
+from concurrent.futures.thread import ThreadPoolExecutor
 
 import numpy as np
 from scipy.integrate import solve_ivp
 import numba
-from joblib import Parallel, delayed
 
 from .. import xs
 from .. import plasma
@@ -423,39 +423,42 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
     n_kT_initial = _assemble_initial_conditions(model)
 
     # ----- Generate Callable
-    with Parallel(n_jobs=n_threads, prefer="threads") as parallel:
-        if n_threads < 2:
-            def rhs(t, y, rates=None):
-                return _chunked_adv_rhs(model, t, y, rates)
-        else:
-            def rhs(t, y, rates=None):
-                n_cols = 1 if y.ndim == 1 else y.shape[1]
-                if n_cols == 1 or rates is not None:
-                    return _chunked_adv_rhs(model, t, y, rates)
+    if n_threads < 2:
+        executor = None
 
-                jobs = []
-                for start, stop in _multithreading_indices(n_cols, n_threads):
-                    jobs.append(
-                        delayed(_chunked_adv_rhs)(model, t, y[:, start:stop])
-                    )
-                res = parallel(jobs)
+        def rhs(t, y, rates=None):
+            return _chunked_adv_rhs(model, t, y, rates)
+
+    else:
+        executor = ThreadPoolExecutor()
+
+        def rhs(t, y, rates=None):
+            n_cols = 1 if y.ndim == 1 else y.shape[1]
+            if n_cols == 1 or rates is not None:
+                return _chunked_adv_rhs(model, t, y, rates)
+            else:
+                f = lambda ix: _chunked_adv_rhs(model, t, y[:, ix[0]:ix[1]])  # noqa: E731
+                ix = _multithreading_indices(n_cols, n_threads)
+                res = list(executor.map(f, ix))
                 return np.concatenate(res, axis=-1)
 
-        if verbose:
-            rhs = _RHSProgressWrapper(rhs)
+    if verbose:
+        rhs = _RHSProgressWrapper(rhs)
 
     # ----- Run simulation
-        logger.debug("Starting integration.")
-        res = solve_ivp(
-            rhs, (0, t_max), n_kT_initial, vectorized=True, **solver_kwargs
-        )
-        if isinstance(rhs, _RHSProgressWrapper):
-            rhs.finalize_integration_report(res)
+    logger.debug("Starting integration.")
+    res = solve_ivp(
+        rhs, (0, t_max), n_kT_initial, vectorized=True, **solver_kwargs
+    )
+    if isinstance(rhs, _RHSProgressWrapper):
+        rhs.finalize_integration_report(res)
 
     # ----- Extract rates if demanded
-        ratebuffer = _gather_rates(rhs, res) if rates else None
+    ratebuffer = _gather_rates(rhs, res) if rates else None
 
     # ----- Result assembly
+    if executor is not None:
+        executor.shutdown()
     return _assemble_results(model, res, ratebuffer)
 
 
