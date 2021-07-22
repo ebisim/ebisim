@@ -422,7 +422,7 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
 
     # ----- Generate Callable
     with Parallel(n_jobs=n_threads, prefer="threads") as parallel:
-        def mt(model, t, y, rates):
+        def rhs(t, y, rates=None):
             if rates is not None:
                 return _chunked_adv_rhs(model, t, y, rates)
 
@@ -441,38 +441,68 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
             return np.concatenate(res, axis=-1)
 
         if verbose:
-            logger.debug("Wrapping rhs in progress meter.")
-            k_old = k = 0
-            print("")
-
-            def rhs(t, y, rates=None):
-                nonlocal k
-                nonlocal k_old
-                k += 1 if len(y.shape) == 1 else y.shape[1]
-                if k-k_old > 99:
-                    print("\r", f"Integration: {k} calls, t = {t:.4e} s", end="")
-                    k_old = k
-                return mt(model, t, y, rates)
-        else:
-            rhs = lambda t, y, rates=None: mt(model, t, y, rates)  # noqa:E731
+            rhs = _RHSProgressWrapper(rhs)
 
     # ----- Run simulation
         logger.debug("Starting integration.")
         res = solve_ivp(
             rhs, (0, t_max), n_kT_initial, vectorized=True, **solver_kwargs
         )
-        if verbose:
-            print("\rIntegration finished:", k, "calls                    ")
-            print(res.message)
-            print(f"Calls: {k} of which ~{res.nfev} normal ({res.nfev/k:.2%}) and "
-                  + f"~{res.y.shape[0]*res.njev} for jacobian approximation "
-                  + f"({res.y.shape[0]*res.njev/k:.2%})")
+        if isinstance(rhs, _RHSProgressWrapper):
+            rhs.finalize_integration_report(res)
 
     # ----- Extract rates if demanded
-        ratebuffer = _gather_rates(rhs, res, verbose) if rates else None
+        ratebuffer = _gather_rates(rhs, res) if rates else None
 
     # ----- Result assembly
     return _assemble_results(model, res, ratebuffer)
+
+
+class _RHSProgressWrapper:
+    def __init__(self, rhs):
+        self.rhs = rhs
+        self.k = 0
+        self.k_last_emit = 0
+        self.steps = 0
+        self.m = 0
+
+    def __call__(self, t: float, y: np.ndarray, rates: Optional[Any] = None):
+        self._log_progress(t, y, rates)
+        return self.rhs(t, y, rates)
+
+    def _log_progress(self, t: float, y: np.ndarray, rates: Optional[Any]) -> None:
+        if rates is None:
+            inc = 1 if len(y.shape) == 1 else y.shape[1]
+            self.k = self.k + inc
+            if self.k - self.k_last_emit > 99:
+                print(f"Integration: {self.k} calls, t = {t:.4e} s", end="\r")
+                self.k_last_emit = self.k
+        else:
+            self.m += 1
+            if not self.m % 100:
+                print(f"Rates: {self.m+1} / {self.steps}", end="\r")
+
+    def finalize_integration_report(self, res: Any) -> None:
+        """
+        Call after integration finishes to finalize the progress display
+
+        Parameters
+        ----------
+        res :
+            The solve_ivp result object
+        """
+        self.steps = res.t.size
+        print("\rIntegration finished:", self.k, "calls                    ")
+        print(res.message)
+        print(f"Calls: {self.k} of which ~{res.nfev} normal ({res.nfev/self.k:.2%}) and "
+              + f"~{res.y.shape[0]*res.njev} for jacobian approximation "
+              + f"({res.y.shape[0]*res.njev/self.k:.2%})")
+
+    def finalize_rate_report(self) -> None:
+        """
+        Call after rate extraction finishes to finalize the rate progress display
+        """
+        print("Rates finished:", self.steps, "rates")
 
 
 def _assemble_initial_conditions(model: AdvancedModel) -> np.ndarray:
@@ -500,7 +530,7 @@ def _assemble_initial_conditions(model: AdvancedModel) -> np.ndarray:
     return np.concatenate([_n0, _kT0])
 
 
-def _gather_rates(rhs, res, verbose):
+def _gather_rates(rhs, res):
     logger.debug("Assembling rate arrays.")
     # Recompute rates for final solution (this cannot be done parasitically due to
     # the solver approximating the jacobian and calling rhs with bogus values).
@@ -519,16 +549,13 @@ def _gather_rates(rhs, res, verbose):
 
     # Poll all steps
     for idx in range(nt):
-        if verbose and (idx % 100) == 0:
-            print("\r", f"Rates: {idx+1} / {nt}", end="")
-
         _ = rhs(res.t[idx], res.y[:, idx], extractor)
         for key, val in extractor.items():
             if len(val.shape) == 1:
                 ratebuffer[key][:, idx] = val
 
-    if verbose:
-        print("\rRates finished:", nt, "rates")
+    if isinstance(rhs, _RHSProgressWrapper):
+        rhs.finalize_rate_report()
 
     return ratebuffer
 
