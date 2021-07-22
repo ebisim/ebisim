@@ -509,7 +509,7 @@ class _RHSProgressWrapper:
         print("Rates finished:", self.steps, "rates")
 
 
-@lru_cache
+@lru_cache(maxsize=None)
 def _multithreading_indices(n_cols: int, n_threads: int) -> Tuple[Tuple[int, int], ...]:
     """
     Computes a balanced distribution of column indices for the multithreaded
