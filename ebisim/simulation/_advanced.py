@@ -4,6 +4,8 @@ This module contains the advanced simulation method and related resources.
 from __future__ import annotations
 import logging
 from typing import Dict, Any, Union, Optional, List, Tuple
+from functools import lru_cache
+
 import numpy as np
 from scipy.integrate import solve_ivp
 import numba
@@ -422,23 +424,22 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
 
     # ----- Generate Callable
     with Parallel(n_jobs=n_threads, prefer="threads") as parallel:
-        def rhs(t, y, rates=None):
-            if rates is not None:
+        if n_threads < 2:
+            def rhs(t, y, rates=None):
                 return _chunked_adv_rhs(model, t, y, rates)
+        else:
+            def rhs(t, y, rates=None):
+                n_cols = 1 if y.ndim == 1 else y.shape[1]
+                if n_cols == 1 or rates is not None:
+                    return _chunked_adv_rhs(model, t, y, rates)
 
-            nc = 1 if y.ndim == 1 else y.shape[1]
-            cl = n_threads * [nc//n_threads, ]
-            for _k in range(n_threads):
-                if _k < (nc % n_threads):
-                    cl[_k] += 1
-            jobs = []
-            for _k in range(n_threads):
-                if cl[_k] > 0:
+                jobs = []
+                for start, stop in _multithreading_indices(n_cols, n_threads):
                     jobs.append(
-                        delayed(_chunked_adv_rhs)(model, t, y[:, sum(cl[:_k]):sum(cl[:_k+1])])
+                        delayed(_chunked_adv_rhs)(model, t, y[:, start:stop])
                     )
-            res = parallel(jobs)
-            return np.concatenate(res, axis=-1)
+                res = parallel(jobs)
+                return np.concatenate(res, axis=-1)
 
         if verbose:
             rhs = _RHSProgressWrapper(rhs)
@@ -503,6 +504,34 @@ class _RHSProgressWrapper:
         Call after rate extraction finishes to finalize the rate progress display
         """
         print("Rates finished:", self.steps, "rates")
+
+
+@lru_cache
+def _multithreading_indices(n_cols: int, n_threads: int) -> Tuple[Tuple[int, int], ...]:
+    """
+    Computes a balanced distribution of column indices for the multithreaded
+    vectorised version of the RHS function
+
+    Parameters
+    ----------
+    n_cols :
+        Number of columns to distribute
+    n_threads :
+        Max number of available threads
+
+    Returns
+    -------
+        Tuple of start / stop index pairs
+    """
+    cl = n_threads * [n_cols//n_threads, ]
+    for _k in range(n_threads):
+        if _k < (n_cols % n_threads):
+            cl[_k] += 1
+    indices = []
+    for _k in range(n_threads):
+        if cl[_k] > 0:
+            indices.append((sum(cl[:_k]), sum(cl[:_k+1])))
+    return tuple(indices)
 
 
 def _assemble_initial_conditions(model: AdvancedModel) -> np.ndarray:
