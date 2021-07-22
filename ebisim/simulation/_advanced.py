@@ -418,7 +418,7 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
         logger.warning(f"Unable to verify the types of {model!s}.")
 
     # ----- Generate Initial conditions
-    n_kT_initial = _assemble_initial_conditions(targets, device)
+    n_kT_initial = _assemble_initial_conditions(model)
 
     # ----- Generate Callable
     with Parallel(n_jobs=n_threads, prefer="threads") as parallel:
@@ -469,43 +469,76 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
                   + f"({res.y.shape[0]*res.njev/k:.2%})")
 
     # ----- Extract rates if demanded
-        if rates:
-            logger.debug("Assembling rate arrays.")
-            # Recompute rates for final solution (this cannot be done parasitically due to
-            # the solver approximating the jacobian and calling rhs with bogus values).
-            nt = res.t.size
-
-            # Poll once to get the available rates
-            # extractor = list(_rates.values())[0]
-            extractor = numba.typed.Dict.empty(
-                key_type=numba.typeof(Rate.EI),
-                value_type=numba.types.float64[::1]
-            )
-            _ = rhs(res.t[0], res.y[:, 0], extractor)
-            ratebuffer = {}
-            for k in extractor:
-                if len(extractor[k].shape) == 1:
-                    ratebuffer[k] = np.zeros((extractor[k].size, nt))
-
-            # Poll all steps
-            for idx in range(nt):
-                if verbose and (idx % 100) == 0:
-                    print("\r", f"Rates: {idx+1} / {nt}", end="")
-
-                _ = rhs(res.t[idx], res.y[:, idx], extractor)
-                for key, val in extractor.items():
-                    if len(val.shape) == 1:
-                        ratebuffer[key][:, idx] = val
-
-            if verbose:
-                print("\rRates finished:", nt, "rates")
+        ratebuffer = _gather_rates(rhs, res, verbose) if rates else None
 
     # ----- Result assembly
+    return _assemble_results(model, res, ratebuffer)
+
+
+def _assemble_initial_conditions(model: AdvancedModel) -> np.ndarray:
+    _kT0 = []
+    for t in model.targets:  # Make sure that initial temperature is not unreasonably small
+        if t.kT is None or t.n is None:
+            raise ValueError(f"{t!s} does not provide initial conditions (n, kT).")
+        kT = t.kT.copy()
+        # I tried to reduce the value of minkT and it caused crashes, I have no solid
+        # argument for a value here, but it is obvius that the simulation stability is very
+        # sensitive to the temperature/radial well ratio. This must be normalisation issues
+        # since it presents itself as np.nan or np.inf being produced during the solution
+        # of the rate equations
+        minkT = np.maximum(model.device.fwhm * np.arange(t.z+1), MINIMAL_KBT)
+        filter_ = t.n < 1.00001 * MINIMAL_N_1D
+        kT[filter_] = np.maximum(kT[filter_], minkT[filter_])
+        if np.not_equal(kT, t.kT).any():
+            logger.warning(
+                f"Initial temperature vector adjusted for {t!s}. "
+                + "This only affects charge states with densities at the minimum limit."
+                )
+        _kT0.append(kT)
+    _n0 = np.concatenate([t.n for t in model.targets])
+    _kT0 = np.concatenate(_kT0)
+    return np.concatenate([_n0, _kT0])
+
+
+def _gather_rates(rhs, res, verbose):
+    logger.debug("Assembling rate arrays.")
+    # Recompute rates for final solution (this cannot be done parasitically due to
+    # the solver approximating the jacobian and calling rhs with bogus values).
+    nt = res.t.size
+
+    # Poll once to get the available rates
+    extractor = numba.typed.Dict.empty(
+        key_type=numba.typeof(Rate.EI),
+        value_type=numba.types.float64[::1]
+    )
+    _ = rhs(res.t[0], res.y[:, 0], extractor)
+    ratebuffer = {}
+    for k in extractor:
+        if len(extractor[k].shape) == 1:
+            ratebuffer[k] = np.zeros((extractor[k].size, nt))
+
+    # Poll all steps
+    for idx in range(nt):
+        if verbose and (idx % 100) == 0:
+            print("\r", f"Rates: {idx+1} / {nt}", end="")
+
+        _ = rhs(res.t[idx], res.y[:, idx], extractor)
+        for key, val in extractor.items():
+            if len(val.shape) == 1:
+                ratebuffer[key][:, idx] = val
+
+    if verbose:
+        print("\rRates finished:", nt, "rates")
+
+    return ratebuffer
+
+
+def _assemble_results(model, res, ratebuffer):
     out = []
     for i, trgt in enumerate(model.targets):
         logger.debug(f"Assembling result of target #{i}.")
         irates = {}
-        if rates:
+        if ratebuffer is not None:
             for key in ratebuffer.keys():
                 _ir = ratebuffer[key]
                 if _ir.shape[0] != 1:
@@ -520,7 +553,7 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
                 kbT=res.y[model.nq + model.lb[i]:model.nq + model.ub[i]],
                 res=res,
                 target=trgt,
-                device=device,
+                device=model.device,
                 rates=irates or None,
                 model=model,
                 id_=i
@@ -529,28 +562,3 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
     if len(out) == 1:
         return out[0]
     return tuple(out)
-
-
-def _assemble_initial_conditions(targets: List[Element], device: Device) -> np.ndarray:
-    _kT0 = []
-    for t in targets:  # Make sure that initial temperature is not unreasonably small
-        if t.kT is None or t.n is None:
-            raise ValueError(f"{t!s} does not provide initial conditions (n, kT).")
-        kT = t.kT.copy()
-        # I tried to reduce the value of minkT and it caused crashes, I have no solid
-        # argument for a value here, but it is obvius that the simulation stability is very
-        # sensitive to the temperature/radial well ratio. This must be normalisation issues
-        # since it presents itself as np.nan or np.inf being produced during the solution
-        # of the rate equations
-        minkT = np.maximum(device.fwhm * np.arange(t.z+1), MINIMAL_KBT)
-        filter_ = t.n < 1.00001 * MINIMAL_N_1D
-        kT[filter_] = np.maximum(kT[filter_], minkT[filter_])
-        if np.not_equal(kT, t.kT).any():
-            logger.warning(
-                f"Initial temperature vector adjusted for {t!s}. "
-                + "This only affects charge states with densities at the minimum limit."
-                )
-        _kT0.append(kT)
-    _n0 = np.concatenate([t.n for t in targets])
-    _kT0 = np.concatenate(_kT0)
-    return np.concatenate([_n0, _kT0])
