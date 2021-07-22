@@ -36,6 +36,10 @@ logger.debug("Patching numba.types.EnumMember __hash__.")
 
 @numba.extending.overload_method(numba.types.EnumMember, '__hash__')
 def enum_hash(val):  # pylint: disable=unused-argument
+    """
+    Patch for numba to allow IntEnum as typed Dict keys.
+    This will be fixed in numba starting with Release 0.54
+    """
     def impl(val):
         return hash(val.value)
     return impl
