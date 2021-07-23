@@ -79,14 +79,12 @@ def _smooth_to_zero(x):
 
 
 @numba.njit(cache=True, nogil=True)
-def _chunked_adv_rhs(model, t, y, rates=None):
-    if y.ndim == 1:
-        return _adv_rhs(model, t, y, rates)
-    elif y.ndim == 2:
-        ret = np.zeros_like(y)
-        for k in range(y.shape[1]):
-            ret[:, k] = _adv_rhs(model, t, y[:, k], None)
-        return ret
+def _chunked_adv_rhs(model, t, y):
+    yf = np.asfortranarray(y)
+    ret = np.zeros_like(yf)
+    for k in range(yf.shape[1]):
+        ret[:, k] = _adv_rhs(model, t, yf[:, k], None)
+    return ret
 
 
 @numba.njit(cache=True, nogil=True)
@@ -426,35 +424,30 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
     if n_threads < 2:
         executor = None
 
-        def rhs(t, y, rates=None):
-            return _chunked_adv_rhs(model, t, y, rates)
+        def rhs_int(t, y):
+            return _chunked_adv_rhs(model, t, y)
 
     else:
         executor = ThreadPoolExecutor()
 
-        def rhs(t, y, rates=None):
-            n_cols = 1 if y.ndim == 1 else y.shape[1]
-            if n_cols == 1 or rates is not None:
-                return _chunked_adv_rhs(model, t, y, rates)
-            else:
-                f = lambda ix: _chunked_adv_rhs(model, t, y[:, ix[0]:ix[1]])  # noqa: E731
-                ix = _multithreading_indices(n_cols, n_threads)
-                res = list(executor.map(f, ix))
-                return np.concatenate(res, axis=-1)
-
-    if verbose:
-        rhs = _RHSProgressWrapper(rhs)
+        def rhs_int(t, y):
+            f = lambda ix: _chunked_adv_rhs(model, t, y[:, ix[0]:ix[1]])  # noqa: E731
+            ix = _multithreading_indices(y.shape[1], n_threads)
+            res = list(executor.map(f, ix))
+            return np.concatenate(res, axis=-1)
 
     # ----- Run simulation
+    if verbose:
+        rhs_int = _IntegrationProgressWrapper(rhs_int)
     logger.debug("Starting integration.")
     res = solve_ivp(
-        rhs, (0, t_max), n_kT_initial, vectorized=True, **solver_kwargs
+        rhs_int, (0, t_max), n_kT_initial, vectorized=True, **solver_kwargs
     )
-    if isinstance(rhs, _RHSProgressWrapper):
-        rhs.finalize_integration_report(res)
+    if isinstance(rhs_int, _IntegrationProgressWrapper):
+        rhs_int.finalize_integration_report(res)
 
     # ----- Extract rates if demanded
-    ratebuffer = _gather_rates(rhs, res) if rates else None
+    ratebuffer = _gather_rates(model, res, verbose) if rates else None
 
     # ----- Result assembly
     if executor is not None:
@@ -462,29 +455,22 @@ def advanced_simulation(device: Device, targets: Union[Element, List[Element]], 
     return _assemble_results(model, res, ratebuffer)
 
 
-class _RHSProgressWrapper:
+class _IntegrationProgressWrapper:
     def __init__(self, rhs):
         self.rhs = rhs
         self.k = 0
         self.k_last_emit = 0
-        self.steps = 0
-        self.m = 0
 
-    def __call__(self, t: float, y: np.ndarray, rates: Optional[Any] = None):
-        self._log_progress(t, y, rates)
-        return self.rhs(t, y, rates)
+    def __call__(self, t: float, y: np.ndarray):
+        self._log_progress(t, y)
+        return self.rhs(t, y)
 
-    def _log_progress(self, t: float, y: np.ndarray, rates: Optional[Any]) -> None:
-        if rates is None:
-            inc = 1 if len(y.shape) == 1 else y.shape[1]
-            self.k = self.k + inc
-            if self.k - self.k_last_emit > 99:
-                print(f"Integration: {self.k} calls, t = {t:.4e} s", end="\r")
-                self.k_last_emit = self.k
-        else:
-            self.m += 1
-            if not self.m % 100:
-                print(f"Rates: {self.m+1} / {self.steps}", end="\r")
+    def _log_progress(self, t: float, y: np.ndarray) -> None:
+        inc = 1 if len(y.shape) == 1 else y.shape[1]
+        self.k = self.k + inc
+        if self.k - self.k_last_emit > 99:
+            print(f"Integration: {self.k} calls, t = {t:.4e} s", end="\r")
+            self.k_last_emit = self.k
 
     def finalize_integration_report(self, res: Any) -> None:
         """
@@ -495,12 +481,27 @@ class _RHSProgressWrapper:
         res :
             The solve_ivp result object
         """
-        self.steps = res.t.size
         print("\rIntegration finished:", self.k, "calls                    ")
         print(res.message)
         print(f"Calls: {self.k} of which ~{res.nfev} normal ({res.nfev/self.k:.2%}) and "
               + f"~{res.y.shape[0]*res.njev} for jacobian approximation "
               + f"({res.y.shape[0]*res.njev/self.k:.2%})")
+
+
+class _RatesProgressWrapper:
+    def __init__(self, rhs, steps):
+        self.rhs = rhs
+        self.k = 0
+        self.steps = steps
+
+    def __call__(self, model: AdvancedModel, t: float, y: np.ndarray, rates: Any) -> np.ndarray:
+        self._log_progress()
+        return self.rhs(model, t, y, rates)
+
+    def _log_progress(self) -> None:
+        self.k += 1
+        if not self.k % 100:
+            print(f"Rates: {self.k} / {self.steps}", end="\r")
 
     def finalize_rate_report(self) -> None:
         """
@@ -562,18 +563,20 @@ def _assemble_initial_conditions(model: AdvancedModel) -> np.ndarray:
     return np.concatenate([_n0, _kT0])
 
 
-def _gather_rates(rhs, res):
+def _gather_rates(model, res, verbose):
     logger.debug("Assembling rate arrays.")
     # Recompute rates for final solution (this cannot be done parasitically due to
     # the solver approximating the jacobian and calling rhs with bogus values).
     nt = res.t.size
+
+    rhs = _RatesProgressWrapper(_adv_rhs, nt) if verbose else _adv_rhs
 
     # Poll once to get the available rates
     extractor = numba.typed.Dict.empty(
         key_type=numba.typeof(Rate.EI),
         value_type=numba.types.float64[::1]
     )
-    _ = rhs(res.t[0], res.y[:, 0], extractor)
+    _ = rhs(model, res.t[0], res.y[:, 0], extractor)
     ratebuffer = {}
     for k in extractor:
         if len(extractor[k].shape) == 1:
@@ -581,12 +584,12 @@ def _gather_rates(rhs, res):
 
     # Poll all steps
     for idx in range(nt):
-        _ = rhs(res.t[idx], res.y[:, idx], extractor)
+        _ = rhs(model, res.t[idx], res.y[:, idx], extractor)
         for key, val in extractor.items():
             if len(val.shape) == 1:
                 ratebuffer[key][:, idx] = val
 
-    if isinstance(rhs, _RHSProgressWrapper):
+    if isinstance(rhs, _RatesProgressWrapper):
         rhs.finalize_rate_report()
 
     return ratebuffer
