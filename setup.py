@@ -8,10 +8,11 @@ import setuptools
 NAME = "ebisim"
 EMAIL = None
 DESCRIPTION = "A package for simulating the charge state distribution evolution in an EBIS/EBIT."
-URL = "https://github.com/HPLegion/ebisim"
+URL = "https://github.com/ebisim/ebisim"
 PYTHON_REQUIRES = ">=3.7.0"
 INSTALL_REQUIRES = ["numpy>=1.17", "scipy>=1.3", "numba>=0.50", "matplotlib>=3"]
 CLASSIFIERS = [
+    'Programming Language :: Python :: 3',
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -22,6 +23,7 @@ PACKAGE_DATA = {
     "ebisim.resources": ["*"],
     "ebisim.resources.drdata": ["*"],
 }
+LICENSE = "MIT"
 
 with open("README.md", "r") as fh:
     LONG_DESCRIPTION = fh.read()
@@ -59,4 +61,5 @@ setuptools.setup(
     include_package_data=True,
     package_data=PACKAGE_DATA,
     classifiers=CLASSIFIERS,
+    license=LICENSE,
 )
