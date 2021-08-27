@@ -10,7 +10,7 @@ The module level documentation lists these members with more granularity.
 
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Hannes Pahl"
 
 from .xs import (
