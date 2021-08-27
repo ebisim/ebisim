@@ -31,20 +31,6 @@ from ._radial_dist import (
 )
 
 logger = logging.getLogger(__name__)
-# Hack for making Enums hashable by numba - hash will differ from CPython
-# This is to make Enums work as numba.typed.Dict keys
-logger.debug("Patching numba.types.EnumMember __hash__.")
-
-
-@numba.extending.overload_method(numba.types.EnumMember, '__hash__')
-def enum_hash(val):  # pylint: disable=unused-argument
-    """
-    Patch for numba to allow IntEnum as typed Dict keys.
-    This will be fixed in numba starting with Release 0.54
-    """
-    def impl(val):
-        return hash(val.value)
-    return impl
 
 
 @numba.njit(cache=True)
