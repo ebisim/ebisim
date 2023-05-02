@@ -282,6 +282,8 @@ class ModelOptions(NamedTuple):
     RADIAL_DYNAMICS: bool = False
     IONISATION_HEATING: bool = True
     OVERRIDE_FWHM: bool = False
+    RADIAL_SOLVER_MAX_STEPS: int = 500
+    RADIAL_SOLVER_REL_DIFF: float = 1e-3
 
 
 _MODELOPTIONS_DOC = dict(

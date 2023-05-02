@@ -124,7 +124,9 @@ def _adv_rhs(model, _t, y, rates=None):
         phi, _n3d, _shapes = boltzmann_radial_potential_linear_density_ebeam(
             model.device.rad_grid, model.device.current, model.device.r_e, model.device.e_kin,
             n_T, kT_T, q_T,
-            ldu=(model.device.rad_fd_l, model.device.rad_fd_d, model.device.rad_fd_u)
+            ldu=(model.device.rad_fd_l, model.device.rad_fd_d, model.device.rad_fd_u),
+            max_step=model.options.RADIAL_SOLVER_MAX_STEPS,
+            rel_diff=model.options.RADIAL_SOLVER_REL_DIFF,
         )
 
     else:
@@ -323,7 +325,7 @@ def _adv_rhs(model, _t, y, rates=None):
 
 def advanced_simulation(device: Device, targets: Union[Element, List[Element]], t_max: float,
                         bg_gases: Union[BackgroundGas, List[BackgroundGas], None] = None,
-                        options: ModelOptions = None, rates: bool = False,
+                        options: Optional[ModelOptions] = None, rates: bool = False,
                         solver_kwargs: Optional[Dict[str, Any]] = None,
                         verbose: bool = True, n_threads: int = 1
                         ) -> Union[AdvancedResult, Tuple[AdvancedResult, ...]]:

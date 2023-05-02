@@ -493,7 +493,7 @@ logger.debug("Defining boltzmann_radial_potential_linear_density_ebeam.")
 
 @njit(cache=True)
 def boltzmann_radial_potential_linear_density_ebeam(
-        r, current, r_e, e_kin, nl, kT, q, first_guess=None, ldu=None
+        r, current, r_e, e_kin, nl, kT, q, first_guess=None, ldu=None, max_step=500, rel_diff=1e-3
         ):
     """
     Solves the Boltzmann Poisson equation for a static background charge density rho_0 and particles
@@ -578,7 +578,7 @@ def boltzmann_radial_potential_linear_density_ebeam(
     else:
         phi = first_guess
 
-    for _ in range(500):
+    for _ in range(max_step):
         # ion dist
         shape = np.exp(-q * (phi - phi.min())/kT)
         i_sr = np.atleast_2d(np.trapz(r*shape, r)).T
@@ -602,7 +602,7 @@ def boltzmann_radial_potential_linear_density_ebeam(
         y = tridiagonal_matrix_algorithm(l, d - j_d, u, f)
         res = np.max(np.abs(y[:-1]/phi[:-1]))
         phi = phi - y
-        if res < 1e-3:
+        if res < rel_diff:
             break
     return phi, nax, shape
 
