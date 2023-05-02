@@ -2,17 +2,17 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.2.0
+    rev: v4.4.0
     hooks:
     -   id: trailing-whitespace
     -   id: end-of-file-fixer
--   repo: https://gitlab.com/PyCQA/flake8
-    rev: 3.8.4
+-   repo: https://github.com/PyCQA/flake8
+    rev: 6.0.0
     hooks:
     -   id: flake8
         exclude: ^(ebisim/resources|ebisim.egg_info|docs/build|temp|test)/
 -   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.800
+    rev: v1.2.0
     hooks:
     -   id: mypy
         additional_dependencies: [numpy>=1.20]
